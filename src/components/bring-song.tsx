@@ -3,6 +3,7 @@ import { Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KaraokeCook } from "@/components/karaoke-cook";
 import { previewFile, playUiTick, stopPreview, unlockAudio } from "@/lib/audio";
 import {
   deleteSavedTrack,
@@ -12,6 +13,7 @@ import {
   songFromSaved,
   type SavedTrack,
 } from "@/lib/library";
+import { looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
 import { takeAudioFile, prepareKaraokeTrack } from "@/lib/stems";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -32,12 +34,15 @@ export function BringSong() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [studio, setStudio] = useState<SavedTrack | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void syncSongs(artist).then(setTracks).catch(() => {
-      toast.error("Библиотека на этом устройстве не открылась.");
-    });
+    void syncSongs(artist)
+      .then(setTracks)
+      .catch(() => {
+        toast.error("Библиотека на этом устройстве не открылась.");
+      });
     return () => stopPreview();
   }, [artist]);
 
@@ -67,6 +72,7 @@ export function BringSong() {
     try {
       const prepared = await prepareKaraokeTrack(file, false);
       const id = uid("mine");
+      const lines = looksLikeLrc(lyrics) ? parseLrc(lyrics) : undefined;
       const saved: SavedTrack = {
         id,
         title: (title.trim() || file.name.replace(/\.[^.]+$/, "")).slice(0, 48),
@@ -75,6 +81,7 @@ export function BringSong() {
         mime: file.type || "audio/mpeg",
         addedAt: Date.now(),
         blob: file,
+        lines,
       };
       await saveTrack(saved);
       URL.revokeObjectURL(prepared.url);
@@ -83,8 +90,10 @@ export function BringSong() {
       setFile(null);
       setTitle("");
       setLyrics("");
-      toast.success("В колоде. Играет как есть.");
+      const fresh = next.find((t) => t.id === id) ?? saved;
+      toast.success("В колоде. Собери караоке — текст по тактам.");
       playUiTick();
+      setStudio(fresh);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не вышло прочитать файл.");
     } finally {
@@ -122,46 +131,72 @@ export function BringSong() {
     toTable();
   }
 
+  if (studio) {
+    return (
+      <KaraokeCook
+        track={studio}
+        onClose={() => setStudio(null)}
+        onSaved={(next) => {
+          setStudio(next);
+          void syncSongs(artist).then(setTracks);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      <h1 className="font-display text-3xl text-fg">Колода</h1>
+      <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        1–3 своих файла. Слышишь их как есть — без синтезатора и без выдирания минуса.
-        Лежат на этом устройстве.
+        Файл как есть. Потом собери караоке: текст по тактам и минус. Без тактов строки убегут.
       </p>
 
       <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
         {tracks.map((track) => (
-          <div
-            key={track.id}
-            className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-3"
-          >
-            <button
-              type="button"
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-accent"
-              onClick={() => hear(track)}
-              aria-label={playingId === track.id ? "Стоп" : "Слушать"}
-            >
-              <Play className="size-4" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-fg">{track.title}</p>
-              <p className="text-xs text-subtle">{Math.round(track.duration)}с · как есть</p>
+          <div key={track.id} className="rounded-xl border border-border bg-surface px-3 py-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-accent"
+                onClick={() => hear(track)}
+                aria-label={playingId === track.id ? "Стоп" : "Слушать"}
+              >
+                <Play className="size-4" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-fg">{track.title}</p>
+                <p className="text-xs text-subtle">
+                  {Math.round(track.duration)}с
+                  {track.minusBlob ? " · минус" : " · оригинал"}
+                  {track.lines?.length ? " · по тактам" : " · без тактов"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="grid size-10 shrink-0 place-items-center text-muted"
+                onClick={() => void remove(track.id)}
+                aria-label="Убрать"
+              >
+                <Trash2 className="size-4" />
+              </button>
             </div>
-            <button
+            <Button
               type="button"
-              className="grid size-10 shrink-0 place-items-center text-muted"
-              onClick={() => void remove(track.id)}
-              aria-label="Убрать"
+              variant="secondary"
+              className="mt-2 w-full rounded-xl"
+              onClick={() => {
+                stopPreview();
+                setStudio(track);
+              }}
             >
-              <Trash2 className="size-4" />
-            </button>
+              Собрать караоке
+            </Button>
           </div>
         ))}
 
         {tracks.length < LIBRARY_MAX ? (
           <>
-            <Input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input placeholder="Название как в песне" value={title} onChange={(e) => setTitle(e.target.value)} />
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -191,7 +226,7 @@ export function BringSong() {
             <textarea
               value={lyrics}
               onChange={(e) => setLyrics(e.target.value)}
-              placeholder="Текст по строкам — не обязательно"
+              placeholder="Текст по строкам или LRC [00:12.00] — не обязательно, найдём по названию"
               rows={5}
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
             />

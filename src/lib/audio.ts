@@ -398,6 +398,19 @@ function wireKaraoke(source: AudioNode, dest: AudioNode, minus: boolean) {
 let previewEl: HTMLAudioElement | null = null;
 let fileEl: HTMLAudioElement | null = null;
 
+export function trackTime(): number | null {
+  if (fileEl && Number.isFinite(fileEl.currentTime)) return fileEl.currentTime;
+  return null;
+}
+
+export function previewTime() {
+  return previewEl?.currentTime ?? 0;
+}
+
+export function isFilePlaying() {
+  return Boolean((fileEl && !fileEl.paused) || (previewEl && !previewEl.paused));
+}
+
 export function stopPreview() {
   if (!previewEl) return;
   try {

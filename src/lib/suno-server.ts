@@ -113,16 +113,23 @@ export const pollSunoGenerate = createServerFn({ method: "GET" })
   });
 
 export const startSunoStems = createServerFn({ method: "POST" })
-  .validator((input: { taskId: string; audioId: string }) => input)
+  .validator((input: { taskId?: string; audioId?: string; audioUrl?: string }) => input)
   .handler(async ({ data }) => {
+    const payload = data.audioUrl
+      ? {
+          audioUrl: data.audioUrl,
+          type: "separate_vocal",
+          callBackUrl: CALLBACK,
+        }
+      : {
+          taskId: data.taskId,
+          audioId: data.audioId,
+          type: "separate_vocal",
+          callBackUrl: CALLBACK,
+        };
     const { body, res } = await sunoFetch("/api/v1/vocal-removal/generate", {
       method: "POST",
-      body: JSON.stringify({
-        taskId: data.taskId,
-        audioId: data.audioId,
-        type: "separate_vocal",
-        callBackUrl: CALLBACK,
-      }),
+      body: JSON.stringify(payload),
     });
     const code = Number(body.code ?? res.status);
     const stemTaskId = pick<string>(body.data as Record<string, unknown>, "taskId", "task_id");

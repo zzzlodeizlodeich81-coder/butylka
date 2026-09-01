@@ -1,4 +1,5 @@
-import { buildSong, type Song } from "@/lib/songs";
+import { buildSong, type LyricLine, type Song } from "@/lib/songs";
+import { looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
 
 const DB_NAME = "butylka-library";
 const STORE = "tracks";
@@ -13,6 +14,8 @@ export type SavedTrack = {
   mime: string;
   addedAt: number;
   blob: Blob;
+  lines?: LyricLine[];
+  minusBlob?: Blob;
 };
 
 const objectUrls = new Map<string, string>();
@@ -83,6 +86,7 @@ export async function saveTrack(track: SavedTrack): Promise<void> {
 
 export async function deleteSavedTrack(id: string): Promise<void> {
   revokeUrl(id);
+  revokeUrl(`${id}-minus`);
   const db = await openDb();
   try {
     const tx = db.transaction(STORE, "readwrite");
@@ -94,24 +98,33 @@ export async function deleteSavedTrack(id: string): Promise<void> {
 }
 
 export function lyricsLines(lyrics: string, title: string) {
+  if (looksLikeLrc(lyrics)) return parseLrc(lyrics).map((l) => l.text);
   const lines = lyrics
     .split(/\n/)
     .map((l) => l.trim())
     .filter(Boolean);
   if (lines.length) return lines;
-  return [title || "свой трек", "пой как знаешь", "слова потом", "сейчас — голос"];
+  return [title || "свой трек", "пой как знаешь"];
 }
 
 export function songFromSaved(track: SavedTrack, artist: string): Song {
-  const url = objectUrlFor(track.id, track.blob);
+  const play = track.minusBlob ?? track.blob;
+  const urlKey = track.minusBlob ? `${track.id}-minus` : track.id;
+  const url = objectUrlFor(urlKey, play);
+  const timed = track.lines?.length
+    ? track.lines
+    : looksLikeLrc(track.lyrics)
+      ? parseLrc(track.lyrics)
+      : undefined;
   return buildSong({
     id: track.id,
     title: track.title,
     artist,
     genre: "indie",
     bpm: 110,
-    mood: "свой трек",
+    mood: track.minusBlob ? "минус" : "свой трек",
     texts: lyricsLines(track.lyrics, track.title),
+    lines: timed,
     audioUrl: url,
     audioDuration: track.duration,
     minus: false,

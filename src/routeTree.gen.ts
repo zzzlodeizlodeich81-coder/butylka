@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
 import { Route as ApiSunoAudioRouteImport } from './routes/api/suno-audio'
 import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHostAudioRoute = ApiHostAudioRouteImport.update({
+  id: '/api/host-audio',
+  path: '/api/host-audio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSunoAudioRoute = ApiSunoAudioRouteImport.update({
@@ -31,30 +37,35 @@ const ApiSunoHookRoute = ApiSunoHookRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/host-audio': typeof ApiHostAudioRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/host-audio': typeof ApiHostAudioRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/host-audio': typeof ApiHostAudioRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/suno-audio' | '/api/suno-hook'
+  fullPaths: '/' | '/api/host-audio' | '/api/suno-audio' | '/api/suno-hook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/suno-audio' | '/api/suno-hook'
-  id: '__root__' | '/' | '/api/suno-audio' | '/api/suno-hook'
+  to: '/' | '/api/host-audio' | '/api/suno-audio' | '/api/suno-hook'
+  id:
+    '__root__' | '/' | '/api/host-audio' | '/api/suno-audio' | '/api/suno-hook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiHostAudioRoute: typeof ApiHostAudioRoute
   ApiSunoAudioRoute: typeof ApiSunoAudioRoute
   ApiSunoHookRoute: typeof ApiSunoHookRoute
 }
@@ -66,6 +77,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/host-audio': {
+      id: '/api/host-audio'
+      path: '/api/host-audio'
+      fullPath: '/api/host-audio'
+      preLoaderRoute: typeof ApiHostAudioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/suno-audio': {
@@ -87,6 +105,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiHostAudioRoute: ApiHostAudioRoute,
   ApiSunoAudioRoute: ApiSunoAudioRoute,
   ApiSunoHookRoute: ApiSunoHookRoute,
 }

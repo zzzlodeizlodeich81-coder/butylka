@@ -107,10 +107,13 @@ export function buildSong(input: {
   pack?: SongPack;
   region?: FolkRegion;
   beatsPerLine?: number;
+  lines?: LyricLine[];
 }): Song {
-  const lines = input.audioDuration
-    ? timeLyricsToFit(input.texts, input.audioDuration)
-    : timeLyrics(input.texts, input.bpm, input.beatsPerLine ?? 8);
+  const lines = input.lines?.length
+    ? input.lines
+    : input.audioDuration
+      ? timeLyricsToFit(input.texts, input.audioDuration)
+      : timeLyrics(input.texts, input.bpm, input.beatsPerLine ?? 8);
   return {
     id: input.id,
     title: input.title,

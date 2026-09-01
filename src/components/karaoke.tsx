@@ -8,6 +8,7 @@ import {
   startMic,
   startTrack,
   stopTrack,
+  trackTime,
   unlockAudio,
   type MicHandle,
 } from "@/lib/audio";
@@ -126,7 +127,8 @@ export function KaraokeStage() {
     if (count > 0 || !song) return;
     let raf = 0;
     const tick = () => {
-      const t = Math.max(0, now() - startedAtRef.current);
+      const fileT = trackTime();
+      const t = fileT != null ? fileT : Math.max(0, now() - startedAtRef.current);
       elapsedRef.current = t;
       setElapsed(t);
       const mic = micRef.current;
