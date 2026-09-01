@@ -16,6 +16,7 @@ export type SavedTrack = {
   blob: Blob;
   lines?: LyricLine[];
   minusBlob?: Blob;
+  vocalBlob?: Blob;
   sourceUrl?: string;
 };
 
@@ -88,6 +89,7 @@ export async function saveTrack(track: SavedTrack): Promise<void> {
 export async function deleteSavedTrack(id: string): Promise<void> {
   revokeUrl(id);
   revokeUrl(`${id}-minus`);
+  revokeUrl(`${id}-vocal`);
   const db = await openDb();
   try {
     const tx = db.transaction(STORE, "readwrite");
@@ -96,6 +98,55 @@ export async function deleteSavedTrack(id: string): Promise<void> {
   } finally {
     db.close();
   }
+}
+
+export async function getSavedTrack(id: string): Promise<SavedTrack | null> {
+  if (typeof indexedDB === "undefined") return null;
+  const db = await openDb();
+  try {
+    const tx = db.transaction(STORE, "readonly");
+    const row = await reqToPromise(tx.objectStore(STORE).get(id) as IDBRequest<SavedTrack | undefined>);
+    return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+export function fileNameFor(title: string, kind: string, mime: string) {
+  const slug =
+    title
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 42) || "track";
+  const ext = /mp4|video/i.test(mime)
+    ? "mp4"
+    : /wav/i.test(mime)
+      ? "wav"
+      : /ogg/i.test(mime)
+        ? "ogg"
+        : /aac|m4a/i.test(mime)
+          ? "m4a"
+          : "mp3";
+  return `${slug}-${kind}.${ext}`;
+}
+
+export function downloadBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+export function downloadTake(track: SavedTrack, kind: "plus" | "minus" | "vocal") {
+  const blob = kind === "plus" ? track.blob : kind === "minus" ? track.minusBlob : track.vocalBlob;
+  if (!blob) return false;
+  downloadBlob(blob, fileNameFor(track.title, kind === "plus" ? "original" : kind, blob.type || track.mime));
+  return true;
 }
 
 export function lyricsLines(lyrics: string, title: string) {

@@ -7,6 +7,7 @@ import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
 import { pollSunoStems, startSunoStems } from "@/lib/suno-server";
+import { TrackTakes } from "@/components/track-takes";
 
 type Props = {
   track: SavedTrack;
@@ -112,12 +113,14 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
       const started = await startSunoStems({ data: { audioUrl } });
       if (!started.ok) throw new Error(started.error);
       let instrumental: string | null = null;
+      let vocal: string | null = null;
       for (let i = 0; i < 40; i++) {
         await new Promise((r) => window.setTimeout(r, 2500));
         const st = await pollSunoStems({ data: { taskId: started.taskId } });
         if (st.failed) throw new Error("Кухня не сняла голос.");
         if (st.ready && st.instrumentalUrl) {
           instrumental = st.instrumentalUrl;
+          vocal = st.vocalUrl;
           break;
         }
       }
@@ -125,9 +128,14 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
       const res = await fetch(proxyAudio(instrumental));
       if (!res.ok) throw new Error("Не скачался минус.");
       const minusBlob = await res.blob();
-      const next = { ...track, minusBlob };
+      let vocalBlob: Blob | undefined;
+      if (vocal) {
+        const v = await fetch(proxyAudio(vocal));
+        if (v.ok) vocalBlob = await v.blob();
+      }
+      const next = { ...track, minusBlob, vocalBlob: vocalBlob ?? track.vocalBlob };
       await persist(next);
-      toast.success("Минус в колоде. Текст лучше набить по тактам.");
+      toast.success(vocalBlob ? "Минус и вокал в колоде. Можно скачать." : "Минус в колоде. Можно скачать.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не вышел минус.");
     } finally {
@@ -188,6 +196,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
             <Button variant="secondary" onClick={() => void cookMinus()} disabled={Boolean(busy)}>
               {busy?.startsWith("Снимаю") ? busy : track.minusBlob ? "Переснять минус" : "Снять минус"}
             </Button>
+            <TrackTakes track={track} />
             <Button variant="ghost" onClick={onClose}>
               К колоде
             </Button>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Flower2, Heart, Music, Plus, Smile, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatButton, ChatDrawer } from "@/components/chat-drawer";
 import { PersonAvatar } from "@/components/person-avatar";
+import { TrackTakes } from "@/components/track-takes";
 import { playUiTick, setMixer, unlockAudio } from "@/lib/audio";
+import { getSavedTrack, type SavedTrack } from "@/lib/library";
 import { fileToAvatar } from "@/lib/stems";
 import {
   GIFT_CATALOG,
@@ -377,6 +379,15 @@ export function Result() {
   const givers = players.filter((p) => p.id !== singer?.id);
   const [giverId, setGiverId] = useState(givers.find((p) => p.id === youId)?.id ?? givers[0]?.id ?? "");
   const giver = playerById(players, giverId);
+  const [take, setTake] = useState<SavedTrack | null>(null);
+
+  useEffect(() => {
+    if (!song || song.pack !== "mine") {
+      setTake(null);
+      return;
+    }
+    void getSavedTrack(song.id).then(setTake).catch(() => setTake(null));
+  }, [song]);
 
   return (
     <div className="mx-auto flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -397,6 +408,7 @@ export function Result() {
           {song.minus ? " · минус" : ""}
         </p>
       ) : null}
+      {take ? <TrackTakes track={take} className="mt-3" /> : null}
 
       <div className="mt-4 rounded-xl border border-border bg-surface p-3">
         <p className="text-xs text-muted">Оценить. Сердце бесплатно, подарки — за ноты.</p>

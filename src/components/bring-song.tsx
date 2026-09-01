@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KaraokeCook } from "@/components/karaoke-cook";
+import { TrackTakes } from "@/components/track-takes";
 import { previewFile, playUiTick, stopPreview, unlockAudio } from "@/lib/audio";
 import {
   deleteSavedTrack,
@@ -250,6 +251,7 @@ export function BringSong() {
             >
               Собрать караоке
             </Button>
+            <TrackTakes track={track} className="mt-2" />
           </div>
         ))}
 
