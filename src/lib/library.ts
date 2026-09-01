@@ -17,6 +17,8 @@ export type SavedTrack = {
   lines?: LyricLine[];
   minusBlob?: Blob;
   vocalBlob?: Blob;
+  takeBlob?: Blob;
+  coverBlob?: Blob;
   sourceUrl?: string;
 };
 
@@ -90,6 +92,8 @@ export async function deleteSavedTrack(id: string): Promise<void> {
   revokeUrl(id);
   revokeUrl(`${id}-minus`);
   revokeUrl(`${id}-vocal`);
+  revokeUrl(`${id}-take`);
+  revokeUrl(`${id}-cover`);
   const db = await openDb();
   try {
     const tx = db.transaction(STORE, "readwrite");
@@ -142,10 +146,20 @@ export function downloadBlob(blob: Blob, name: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-export function downloadTake(track: SavedTrack, kind: "plus" | "minus" | "vocal") {
-  const blob = kind === "plus" ? track.blob : kind === "minus" ? track.minusBlob : track.vocalBlob;
+export function downloadTake(track: SavedTrack, kind: "plus" | "minus" | "vocal" | "take" | "cover") {
+  const blob =
+    kind === "plus"
+      ? track.blob
+      : kind === "minus"
+        ? track.minusBlob
+        : kind === "vocal"
+          ? track.vocalBlob
+          : kind === "take"
+            ? track.takeBlob
+            : track.coverBlob;
   if (!blob) return false;
-  downloadBlob(blob, fileNameFor(track.title, kind === "plus" ? "original" : kind, blob.type || track.mime));
+  const tag = kind === "plus" ? "original" : kind === "take" ? "karaoke" : kind;
+  downloadBlob(blob, fileNameFor(track.title, tag, blob.type || track.mime));
   return true;
 }
 
@@ -181,5 +195,9 @@ export function songFromSaved(track: SavedTrack, artist: string): Song {
     audioDuration: track.duration,
     minus: false,
     pack: "mine",
+    hasTake: Boolean(track.takeBlob),
+    hasCover: Boolean(track.coverBlob),
+    takeUrl: track.takeBlob ? objectUrlFor(`${track.id}-take`, track.takeBlob) : undefined,
+    coverUrl: track.coverBlob ? objectUrlFor(`${track.id}-cover`, track.coverBlob) : undefined,
   });
 }

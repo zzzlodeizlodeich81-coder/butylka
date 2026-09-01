@@ -557,3 +557,108 @@ export async function startMic(): Promise<MicHandle | null> {
     return null;
   }
 }
+
+function takeMime() {
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  for (const t of types) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "audio/webm";
+}
+
+export type MixedTake = {
+  time: () => number;
+  stop: () => Promise<Blob>;
+};
+
+export async function startMixedTake(playUrl: string): Promise<MixedTake | null> {
+  const ctx = unlockAudio();
+  const b = buses;
+  if (!ctx || !b || typeof navigator === "undefined" || !navigator.mediaDevices) return null;
+  stopTrack();
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  } catch {
+    return null;
+  }
+
+  const el = new Audio();
+  el.crossOrigin = "anonymous";
+  el.preload = "auto";
+  el.src = playUrl;
+  fileEl = el;
+  applyGains();
+
+  const dest = ctx.createMediaStreamDestination();
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(dest);
+  mix.connect(b.music);
+
+  let elementSrc: MediaElementAudioSourceNode | null = null;
+  try {
+    elementSrc = ctx.createMediaElementSource(el);
+    elementSrc.connect(mix);
+  } catch {
+    elementSrc = null;
+  }
+
+  const micSrc = ctx.createMediaStreamSource(stream);
+  const micGain = ctx.createGain();
+  micGain.gain.value = 1.2;
+  micSrc.connect(micGain);
+  micGain.connect(dest);
+
+  const mime = takeMime();
+  const rec = new MediaRecorder(dest.stream, { mimeType: mime, audioBitsPerSecond: 96_000 });
+  const chunks: BlobPart[] = [];
+  rec.ondataavailable = (e) => {
+    if (e.data.size) chunks.push(e.data);
+  };
+  rec.start(800);
+  void el.play().catch(() => {
+    /* overlay tap */
+  });
+
+  let finished: ((blob: Blob) => void) | null = null;
+  rec.onstop = () => {
+    finished?.(new Blob(chunks, { type: mime.split(";")[0] }));
+  };
+
+  const stop = () =>
+    new Promise<Blob>((resolve) => {
+      finished = resolve;
+      try {
+        if (rec.state !== "inactive") rec.stop();
+        else resolve(new Blob(chunks, { type: mime.split(";")[0] }));
+      } catch {
+        resolve(new Blob(chunks, { type: mime.split(";")[0] }));
+      }
+      try {
+        el.pause();
+        el.removeAttribute("src");
+        el.load();
+      } catch {
+        /* ignore */
+      }
+      if (fileEl === el) fileEl = null;
+      stream.getTracks().forEach((t) => t.stop());
+      window.setTimeout(() => {
+        try {
+          mix.disconnect();
+          micSrc.disconnect();
+          elementSrc?.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }, 120);
+    });
+
+  return {
+    time: () => (Number.isFinite(el.currentTime) ? el.currentTime : 0),
+    stop,
+  };
+}

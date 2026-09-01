@@ -139,6 +139,41 @@ export const startSunoStems = createServerFn({ method: "POST" })
     return { ok: true as const, taskId: stemTaskId };
   });
 
+export const startSunoCover = createServerFn({ method: "POST" })
+  .validator((input: { audioUrl: string; title: string; lyrics: string; duration: number }) => input)
+  .handler(async ({ data }) => {
+    const lines = data.lyrics
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\[[^\]]+]$/.test(l));
+    const prompt = lines.length ? lyricsForSuno(lines) : data.lyrics.slice(0, 800);
+    const duration = Math.min(360, Math.max(20, Math.round(data.duration) || 80));
+    const { res, body } = await sunoFetch("/api/v1/generate/upload-cover", {
+      method: "POST",
+      body: JSON.stringify({
+        uploadUrl: data.audioUrl,
+        customMode: true,
+        instrumental: false,
+        model: "V5_5",
+        callBackUrl: CALLBACK,
+        prompt: prompt || "karaoke cover, keep the singer",
+        style: "karaoke cover, keep original melody and the singer's voice, studio mix",
+        title: data.title.slice(0, 80) || "Cover",
+        audioWeight: 0.8,
+        styleWeight: 0.45,
+        weirdnessConstraint: 0.35,
+        duration,
+        negativeTags: "podcast, spoken word, audiobook",
+      }),
+    });
+    const code = Number(body.code ?? res.status);
+    const taskId = pick<string>(body.data as Record<string, unknown>, "taskId", "task_id");
+    if (code !== 200 || !taskId) {
+      return { ok: false as const, error: String(body.msg ?? "Кавер не приняли.") };
+    }
+    return { ok: true as const, taskId };
+  });
+
 export const pollSunoStems = createServerFn({ method: "GET" })
   .validator((input: { taskId: string }) => input)
   .handler(async ({ data }) => {

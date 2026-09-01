@@ -59,6 +59,8 @@ export type CookStatus = "idle" | "cooking" | "ready" | "failed";
 export const START_NOTES = 10;
 export const SKIP_COST = 1;
 export const LATE_COST = 1;
+export const TAKE_COST = 2;
+export const COVER_COST = 4;
 export const VERSE_SECONDS = 10;
 
 export const OMEN_CHALLENGE: Challenge = {
@@ -171,6 +173,7 @@ type GameState = {
   startSpin: () => { singerId: string; partnerId: string | null; challenge: Challenge };
   finishSpin: () => void;
   skipTurn: (toId: string, kind: SkipKind) => boolean;
+  spendNotes: (playerId: string, cost: number) => boolean;
   toSongPick: () => void;
   rerollSongs: () => void;
   addCustomSong: (song: Song) => void;
@@ -393,6 +396,18 @@ export const useGame = create<GameState>((set, get) => ({
       phase: "table",
       round: get().round + 1,
       song: null,
+    });
+    return true;
+  },
+
+  spendNotes: (playerId, cost) => {
+    const player = get().players.find((p) => p.id === playerId);
+    if (!player || cost <= 0) return cost === 0;
+    if (player.notes < cost) return false;
+    set({
+      players: get().players.map((p) =>
+        p.id === playerId ? { ...p, notes: p.notes - cost } : p,
+      ),
     });
     return true;
   },

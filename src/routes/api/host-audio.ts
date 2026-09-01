@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function toCatbox(file: Blob) {
+  const name = file instanceof File ? file.name : "track.mp3";
   const out = new FormData();
   out.append("reqtype", "fileupload");
-  out.append("fileToUpload", file, "track.mp3");
+  out.append("fileToUpload", file, name);
   const res = await fetch("https://catbox.moe/user/api.php", { method: "POST", body: out });
   const url = (await res.text()).trim();
   if (url.startsWith("http")) return url;
@@ -31,12 +32,15 @@ export const Route = createFileRoute("/api/host-audio")({
         }
         if (file.size > 4.2 * 1024 * 1024) {
           return Response.json(
-            { ok: false, error: "Для минуса через кухню сожми mp3 до 4 МБ." },
+            { ok: false, error: "Файл больше 4 МБ — сожми или спой короче." },
             { status: 413 },
           );
         }
         try {
-          const url = await toCatbox(file).catch(() => toTmpfiles(file));
+          const named = new File([file], file instanceof File ? file.name : "take.webm", {
+            type: file.type || "audio/webm",
+          });
+          const url = await toCatbox(named).catch(() => toTmpfiles(named));
           return Response.json({ ok: true, url });
         } catch {
           return Response.json({ ok: false, error: "Не выложился файл для кухни." }, { status: 502 });

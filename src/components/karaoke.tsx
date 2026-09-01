@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Button } from "@/components/ui/button";
 import {
   audioRunning,
   now,
+  playUiTick,
   startMic,
   startTrack,
   stopTrack,
@@ -13,7 +15,7 @@ import {
   type MicHandle,
 } from "@/lib/audio";
 import { songDuration, type Song } from "@/lib/songs";
-import { formatChallenge, playerById, useGame } from "@/lib/store";
+import { COVER_COST, TAKE_COST, formatChallenge, playerById, useGame } from "@/lib/store";
 
 function currentLine(song: Song, t: number) {
   if (t < (song.lines[0]?.t ?? 0)) return { i: -1, line: null };
@@ -31,6 +33,9 @@ export function KaraokeStage() {
   const partner = playerById(players, useGame((s) => s.partnerId));
   const challenge = useGame((s) => s.challenge);
   const finishKaraoke = useGame((s) => s.finishKaraoke);
+  const spendNotes = useGame((s) => s.spendNotes);
+  const singerNotes = singer?.notes ?? 0;
+  const [lane, setLane] = useState<"ask" | "live" | "take" | "cover" | null>(null);
 
   const [count, setCount] = useState(3);
   const [elapsed, setElapsed] = useState(0);
@@ -72,10 +77,10 @@ export function KaraokeStage() {
     finishKaraoke(Math.min(9999, score), usedMic);
   }
 
-  const begin = useCallback(() => {
-    if (!song || startedRef.current || doneRef.current) return false;
+  const begin = useCallback((play: Song, withMic: boolean) => {
+    if (!play || startedRef.current || doneRef.current) return false;
     unlockAudio();
-    const handle = startTrack(song);
+    const handle = startTrack(play);
     if (!handle) {
       setNeedsTap(true);
       return false;
@@ -84,24 +89,65 @@ export function KaraokeStage() {
     setNeedsTap(false);
     startedAtRef.current = handle.startedAt;
     durationRef.current = handle.duration;
-    void startMic().then((mic) => {
-      if (doneRef.current) {
-        mic?.stop();
-        return;
-      }
-      micRef.current = mic;
-      setHadMic(Boolean(mic));
-    });
+    if (withMic) {
+      void startMic().then((mic) => {
+        if (doneRef.current) {
+          mic?.stop();
+          return;
+        }
+        micRef.current = mic;
+        setHadMic(Boolean(mic));
+      });
+    } else {
+      setHadMic(false);
+    }
     window.setTimeout(() => {
       if (!audioRunning() && !useGame.getState().muted) setNeedsTap(true);
     }, 180);
     return true;
-  }, [song]);
+  }, []);
+
+  function playSongFor(kind: "live" | "take" | "cover"): Song | null {
+    if (!song) return null;
+    if (kind === "take" && song.takeUrl) return { ...song, audioUrl: song.takeUrl, minus: false };
+    if (kind === "cover" && song.coverUrl) return { ...song, audioUrl: song.coverUrl, minus: false };
+    return song;
+  }
+
+  function pickLane(kind: "live" | "take" | "cover") {
+    if (!singer) return;
+    if (kind === "take") {
+      if (!song?.takeUrl) {
+        toast.error("Нет записи. Спой в студии до стола.");
+        return;
+      }
+      if (!spendNotes(singer.id, TAKE_COST)) {
+        toast.error(`Нужно ${TAKE_COST} ноты.`);
+        return;
+      }
+    }
+    if (kind === "cover") {
+      if (!song?.coverUrl) {
+        toast.error("Нет кавера. Свари в студии.");
+        return;
+      }
+      if (!spendNotes(singer.id, COVER_COST)) {
+        toast.error(`Нужно ${COVER_COST} ноты.`);
+        return;
+      }
+    }
+    const play = playSongFor(kind);
+    if (!play) return;
+    setLane(kind);
+    playUiTick();
+    if (!begin(play, kind === "live")) setNeedsTap(true);
+  }
 
   useEffect(() => {
     if (!song) return;
     startedRef.current = false;
     doneRef.current = false;
+    setLane(null);
     let live = true;
     const timers = [1, 2, 3].map((s) =>
       window.setTimeout(() => {
@@ -110,7 +156,11 @@ export function KaraokeStage() {
     );
     const startTimer = window.setTimeout(() => {
       if (!live) return;
-      if (!begin()) setNeedsTap(true);
+      if (song.hasTake || song.hasCover) {
+        setLane("ask");
+        return;
+      }
+      if (!begin(song, true)) setNeedsTap(true);
     }, 2100);
 
     return () => {
@@ -124,7 +174,7 @@ export function KaraokeStage() {
   }, [song, begin]);
 
   useEffect(() => {
-    if (count > 0 || !song) return;
+    if (count > 0 || !song || lane === "ask") return;
     let raf = 0;
     const tick = () => {
       const fileT = trackTime();
@@ -151,7 +201,7 @@ export function KaraokeStage() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [count, song]);
+  }, [count, song, lane]);
 
   if (!song || !singer) return null;
 
@@ -167,7 +217,10 @@ export function KaraokeStage() {
       className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
       onPointerDown={() => {
         unlockAudio();
-        if (count <= 0 && !startedRef.current) begin();
+        if (count <= 0 && !startedRef.current && lane && lane !== "ask") {
+          const play = playSongFor(lane);
+          if (play) begin(play, lane === "live");
+        }
       }}
     >
       <div className="flex items-start justify-between gap-3 pt-1">
@@ -205,7 +258,9 @@ export function KaraokeStage() {
             onClick={() => {
               unlockAudio();
               startedRef.current = false;
-              begin();
+              const kind = lane && lane !== "ask" ? lane : "live";
+              const play = playSongFor(kind) ?? song;
+              begin(play, kind === "live");
             }}
           >
             <Volume2 className="size-10 text-accent" />
@@ -216,6 +271,32 @@ export function KaraokeStage() {
           </button>
         ) : count > 0 ? (
           <p className="font-display text-7xl text-fg">{count}</p>
+        ) : lane === "ask" ? (
+          <div className="flex w-full max-w-sm flex-col gap-2">
+            <p className="font-display text-2xl text-fg">Как поёшь?</p>
+            <p className="mb-2 text-sm text-muted">
+              Живьём бесплатно. Запись и кавер — ноты. У {singer.name} {singerNotes}.
+            </p>
+            <Button className="rounded-xl" onClick={() => pickLane("live")}>
+              Петь живьём · 0
+            </Button>
+            <Button
+              variant="secondary"
+              className="rounded-xl"
+              disabled={!song.hasTake}
+              onClick={() => pickLane("take")}
+            >
+              Моя запись · {TAKE_COST} ноты
+            </Button>
+            <Button
+              variant="secondary"
+              className="rounded-xl"
+              disabled={!song.hasCover}
+              onClick={() => pickLane("cover")}
+            >
+              Кавер · {COVER_COST} ноты
+            </Button>
+          </div>
         ) : (
           <>
             <p className="min-h-6 text-sm text-subtle">

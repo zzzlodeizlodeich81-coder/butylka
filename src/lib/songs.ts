@@ -33,6 +33,10 @@ export type Song = {
   minus?: boolean;
   pack?: SongPack;
   region?: FolkRegion;
+  hasTake?: boolean;
+  hasCover?: boolean;
+  takeUrl?: string;
+  coverUrl?: string;
 };
 
 export const GENRE_LABEL: Record<Genre, string> = {
@@ -108,6 +112,10 @@ export function buildSong(input: {
   region?: FolkRegion;
   beatsPerLine?: number;
   lines?: LyricLine[];
+  hasTake?: boolean;
+  hasCover?: boolean;
+  takeUrl?: string;
+  coverUrl?: string;
 }): Song {
   const lines = input.lines?.length
     ? input.lines
@@ -129,6 +137,10 @@ export function buildSong(input: {
     minus: input.minus,
     pack: input.pack,
     region: input.region,
+    hasTake: input.hasTake,
+    hasCover: input.hasCover,
+    takeUrl: input.takeUrl,
+    coverUrl: input.coverUrl,
   };
 }
 

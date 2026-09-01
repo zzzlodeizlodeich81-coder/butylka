@@ -208,7 +208,7 @@ export function BringSong() {
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Файл как есть. Потом собери караоке: текст по тактам и минус. Без тактов строки убегут.
+        Файл как есть. Собери караоке, спой запись, свари кавер — и неси к столу. Без тактов строки убегут.
       </p>
 
       <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
