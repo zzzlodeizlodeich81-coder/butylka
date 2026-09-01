@@ -3,18 +3,18 @@
 @theme {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Unbounded", "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --color-bg: #0b0a09;
-  --color-surface: #161412;
-  --color-surface-2: #1e1b18;
-  --color-fg: #f1ebe3;
-  --color-muted: #9c948a;
-  --color-subtle: #6f6860;
-  --color-accent: #e8dfd4;
-  --color-accent-fg: #141210;
-  --color-wine: #b5524a;
-  --color-wine-fg: #f7eeea;
-  --color-border: #2c2824;
-  --color-glass: #3d5c48;
+  --color-bg: #f4efe6;
+  --color-surface: #fffaf4;
+  --color-surface-2: #ece4d6;
+  --color-fg: #241f1b;
+  --color-muted: #6e655c;
+  --color-subtle: #8f857a;
+  --color-accent: #e24c2c;
+  --color-accent-fg: #fff8f4;
+  --color-wine: #c45a48;
+  --color-wine-fg: #fff8f4;
+  --color-border: #ddd4c6;
+  --color-glass: #3d6b52;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -34,7 +34,7 @@
   body {
     min-height: 100dvh;
     background:
-      radial-gradient(120% 70% at 50% -10%, #1a1612 0%, var(--color-bg) 58%);
+      radial-gradient(120% 70% at 50% -8%, #fff7ee 0%, var(--color-bg) 58%);
     color: var(--color-fg);
     font-family: var(--font-sans);
     overscroll-behavior: none;

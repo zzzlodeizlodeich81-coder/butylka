@@ -310,7 +310,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
         <>
           <h1 className="font-display text-3xl text-fg">Караоке</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            {track.title}. Спой до стола, скачай запись или свари кавер — и неси в игру.
+            {track.title}. «Найти текст по названию» ищет слова по «{track.title}». Не нашли — набей такт, жми экран.
           </p>
         </>
       )}

@@ -21,24 +21,24 @@ type CookFail = {
 
 function localCook(lines: NonsenseLine[]): CookOk {
   const raw = lines.map((l) => l.text.trim()).filter((t) => t && t !== "…");
-  const hook = raw[0] || "бред на столе";
+  const hook = raw[0] || "строки стола";
   const texts = [
     hook,
     raw[1] || "никто не успел рифму",
     raw[2] || "секунды кончились",
     raw[3] || "нота уже снята",
-    "это наш бред на столе",
-    "это наш бред на столе",
-    raw[4] || "бутылка уже чернеет",
+    "это наш стол",
+    "это наш стол",
+    raw[4] || "бутылочка уже темнеет",
     "пой пока не стемнело",
   ];
   const song = buildSong({
     id: uid("omen"),
-    title: hook.slice(0, 28) || "Бред стола",
-    artist: "чёрная бутылка",
+    title: hook.slice(0, 28) || "Строки стола",
+    artist: "бутылочка",
     genre: "hyperpop",
     bpm: 124,
-    mood: "бред стола",
+    mood: "стол",
     texts,
     generated: true,
   });
@@ -75,7 +75,7 @@ export const cookFromNonsense = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "Ты делаешь вечериночные песни из пьяного бреда. Не исправляй смысл строк стола — усиливай его. Только оригинал. Ответ — один JSON без markdown.",
+              "Ты делаешь вечериночные песни из строк, которые написал стол. Не исправляй смысл — усиливай его. Только оригинал. Ответ — один JSON без markdown.",
           },
           {
             role: "user",
@@ -121,7 +121,7 @@ JSON:
         artist: String(parsed.artist || "чёрная бутылка").slice(0, 32),
         genre: parseGenre(String(parsed.genre || "hyperpop")) as Genre,
         bpm,
-        mood: "бред стола",
+        mood: "стол",
         texts: lines,
         generated: true,
       });

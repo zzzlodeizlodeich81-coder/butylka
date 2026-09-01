@@ -65,7 +65,7 @@ export const VERSE_SECONDS = 10;
 
 export const OMEN_CHALLENGE: Challenge = {
   id: "omen",
-  label: "Чёрная бутылка. Поёшь то, что стол наболтал.",
+  label: "Тёмная бутылочка. Поёшь песню, которую собрал стол.",
   kind: "solo",
 };
 
@@ -123,7 +123,7 @@ export function formatChallenge(challenge: Challenge, targetName?: string) {
 
 export function gradeFor(score: number) {
   if (score >= 8500) return { title: "Караоке-бог", hint: "Соседи снизу стучат в такт." };
-  if (score >= 6500) return { title: "В точку", hint: "Бутылка кивает." };
+  if (score >= 6500) return { title: "В точку", hint: "Бутылочка кивает." };
   if (score >= 4000) return { title: "Норм", hint: "Можно ещё круг." };
   return { title: "Смелость есть", hint: "Текст был сложный. Или микрофон." };
 }

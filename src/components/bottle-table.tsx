@@ -344,11 +344,11 @@ export function BottleTable() {
     <div className="flex min-h-0 flex-1 flex-col">
       <p className="px-5 text-center text-sm text-muted">
         {omen
-          ? "Бутылка чёрная. Все боятся."
+          ? "Бутылочка тёмная. Стол затих."
           : cookStatus === "cooking"
-            ? "Кухня и Suno варят песню из бреда. Пойте пока."
+            ? "Suno собирает песню из ваших строк. Пойте пока."
             : cookStatus === "failed"
-              ? "Кухня молчит. Каталог ещё жив."
+              ? "Песня из строк не вышла. Колода на месте."
               : `Раунд ${round}${singer && !spinning ? ` · последним пел ${singer.name}` : ""}`}
       </p>
       <div ref={wrapRef} className="relative mx-auto mt-1 aspect-square w-full max-w-md flex-1">
@@ -369,7 +369,7 @@ export function BottleTable() {
             </Button>
             {cookStatus === "idle" || cookStatus === "failed" ? (
               <Button variant="ghost" onClick={toVerse}>
-                Ещё круг бреда
+                Ещё круг строк
               </Button>
             ) : null}
           </div>

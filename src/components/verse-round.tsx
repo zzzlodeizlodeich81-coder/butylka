@@ -59,11 +59,11 @@ export function VerseRound() {
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <p className="text-sm text-muted">
-        Круг бреда · {verseIndex + 1} из {players.length}
+        Круг строк · {verseIndex + 1} из {players.length}
       </p>
       <h1 className="mt-1 font-display text-3xl text-fg">10 секунд. Строка.</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Не обязательно в рифму. Не успел — минус {LATE_COST} нота. Потом кухня сварит из этого песню.
+        Не обязательно в рифму. Не успел — минус {LATE_COST} нота. Из строк соберём песню.
       </p>
 
       <div className="mt-6 flex items-center gap-3">

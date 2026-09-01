@@ -15,6 +15,7 @@ import {
   type SavedTrack,
 } from "@/lib/library";
 import { looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
+import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { proxyAudio } from "@/lib/suno";
 import { importSunoSong } from "@/lib/suno-server";
 import { takeAudioFile, prepareKaraokeTrack } from "@/lib/stems";
@@ -36,7 +37,7 @@ export function BringSong() {
   const [lyrics, setLyrics] = useState("");
   const [sunoUrl, setSunoUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "suno" | "file" | "lyrics">(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [studio, setStudio] = useState<SavedTrack | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -72,7 +73,7 @@ export function BringSong() {
       toast.error("Вставь ссылку suno.com/song/… или suno.com/s/…");
       return;
     }
-    setBusy(true);
+    setBusy("suno");
     try {
       const hit = await importSunoSong({ data: { url: sunoUrl } });
       if (!hit.ok) throw new Error(hit.error);
@@ -115,7 +116,7 @@ export function BringSong() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ссылка не открылась.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -128,7 +129,7 @@ export function BringSong() {
       toast.error(`В колоде уже ${LIBRARY_MAX}. Убери одну — положи другую.`);
       return;
     }
-    setBusy(true);
+    setBusy("file");
     try {
       const prepared = await prepareKaraokeTrack(file, false);
       const id = uid("mine");
@@ -157,7 +158,7 @@ export function BringSong() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не вышло прочитать файл.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -191,6 +192,35 @@ export function BringSong() {
     toTable();
   }
 
+  async function findLyrics() {
+    const q = title.trim();
+    if (!q) {
+      toast.error("Сначала название — как в песне.");
+      return;
+    }
+    setBusy("lyrics");
+    try {
+      const hit = await findSyncedLyrics({ data: { title: q } });
+      if (!hit.ok) {
+        toast.error(hit.error);
+        return;
+      }
+      if (hit.syncedLyrics) {
+        setLyrics(hit.syncedLyrics);
+        toast.success(`Нашли «${hit.name}» — строки уже с таймкодами.`);
+        return;
+      }
+      if (hit.plainLyrics) {
+        setLyrics(hit.plainLyrics);
+        toast.success("Текст есть, тактов нет. В «Собрать караоке» набей пальцем.");
+      }
+    } catch {
+      toast.error("Каталог текстов не ответил.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (studio) {
     return (
       <KaraokeCook
@@ -208,7 +238,7 @@ export function BringSong() {
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Файл как есть. Собери караоке, спой запись, свари кавер — и неси к столу. Без тактов строки убегут.
+        Файл как есть. Название — как в песне: по нему ищем текст. Потом собери караоке, спой, свари кавер.
       </p>
 
       <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
@@ -262,11 +292,17 @@ export function BringSong() {
               value={sunoUrl}
               onChange={(e) => setSunoUrl(e.target.value)}
             />
-            <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={busy}>
-              {busy ? "Забираю с Suno…" : "Забрать с Suno"}
+            <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
+              {busy === "suno" ? "Забираю с Suno…" : "Забрать с Suno"}
             </Button>
             <p className="text-xs text-subtle">Или свой файл:</p>
             <Input placeholder="Название как в песне" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void findLyrics()} disabled={Boolean(busy)}>
+              {busy === "lyrics" ? "Ищу текст…" : "Найти текст по названию"}
+            </Button>
+            <p className="text-xs text-subtle">
+              Пиши название как слышишь в песне. Ищем готовые слова с таймкодами. Не нашли — положи трек и набей такт в студии.
+            </p>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -300,8 +336,8 @@ export function BringSong() {
               rows={5}
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
             />
-            <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void addTrack()} disabled={busy}>
-              {busy ? "Читаю файл…" : "Положить в колоду"}
+            <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void addTrack()} disabled={Boolean(busy)}>
+              {busy === "file" ? "Читаю файл…" : "Положить в колоду"}
             </Button>
           </>
         ) : (

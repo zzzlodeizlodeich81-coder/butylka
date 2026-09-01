@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/host-audio")({
           const url = await toCatbox(named).catch(() => toTmpfiles(named));
           return Response.json({ ok: true, url });
         } catch {
-          return Response.json({ ok: false, error: "Не выложился файл для кухни." }, { status: 502 });
+          return Response.json({ ok: false, error: "Не выложился файл." }, { status: 502 });
         }
       },
     },

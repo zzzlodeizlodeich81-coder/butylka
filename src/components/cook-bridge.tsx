@@ -71,7 +71,7 @@ export function CookBridge() {
         if (!live) return;
         const info = await pollSunoGenerate({ data: { taskId: started.taskId } });
         if (info.failed) {
-          toast.error("Suno отказал этому бреду.");
+          toast.error("Suno не принял этот текст.");
           failCook();
           return;
         }
@@ -135,10 +135,10 @@ export function CookBridge() {
       if (!live) return;
 
       readyOmen(song, cooked.sunoPrompt);
-      toast.message("Кухня сварила. Бутылка чернеет.");
+      toast.message("Песня готова. Бутылочка темнеет.");
     })().catch(() => {
       if (!live) return;
-      toast.error("Кухня не ответила.");
+      toast.error("Suno не ответил.");
       failCook();
     });
 

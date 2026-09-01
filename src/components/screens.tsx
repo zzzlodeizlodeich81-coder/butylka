@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatButton, ChatDrawer } from "@/components/chat-drawer";
+import { ChavoButton } from "@/components/chavo";
 import { PersonAvatar } from "@/components/person-avatar";
 import { TrackTakes } from "@/components/track-takes";
 import { playUiTick, setMixer, unlockAudio } from "@/lib/audio";
@@ -38,8 +39,8 @@ export function Wordmark({ large = false }: { large?: boolean }) {
         <rect x="12.4" y="4.2" width="7.2" height="4.2" rx="1.2" className="fill-accent" />
         <rect x="12.2" y="14.6" width="7.6" height="5.2" rx="1" className="fill-accent" />
       </svg>
-      <p className={cn("font-display tracking-wide text-fg", large ? "text-4xl" : "text-lg")}>
-        БУТЫЛКА
+      <p className={cn("font-display tracking-wide text-fg", large ? "text-4xl" : "text-base")}>
+        БУТЫЛОЧКА
       </p>
     </div>
   );
@@ -53,8 +54,11 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Свои 1–3 трека. Бутылка крутит твою колоду. Слышишь файл как есть.
+          Свои 1–3 трека. Бутылочка крутит твою колоду. Слышишь файл как есть.
         </p>
+        <div className="mt-5">
+          <ChavoButton />
+        </div>
       </div>
       <Button
         size="lg"
@@ -523,7 +527,7 @@ export function Result() {
           Ещё круг
         </Button>
         <Button variant="ghost" onClick={toVerse}>
-          Ещё круг бреда
+          Ещё круг строк
         </Button>
         <Button variant="ghost" onClick={backToLobby}>
           Сменить компанию
@@ -562,10 +566,11 @@ export function Chrome({ children }: { children: ReactNode }) {
           ) : null}
           {phase !== "lobby" && phase !== "bring" && phase !== "profile" ? (
             <Badge className="tabular-nums">
-              {omen ? "чёрная" : cookStatus === "cooking" ? "кухня" : `раунд ${round}`}
+              {omen ? "тёмная" : cookStatus === "cooking" ? "сборка" : `раунд ${round}`}
             </Badge>
           ) : null}
           <ChatButton />
+          <ChavoButton compact />
           <Button
             variant="ghost"
             size="icon"

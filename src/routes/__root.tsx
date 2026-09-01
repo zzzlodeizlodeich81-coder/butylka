@@ -4,7 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Бутылка";
+const APP_NAME = "Бутылочка";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -12,10 +12,10 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "theme-color", content: "#0b0a09" },
+      { name: "theme-color", content: "#f4efe6" },
       {
         name: "description",
-        content: "Нейрокараоке для компании: крутишь бутылку — поёшь сгенерированный трек.",
+        content: "Караоке за столом: свои треки, бутылочка выбирает кто поёт.",
       },
     ],
     links: [
@@ -48,13 +48,13 @@ export const Route = createRootRoute({
         <AuthProvider>
           <Outlet />
           <Toaster
-            theme="dark"
+            theme="light"
             position="top-center"
             toastOptions={{
               style: {
-                background: "#161412",
-                color: "#f1ebe3",
-                border: "1px solid #2c2824",
+                background: "#fffaf4",
+                color: "#241f1b",
+                border: "1px solid #ddd4c6",
                 fontFamily: "Manrope, system-ui, sans-serif",
               },
             }}
