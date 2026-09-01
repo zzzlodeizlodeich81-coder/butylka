@@ -29,7 +29,7 @@ function SongCard({ song, onPick }: { song: Song; onPick: (song: Song) => void }
           <p className="mt-1 text-sm text-muted">{song.artist}</p>
         </div>
         <Badge>
-          {song.pack === "folk" ? "все знают · " : song.minus ? "минус · " : ""}
+          {song.pack === "mine" ? "мой файл · " : song.pack === "folk" ? "все знают · " : song.minus ? "минус · " : ""}
           {GENRE_LABEL[song.genre]} · {song.bpm}
         </Badge>
       </div>

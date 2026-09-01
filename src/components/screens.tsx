@@ -51,7 +51,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Стол пишет бред за 10 секунд. Кухня варит песню. Пока ждёте — поёте своё. Когда бутылка чернеет — все боятся.
+          Свои 1–3 трека. Бутылка крутит твою колоду. Слышишь файл как есть.
         </p>
       </div>
       <Button
@@ -222,7 +222,7 @@ export function Lobby() {
             toBring();
           }}
         >
-          Дальше — свой трек
+          Дальше — колода
         </Button>
       </div>
     </div>

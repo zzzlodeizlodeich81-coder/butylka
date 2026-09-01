@@ -174,6 +174,7 @@ type GameState = {
   toSongPick: () => void;
   rerollSongs: () => void;
   addCustomSong: (song: Song) => void;
+  replaceCustomSongs: (songs: Song[]) => void;
   chooseSong: (song: Song) => void;
   finishKaraoke: (score: number, hadMic: boolean) => void;
   sendHeart: (fromId: string) => void;
@@ -402,21 +403,33 @@ export const useGame = create<GameState>((set, get) => ({
       set({ song: omenSong, phase: "karaoke" });
       return;
     }
-    const custom = get().customSongs;
-    const options = pickTableThree(custom, get().song?.id);
-    set({ phase: "song", options });
+    const live = get().customSongs.filter((s) => Boolean(s.audioUrl));
+    if (live.length === 1) {
+      set({ song: live[0], phase: "karaoke" });
+      return;
+    }
+    if (live.length > 1) {
+      set({ phase: "song", options: pickThree(live, get().song?.id, false) });
+      return;
+    }
+    set({ phase: "song", options: pickTableThree([], get().song?.id) });
   },
 
   rerollSongs: () => {
-    const pool = [...get().customSongs, ...CATALOG];
-    set({ options: pickThree(pool, get().song?.id) });
+    const live = get().customSongs.filter((s) => Boolean(s.audioUrl));
+    if (live.length) {
+      set({ options: pickThree(live, get().song?.id, false) });
+      return;
+    }
+    set({ options: pickTableThree([], get().song?.id) });
   },
 
   addCustomSong: (song) => {
     const customSongs = [song, ...get().customSongs.filter((s) => s.id !== song.id)].slice(0, 24);
-    const options = [song, ...get().options.filter((s) => s.id !== song.id)].slice(0, 3);
-    set({ customSongs, options });
+    set({ customSongs });
   },
+
+  replaceCustomSongs: (songs: Song[]) => set({ customSongs: songs }),
 
   chooseSong: (song) => set({ song, phase: "karaoke" }),
 
@@ -562,6 +575,12 @@ export const useGame = create<GameState>((set, get) => ({
   },
 }));
 
+function stripDeadAudio(song: Song | null | undefined): Song | null {
+  if (!song) return null;
+  if (song.audioUrl && song.audioUrl.startsWith("blob:")) return { ...song, audioUrl: undefined };
+  return song;
+}
+
 if (typeof window !== "undefined") {
   useGame.subscribe((s) => {
     try {
@@ -577,25 +596,25 @@ if (typeof window !== "undefined") {
           youId: s.youId,
           round: s.round,
           chat: s.chat,
-          customSongs: s.customSongs,
+          customSongs: s.customSongs.map((song) => stripDeadAudio(song) ?? song),
           musicGain: s.musicGain,
           sfxGain: s.sfxGain,
           muted: s.muted,
           singerId: s.singerId,
           partnerId: s.partnerId,
           challenge: s.challenge,
-          song: s.song,
+          song: stripDeadAudio(s.song),
           lastScore: s.lastScore,
           lastHadMic: s.lastHadMic,
           lastSkip: s.lastSkip,
           lastGifts: s.lastGifts,
           lastHearts: s.lastHearts,
-          options: s.options,
+          options: s.options.map((song) => stripDeadAudio(song) ?? song),
           verseIndex: s.verseIndex,
           verseLines: s.verseLines,
           cookStatus: s.cookStatus === "cooking" ? "idle" : s.cookStatus,
           omen: s.omen,
-          omenSong: s.omenSong,
+          omenSong: stripDeadAudio(s.omenSong),
           sunoPrompt: s.sunoPrompt,
         }),
       );

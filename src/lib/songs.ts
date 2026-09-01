@@ -10,7 +10,7 @@ export type Genre =
   | "lofi"
   | "folk";
 
-export type SongPack = "studio" | "folk";
+export type SongPack = "studio" | "folk" | "mine";
 
 export type LyricLine = {
   t: number;
@@ -363,11 +363,11 @@ export const FOLK: Song[] = FOLK_RAW.map((s) =>
 
 export const CATALOG: Song[] = [...FOLK, ...STUDIO];
 
-export function pickThree(pool: Song[], excludeId?: string): Song[] {
+export function pickThree(pool: Song[], excludeId?: string, fillFromCatalog = true): Song[] {
   const src = pool.filter((s) => s.id !== excludeId);
   const shuffled = [...src].sort(() => Math.random() - 0.5);
   const picked = shuffled.slice(0, 3);
-  if (picked.length < 3) {
+  if (picked.length < 3 && fillFromCatalog) {
     const extra = [...CATALOG].sort(() => Math.random() - 0.5);
     for (const s of extra) {
       if (picked.length >= 3) break;
@@ -378,8 +378,10 @@ export function pickThree(pool: Song[], excludeId?: string): Song[] {
 }
 
 export function pickTableThree(custom: Song[], excludeId?: string): Song[] {
+  const live = custom.filter((s) => Boolean(s.audioUrl));
+  if (live.length) return pickThree(live, excludeId, false);
   const folkOne = pickThree(FOLK, excludeId)[0];
-  const rest = pickThree([...custom, ...STUDIO], excludeId).filter((s) => s.id !== folkOne?.id);
+  const rest = pickThree(STUDIO, excludeId).filter((s) => s.id !== folkOne?.id);
   return [folkOne, ...rest].filter(Boolean).slice(0, 3) as Song[];
 }
 

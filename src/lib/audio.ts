@@ -24,6 +24,14 @@ function applyGains() {
   const s = muted ? 0 : Math.pow(Math.max(0, sfxGain), 1.2);
   buses.music.gain.setTargetAtTime(m, t, 0.03);
   buses.sfx.gain.setTargetAtTime(s, t, 0.03);
+  if (fileEl) {
+    fileEl.muted = muted;
+    fileEl.volume = muted ? 0 : Math.min(1, Math.pow(Math.max(0, musicGain), 1.2));
+  }
+  if (previewEl) {
+    previewEl.muted = muted;
+    previewEl.volume = muted ? 0 : Math.min(1, Math.pow(Math.max(0, musicGain), 1.2));
+  }
 }
 
 export function setMixer(opts: { music?: number; sfx?: number; muted?: boolean }) {
@@ -387,7 +395,36 @@ function wireKaraoke(source: AudioNode, dest: AudioNode, minus: boolean) {
   merge.connect(dest);
 }
 
+let previewEl: HTMLAudioElement | null = null;
+let fileEl: HTMLAudioElement | null = null;
+
+export function stopPreview() {
+  if (!previewEl) return;
+  try {
+    previewEl.pause();
+    previewEl.removeAttribute("src");
+    previewEl.load();
+  } catch {
+    /* ignore */
+  }
+  previewEl = null;
+}
+
+export function previewFile(url: string) {
+  unlockAudio();
+  stopPreview();
+  stopTrack();
+  const el = new Audio();
+  el.src = url;
+  el.preload = "auto";
+  previewEl = el;
+  void el.play().catch(() => {
+    /* overlay / next tap */
+  });
+}
+
 export function stopTrack() {
+  stopPreview();
   if (!active) return;
   active.stop();
   active = null;
@@ -406,30 +443,31 @@ export function startTrack(song: Song): { startedAt: number; duration: number } 
 
   let element: HTMLAudioElement | null = null;
   let elementSrc: MediaElementAudioSourceNode | null = null;
-  let usedFile = false;
 
-  if (song.audioUrl) {
+  if (song.audioUrl && !song.minus) {
+    element = new Audio();
+    element.preload = "auto";
+    element.src = song.audioUrl;
+    fileEl = element;
+    applyGains();
+    void element.play().catch(() => {
+      /* karaoke overlay asks for a tap */
+    });
+  } else if (song.audioUrl) {
     element = new Audio();
     element.crossOrigin = "anonymous";
     element.preload = "auto";
     element.src = song.audioUrl;
     try {
       elementSrc = ctx.createMediaElementSource(element);
-      wireKaraoke(elementSrc, duck, Boolean(song.minus));
+      wireKaraoke(elementSrc, duck, true);
     } catch {
       elementSrc = null;
     }
-    const playAttempt = element.play();
-    if (playAttempt) {
-      void playAttempt.then(
-        () => {
-          usedFile = true;
-        },
-        () => {
-          if (!usedFile) scheduleSong(ctx, duck, song, ctx.currentTime + 0.05);
-        },
-      );
-    }
+    fileEl = element;
+    void element.play().catch(() => {
+      /* karaoke overlay */
+    });
   } else {
     scheduleSong(ctx, duck, song, startedAt);
   }
@@ -446,6 +484,7 @@ export function startTrack(song: Song): { startedAt: number; duration: number } 
         /* ignore */
       }
     }
+    if (fileEl === element) fileEl = null;
     window.setTimeout(() => {
       try {
         duck.disconnect();
