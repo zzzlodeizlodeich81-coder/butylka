@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TrackTakes } from "@/components/track-takes";
 import {
+  isFilePlaying,
   previewFile,
   previewTime,
   startMixedTake,
@@ -65,6 +66,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
   const [recLine, setRecLine] = useState("");
   const [stamps, setStamps] = useState<number[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [tapClock, setTapClock] = useState(0);
   const recRef = useRef<MixedTake | null>(null);
 
   useEffect(() => () => {
@@ -122,14 +124,25 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     }
     unlockAudio();
     setStamps([]);
+    setTapClock(0);
     setTapping(true);
     previewFile(objectUrlFor(track.id, track.blob));
   }
 
+  function bump() {
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(14);
+  }
+
   function tapLine() {
-    const t = previewTime();
+    unlockAudio();
+    if (!isFilePlaying()) {
+      previewFile(objectUrlFor(track.id, track.blob));
+      return;
+    }
+    const t = Math.max(0, previewTime() - 0.08);
     const next = [...stamps, t];
     setStamps(next);
+    bump();
     const rows = looksLikeLrc(text) ? parseLrc(text).map((l) => l.text) : splitText(text);
     if (next.length >= rows.length) {
       const lines = stampLines(rows, next, track.duration);
@@ -137,9 +150,25 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
       setTapping(false);
       const nextTrack = { ...track, lines, lyrics: rows.join("\n") };
       void persist(nextTrack);
-      toast.success("Такт записан.");
+      toast.success("Такт записан. Строки поедут с песней.");
     }
   }
+
+  function undoTap() {
+    setStamps((s) => s.slice(0, -1));
+    bump();
+  }
+
+  useEffect(() => {
+    if (!tapping) return;
+    let raf = 0;
+    const tick = () => {
+      setTapClock(previewTime());
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [tapping]);
 
   async function cookMinus() {
     setBusy("Снимаю минус… минута-две");
@@ -271,39 +300,64 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
 
   const rows = looksLikeLrc(text) ? parseLrc(text).map((l) => l.text) : splitText(text);
   const currentLine = rows[stamps.length] ?? "готово";
+  const nextLine = rows[stamps.length + 1] ?? "";
+  const prevLine = stamps.length > 0 ? rows[stamps.length - 1] : "";
+  const clock = `${Math.floor(tapClock / 60)}:${String(Math.floor(tapClock % 60)).padStart(2, "0")}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      <h1 className="font-display text-3xl text-fg">Караоке</h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted">
-        {track.title}. Спой до стола, скачай запись или свари кавер — и неси в игру.
-      </p>
+      {recording || tapping ? null : (
+        <>
+          <h1 className="font-display text-3xl text-fg">Караоке</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            {track.title}. Спой до стола, скачай запись или свари кавер — и неси в игру.
+          </p>
+        </>
+      )}
 
       {recording ? (
-        <div className="mt-6 flex min-h-0 flex-1 flex-col">
-          <p className="text-xs uppercase tracking-[0.2em] text-subtle">пишем</p>
-          <p className="mt-3 font-display text-3xl leading-tight text-fg">{recLine || "…"}</p>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <p className="text-xs uppercase tracking-[0.2em] text-subtle">пишем · жми стоп когда спел</p>
+          <p className="mt-4 font-display text-3xl leading-tight text-fg sm:text-4xl">{recLine || "…"}</p>
           <div className="mt-auto flex flex-col gap-2">
-            <Button size="lg" className="h-16 rounded-xl" onClick={() => void finishRecord()}>
+            <Button size="lg" className="h-20 rounded-xl text-lg" onClick={() => void finishRecord()}>
               Стоп — сохранить
             </Button>
           </div>
         </div>
       ) : tapping ? (
-        <div className="mt-6 flex min-h-0 flex-1 flex-col">
-          <p className="text-xs uppercase tracking-[0.2em] text-subtle">
-            строка {Math.min(stamps.length + 1, rows.length)} / {rows.length}
-          </p>
-          <p className="mt-3 font-display text-3xl leading-tight text-fg">{currentLine}</p>
-          <div className="mt-auto flex flex-col gap-2">
-            <Button size="lg" className="h-16 rounded-xl" onClick={tapLine}>
-              Эта строка сейчас
+        <div className="flex min-h-0 flex-1 flex-col">
+          <button
+            type="button"
+            className="flex min-h-0 flex-1 touch-manipulation select-none flex-col text-left"
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              tapLine();
+            }}
+          >
+            <p className="text-xs uppercase tracking-[0.2em] text-subtle">
+              {clock} · {Math.min(stamps.length + 1, rows.length)} / {rows.length} · жми экран
+            </p>
+            <p className="mt-4 min-h-6 text-sm text-subtle">{prevLine}</p>
+            <p className="mt-3 font-display text-3xl leading-tight text-fg sm:text-5xl">{currentLine}</p>
+            <p className="mt-4 min-h-6 text-sm text-muted">{nextLine}</p>
+            <p className="mt-auto pb-4 text-center text-sm text-subtle">
+              Как услышишь эту строку — тык куда угодно. С телефона так и надо.
+            </p>
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" className="h-12 rounded-xl" onPointerDown={(e) => e.stopPropagation()} onClick={undoTap} disabled={!stamps.length}>
+              На строку назад
             </Button>
             <Button
               variant="ghost"
+              className="h-12 rounded-xl"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => {
                 stopPreview();
                 setTapping(false);
+                setStamps([]);
               }}
             >
               Сброс
@@ -327,7 +381,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
               {busy?.startsWith("Ищу") ? busy : "Найти текст по названию"}
             </Button>
             <Button variant="secondary" onClick={startTap} disabled={Boolean(busy)}>
-              Набить такт под песню
+              Набить такт — жми экран
             </Button>
             <Button variant="secondary" onClick={() => void cookMinus()} disabled={Boolean(busy)}>
               {busy?.startsWith("Снимаю") ? busy : track.minusBlob ? "Переснять минус" : "Снять минус"}
