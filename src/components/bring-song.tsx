@@ -68,7 +68,7 @@ export function BringSong() {
       return;
     }
     if (!sunoUrl.trim()) {
-      toast.error("Вставь ссылку suno.com/song/…");
+      toast.error("Вставь ссылку suno.com/song/… или suno.com/s/…");
       return;
     }
     setBusy(true);
@@ -256,7 +256,7 @@ export function BringSong() {
         {tracks.length < LIBRARY_MAX ? (
           <>
             <Input
-              placeholder="Ссылка suno.com/song/…"
+              placeholder="Ссылка suno.com/song/… или suno.com/s/…"
               value={sunoUrl}
               onChange={(e) => setSunoUrl(e.target.value)}
             />

@@ -190,14 +190,31 @@ const UUID =
 export function parseSunoClipId(raw: string) {
   const text = raw.trim();
   if (!text) return "";
-  const fromPath = text.match(
-    /suno\.(?:com|ai)\/(?:song|songs|s)\/([0-9a-f-]{8,})/i,
-  );
-  if (fromPath?.[1] && UUID.test(fromPath[1])) return fromPath[1].toLowerCase();
+  const fromSong = text.match(/suno\.(?:com|ai)\/(?:song|songs)\/([0-9a-f-]{8,})/i);
+  if (fromSong?.[1] && UUID.test(fromSong[1])) return fromSong[1].toLowerCase();
   const fromCdn = text.match(/cdn\d?\.suno\.ai\/(?:image_)?([0-9a-f-]{36})/i);
   if (fromCdn?.[1]) return fromCdn[1].toLowerCase();
   const bare = text.match(UUID);
   return bare ? bare[0].toLowerCase() : "";
+}
+
+function parseShareCode(raw: string) {
+  const m = raw.trim().match(/suno\.(?:com|ai)\/s\/([A-Za-z0-9_-]{6,})/);
+  return m?.[1] ?? "";
+}
+
+async function resolveSunoClipId(raw: string) {
+  const direct = parseSunoClipId(raw);
+  if (direct) return direct;
+  const share = parseShareCode(raw);
+  if (!share) return "";
+  const res = await fetch(`https://suno.com/s/${share}`, {
+    method: "GET",
+    redirect: "manual",
+    headers: { "User-Agent": "Mozilla/5.0 Butylka" },
+  });
+  const loc = res.headers.get("location") ?? "";
+  return parseSunoClipId(loc) || parseSunoClipId(`https://suno.com${loc}`);
 }
 
 function lyricsFromPrompt(prompt: string) {
@@ -212,8 +229,8 @@ function lyricsFromPrompt(prompt: string) {
 export const importSunoSong = createServerFn({ method: "POST" })
   .validator((input: { url: string }) => input)
   .handler(async ({ data }) => {
-    const id = parseSunoClipId(data.url);
-    if (!id) return { ok: false as const, error: "Нужна ссылка вида suno.com/song/…" };
+    const id = await resolveSunoClipId(data.url);
+    if (!id) return { ok: false as const, error: "Нужна ссылка suno.com/song/… или suno.com/s/…" };
     const res = await fetch(`https://studio-api.prod.suno.com/api/clip/${id}`, {
       headers: { "User-Agent": "Mozilla/5.0 Butylka" },
     });
