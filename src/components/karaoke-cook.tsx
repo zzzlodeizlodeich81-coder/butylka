@@ -108,7 +108,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
   async function cookMinus() {
     setBusy("Снимаю минус… минута-две");
     try {
-      const audioUrl = await hostFile(track.blob);
+      const audioUrl = track.sourceUrl || (await hostFile(track.blob));
       const started = await startSunoStems({ data: { audioUrl } });
       if (!started.ok) throw new Error(started.error);
       let instrumental: string | null = null;

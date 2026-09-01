@@ -7,7 +7,8 @@ export type PreparedTrack = {
 
 function isAudioFile(file: File) {
   if (file.type.startsWith("audio/")) return true;
-  return /\.(mp3|wav|m4a|ogg|aac|flac|mpeg)$/i.test(file.name);
+  if (file.type === "video/mp4" || file.type === "video/webm") return true;
+  return /\.(mp3|wav|m4a|ogg|aac|flac|mpeg|mp4|webm)$/i.test(file.name);
 }
 
 function readDuration(url: string): Promise<number> {

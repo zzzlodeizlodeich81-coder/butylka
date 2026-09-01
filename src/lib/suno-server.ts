@@ -183,3 +183,66 @@ export const getSunoTimestamps = createServerFn({ method: "POST" })
       .filter((w) => w.word);
     return { ok: true as const, words };
   });
+
+const UUID =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+export function parseSunoClipId(raw: string) {
+  const text = raw.trim();
+  if (!text) return "";
+  const fromPath = text.match(
+    /suno\.(?:com|ai)\/(?:song|songs|s)\/([0-9a-f-]{8,})/i,
+  );
+  if (fromPath?.[1] && UUID.test(fromPath[1])) return fromPath[1].toLowerCase();
+  const fromCdn = text.match(/cdn\d?\.suno\.ai\/(?:image_)?([0-9a-f-]{36})/i);
+  if (fromCdn?.[1]) return fromCdn[1].toLowerCase();
+  const bare = text.match(UUID);
+  return bare ? bare[0].toLowerCase() : "";
+}
+
+function lyricsFromPrompt(prompt: string) {
+  return prompt
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !/^\[[^\]]+]$/.test(l))
+    .join("\n")
+    .slice(0, 8000);
+}
+
+export const importSunoSong = createServerFn({ method: "POST" })
+  .validator((input: { url: string }) => input)
+  .handler(async ({ data }) => {
+    const id = parseSunoClipId(data.url);
+    if (!id) return { ok: false as const, error: "Нужна ссылка вида suno.com/song/…" };
+    const res = await fetch(`https://studio-api.prod.suno.com/api/clip/${id}`, {
+      headers: { "User-Agent": "Mozilla/5.0 Butylka" },
+    });
+    if (!res.ok) return { ok: false as const, error: "Suno не отдал этот клип. Проверь, что песня публичная." };
+    const clip = (await res.json()) as Record<string, unknown>;
+    if (clip.is_trashed) return { ok: false as const, error: "Клип уже стёрт." };
+    const meta = (clip.metadata ?? {}) as Record<string, unknown>;
+    const videoUrl = String(clip.video_url ?? "");
+    const media = (clip.media_urls ?? []) as { url?: string; content_type?: string }[];
+    const m4a = media.find((m) => /m4a/i.test(m.content_type ?? "") || /\.m4a(\?|$)/i.test(m.url ?? ""));
+    const mp3 = media.find((m) => /mp3/i.test(m.content_type ?? "") || /\.mp3(\?|$)/i.test(m.url ?? ""));
+    const audioUrl = /\.mp4(\?|$)/i.test(videoUrl)
+      ? videoUrl
+      : m4a?.url || mp3?.url || "";
+    if (!audioUrl || /forbidden/i.test(audioUrl)) {
+      return { ok: false as const, error: "У клипа нет открытого файла." };
+    }
+    const title = String(clip.title ?? "Suno").slice(0, 48) || "Suno";
+    const artist = String(clip.display_name || clip.handle || "suno").slice(0, 48);
+    const duration = Number(meta.duration ?? 0);
+    const lyrics = lyricsFromPrompt(String(meta.prompt ?? ""));
+    return {
+      ok: true as const,
+      clipId: id,
+      title,
+      artist,
+      duration,
+      lyrics,
+      audioUrl,
+    };
+  });
+

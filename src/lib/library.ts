@@ -16,6 +16,7 @@ export type SavedTrack = {
   blob: Blob;
   lines?: LyricLine[];
   minusBlob?: Blob;
+  sourceUrl?: string;
 };
 
 const objectUrls = new Map<string, string>();

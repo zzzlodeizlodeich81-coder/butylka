@@ -14,6 +14,8 @@ import {
   type SavedTrack,
 } from "@/lib/library";
 import { looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
+import { proxyAudio } from "@/lib/suno";
+import { importSunoSong } from "@/lib/suno-server";
 import { takeAudioFile, prepareKaraokeTrack } from "@/lib/stems";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -31,6 +33,7 @@ export function BringSong() {
   const [tracks, setTracks] = useState<SavedTrack[]>([]);
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
+  const [sunoUrl, setSunoUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -56,6 +59,62 @@ export function BringSong() {
     if (!title.trim()) {
       const stem = audio.name.replace(/\.[^.]+$/, "").slice(0, 48);
       if (stem) setTitle(stem);
+    }
+  }
+
+  async function addFromSuno() {
+    if (tracks.length >= LIBRARY_MAX) {
+      toast.error(`В колоде уже ${LIBRARY_MAX}.`);
+      return;
+    }
+    if (!sunoUrl.trim()) {
+      toast.error("Вставь ссылку suno.com/song/…");
+      return;
+    }
+    setBusy(true);
+    try {
+      const hit = await importSunoSong({ data: { url: sunoUrl } });
+      if (!hit.ok) throw new Error(hit.error);
+      const res = await fetch(proxyAudio(hit.audioUrl));
+      if (!res.ok) throw new Error("Не скачался файл с Suno.");
+      const blob = await res.blob();
+      const ext = hit.audioUrl.includes(".mp4") ? "mp4" : "m4a";
+      const mime = ext === "mp4" ? "video/mp4" : blob.type || "audio/mp4";
+      const fileish = new File([blob], `${hit.title}.${ext}`, { type: mime });
+      let duration = hit.duration || 0;
+      try {
+        const prepared = await prepareKaraokeTrack(fileish, false);
+        duration = prepared.duration || duration;
+        URL.revokeObjectURL(prepared.url);
+      } catch {
+        if (!duration) throw new Error("Файл с Suno пришёл, но браузер не прочитал длину.");
+      }
+      const id = uid("suno");
+      const text = lyrics.trim() || hit.lyrics;
+      const lines = looksLikeLrc(text) ? parseLrc(text) : undefined;
+      const saved: SavedTrack = {
+        id,
+        title: (title.trim() || hit.title).slice(0, 48),
+        lyrics: text,
+        duration: duration || hit.duration,
+        mime: fileish.type,
+        addedAt: Date.now(),
+        blob: fileish,
+        lines,
+        sourceUrl: hit.audioUrl,
+      };
+      await saveTrack(saved);
+      const next = await syncSongs(artist);
+      setTracks(next);
+      setSunoUrl("");
+      setLyrics("");
+      toast.success("С Suno в колоде. Можно снять минус без загрузки.");
+      playUiTick();
+      setStudio(next.find((t) => t.id === id) ?? saved);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ссылка не открылась.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -196,6 +255,15 @@ export function BringSong() {
 
         {tracks.length < LIBRARY_MAX ? (
           <>
+            <Input
+              placeholder="Ссылка suno.com/song/…"
+              value={sunoUrl}
+              onChange={(e) => setSunoUrl(e.target.value)}
+            />
+            <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={busy}>
+              {busy ? "Забираю с Suno…" : "Забрать с Suno"}
+            </Button>
+            <p className="text-xs text-subtle">Или свой файл:</p>
             <Input placeholder="Название как в песне" value={title} onChange={(e) => setTitle(e.target.value)} />
             <button
               type="button"
