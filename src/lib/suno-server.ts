@@ -261,6 +261,14 @@ function lyricsFromPrompt(prompt: string) {
     .slice(0, 8000);
 }
 
+function pickClipLyrics(clip: Record<string, unknown>, meta: Record<string, unknown>) {
+  const raw = [meta.prompt, meta.lyrics, clip.lyrics, meta.display_prompt]
+    .map((v) => (typeof v === "string" ? lyricsFromPrompt(v) : ""))
+    .filter((t) => t.split(/\n/).filter(Boolean).length >= 2);
+  raw.sort((a, b) => b.length - a.length);
+  return raw[0] ?? "";
+}
+
 export const importSunoSong = createServerFn({ method: "POST" })
   .validator((input: { url: string }) => input)
   .handler(async ({ data }) => {
@@ -286,7 +294,7 @@ export const importSunoSong = createServerFn({ method: "POST" })
     const title = String(clip.title ?? "Suno").slice(0, 48) || "Suno";
     const artist = String(clip.display_name || clip.handle || "suno").slice(0, 48);
     const duration = Number(meta.duration ?? 0);
-    const lyrics = lyricsFromPrompt(String(meta.prompt ?? ""));
+    const lyrics = pickClipLyrics(clip, meta);
     return {
       ok: true as const,
       clipId: id,

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AudioLines, Library, Link2, RefreshCw } from "lucide-react";
+import { AudioLines, Link2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -151,10 +151,6 @@ export function SongPick() {
           <Button variant="secondary" onClick={rerollSongs}>
             <RefreshCw />
             Ещё три
-          </Button>
-          <Button variant="secondary" onClick={() => setPanel("folk")}>
-            <Library />
-            Все знают
           </Button>
           <Button variant="secondary" onClick={() => setPanel("gen")}>
             <AudioLines />

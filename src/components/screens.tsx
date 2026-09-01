@@ -54,7 +54,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Свои 1–3 трека. Бутылочка крутит твою колоду. Слышишь файл как есть.
+          Свои треки с Suno. Бутылочка крутит колоду. Хиты не кладём.
         </p>
         <div className="mt-5">
           <ChavoButton />

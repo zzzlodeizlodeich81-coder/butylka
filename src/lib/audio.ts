@@ -568,6 +568,7 @@ function takeMime() {
 
 export type MixedTake = {
   time: () => number;
+  duration: () => number;
   level: () => number;
   stop: () => Promise<Blob>;
 };
@@ -665,6 +666,7 @@ export async function startMixedTake(playUrl: string): Promise<MixedTake | null>
 
   return {
     time: () => (Number.isFinite(el.currentTime) ? el.currentTime : 0),
+    duration: () => (Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0),
     level: () => {
       analyser.getByteTimeDomainData(data);
       let sum = 0;

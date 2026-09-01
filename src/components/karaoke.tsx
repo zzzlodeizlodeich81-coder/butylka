@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Button } from "@/components/ui/button";
 import {
-  audioRunning,
   now,
   playUiTick,
   startMic,
@@ -41,17 +40,18 @@ export function KaraokeStage() {
   const replaceCustomSongs = useGame((s) => s.replaceCustomSongs);
   const singerNotes = singer?.notes ?? 0;
   const [lane, setLane] = useState<"ask" | "live" | "take" | "cover" | null>(null);
-
   const [count, setCount] = useState(3);
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
   const [hadMic, setHadMic] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
+  const [armed, setArmed] = useState(false);
   const startedAtRef = useRef(0);
   const durationRef = useRef(40);
   const elapsedRef = useRef(0);
   const doneRef = useRef(false);
   const startedRef = useRef(false);
+  const armedRef = useRef(false);
   const micRef = useRef<MicHandle | null>(null);
   const recRef = useRef<MixedTake | null>(null);
   const energyRef = useRef({
@@ -114,8 +114,17 @@ export function KaraokeStage() {
     if (!play || startedRef.current || doneRef.current) return false;
     unlockAudio();
     startedRef.current = true;
+    armedRef.current = false;
+    setArmed(false);
     setNeedsTap(false);
-    durationRef.current = songDuration(play);
+    durationRef.current = Math.max(12, songDuration(play));
+
+    const arm = (startedAt: number, duration?: number) => {
+      startedAtRef.current = startedAt;
+      if (duration && duration > 8) durationRef.current = duration;
+      armedRef.current = true;
+      setArmed(true);
+    };
 
     if (withMic && play.audioUrl) {
       void startMixedTake(play.audioUrl).then((rec) => {
@@ -125,14 +134,17 @@ export function KaraokeStage() {
         }
         if (rec) {
           recRef.current = rec;
-          startedAtRef.current = now();
+          arm(now(), rec.duration() || songDuration(play));
           setHadMic(true);
           return;
         }
         const handle = startTrack(play);
         if (handle) {
-          startedAtRef.current = handle.startedAt;
-          durationRef.current = handle.duration;
+          arm(handle.startedAt, handle.duration);
+        } else {
+          startedRef.current = false;
+          setNeedsTap(true);
+          return;
         }
         void startMic().then((mic) => {
           if (doneRef.current) {
@@ -150,14 +162,13 @@ export function KaraokeStage() {
         setNeedsTap(true);
         return false;
       }
-      startedAtRef.current = handle.startedAt;
-      durationRef.current = handle.duration;
+      arm(handle.startedAt, handle.duration);
       setHadMic(false);
     }
 
     window.setTimeout(() => {
-      if (!audioRunning() && !useGame.getState().muted) setNeedsTap(true);
-    }, 180);
+      if (!armedRef.current && !useGame.getState().muted) setNeedsTap(true);
+    }, 4000);
     return true;
   }, []);
 
@@ -201,6 +212,8 @@ export function KaraokeStage() {
     if (!song) return;
     startedRef.current = false;
     doneRef.current = false;
+    armedRef.current = false;
+    setArmed(false);
     setLane(null);
     let live = true;
     const timers = [1, 2, 3].map((s) =>
@@ -214,6 +227,7 @@ export function KaraokeStage() {
         setLane("ask");
         return;
       }
+      setLane("live");
       if (!begin(song, true)) setNeedsTap(true);
     }, 2100);
 
@@ -222,6 +236,7 @@ export function KaraokeStage() {
       timers.forEach(clearTimeout);
       clearTimeout(startTimer);
       startedRef.current = false;
+      armedRef.current = false;
       stopTrack();
       micRef.current?.stop();
       void recRef.current?.stop();
@@ -230,13 +245,20 @@ export function KaraokeStage() {
   }, [song, begin]);
 
   useEffect(() => {
-    if (count > 0 || !song || lane === "ask") return;
+    if (count > 0 || !song || !lane || lane === "ask") return;
     let raf = 0;
     const tick = () => {
-      const fileT = trackTime();
+      if (!armedRef.current) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const recT = recRef.current?.time();
+      const fileT = recT != null ? recT : trackTime();
       const t = fileT != null ? fileT : Math.max(0, now() - startedAtRef.current);
       elapsedRef.current = t;
       setElapsed(t);
+      const recDur = recRef.current?.duration() ?? 0;
+      if (recDur > 8) durationRef.current = recDur;
       const lvl = recRef.current?.level() ?? micRef.current?.level() ?? 0;
       setLevel(lvl);
       const { i } = currentLine(song, t);
@@ -248,7 +270,7 @@ export function KaraokeStage() {
         e.n += 1;
         if (e.lineN > 6 && e.lineEnergy / e.lineN > 0.07) e.scored.add(i);
       }
-      if (t >= durationRef.current) {
+      if (t >= durationRef.current && t > 2) {
         settle();
         return;
       }
@@ -352,6 +374,8 @@ export function KaraokeStage() {
               Кавер · {COVER_COST} ноты
             </Button>
           </div>
+        ) : !armed ? (
+          <p className="font-display text-2xl text-fg">Микрофон…</p>
         ) : (
           <>
             <p className="min-h-6 text-sm text-subtle">
