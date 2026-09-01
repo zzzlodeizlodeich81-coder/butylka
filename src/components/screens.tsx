@@ -372,6 +372,7 @@ export function Result() {
   const youId = useGame((s) => s.youId);
   const lastGifts = useGame((s) => s.lastGifts);
   const lastHearts = useGame((s) => s.lastHearts);
+  const lastTake = useGame((s) => s.lastTake);
   const sendHeart = useGame((s) => s.sendHeart);
   const sendGift = useGame((s) => s.sendGift);
   const grade = gradeFor(lastScore);
@@ -387,7 +388,23 @@ export function Result() {
       return;
     }
     void getSavedTrack(song.id).then(setTake).catch(() => setTake(null));
-  }, [song]);
+  }, [song, lastTake]);
+
+  const downloadTrack =
+    take || lastTake
+      ? {
+          ...(take ?? {
+            id: song?.id ?? "take",
+            title: song?.title ?? "запись",
+            lyrics: "",
+            duration: song?.audioDuration ?? 0,
+            mime: lastTake?.type || "audio/webm",
+            addedAt: Date.now(),
+            blob: lastTake ?? new Blob(),
+          }),
+          takeBlob: lastTake ?? take?.takeBlob,
+        }
+      : null;
 
   return (
     <div className="mx-auto flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -408,7 +425,7 @@ export function Result() {
           {song.minus ? " · минус" : ""}
         </p>
       ) : null}
-      {take ? <TrackTakes track={take} className="mt-3" /> : null}
+      {downloadTrack ? <TrackTakes track={downloadTrack} className="mt-3" /> : null}
 
       <div className="mt-4 rounded-xl border border-border bg-surface p-3">
         <p className="text-xs text-muted">Оценить. Сердце бесплатно, подарки — за ноты.</p>

@@ -142,6 +142,7 @@ type GameState = {
   lastSkip: { fromId: string; toId: string; kind: SkipKind } | null;
   lastGifts: ReceivedGift[];
   lastHearts: number;
+  lastTake: Blob | null;
   round: number;
   spinning: boolean;
   customSongs: Song[];
@@ -180,6 +181,7 @@ type GameState = {
   replaceCustomSongs: (songs: Song[]) => void;
   chooseSong: (song: Song) => void;
   finishKaraoke: (score: number, hadMic: boolean) => void;
+  setLastTake: (blob: Blob | null) => void;
   sendHeart: (fromId: string) => void;
   sendGift: (fromId: string, kind: GiftKind) => boolean;
   sendChat: (text: string, toId: "all" | string) => void;
@@ -218,6 +220,7 @@ export const useGame = create<GameState>((set, get) => ({
   lastSkip: null,
   lastGifts: [],
   lastHearts: 0,
+  lastTake: null,
   round: 1,
   spinning: false,
   customSongs: [],
@@ -469,6 +472,8 @@ export const useGame = create<GameState>((set, get) => ({
     });
   },
 
+  setLastTake: (blob) => set({ lastTake: blob }),
+
   sendHeart: (fromId) => {
     const { singerId, players } = get();
     if (!singerId || fromId === singerId) return;
@@ -518,6 +523,7 @@ export const useGame = create<GameState>((set, get) => ({
       song: null,
       lastGifts: [],
       lastHearts: 0,
+      lastTake: null,
     });
     get().tryBeginOmen();
   },
@@ -534,6 +540,7 @@ export const useGame = create<GameState>((set, get) => ({
       lastSkip: null,
       lastGifts: [],
       lastHearts: 0,
+      lastTake: null,
       verseIndex: 0,
       verseLines: [],
       cookStatus: "idle",

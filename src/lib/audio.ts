@@ -568,6 +568,7 @@ function takeMime() {
 
 export type MixedTake = {
   time: () => number;
+  level: () => number;
   stop: () => Promise<Blob>;
 };
 
@@ -611,6 +612,11 @@ export async function startMixedTake(playUrl: string): Promise<MixedTake | null>
   micGain.gain.value = 1.2;
   micSrc.connect(micGain);
   micGain.connect(dest);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.65;
+  micSrc.connect(analyser);
+  const data = new Uint8Array(analyser.fftSize);
 
   const mime = takeMime();
   const rec = new MediaRecorder(dest.stream, { mimeType: mime, audioBitsPerSecond: 96_000 });
@@ -659,6 +665,15 @@ export async function startMixedTake(playUrl: string): Promise<MixedTake | null>
 
   return {
     time: () => (Number.isFinite(el.currentTime) ? el.currentTime : 0),
+    level: () => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      return Math.min(1, Math.sqrt(sum / data.length) * 3.4);
+    },
     stop,
   };
 }

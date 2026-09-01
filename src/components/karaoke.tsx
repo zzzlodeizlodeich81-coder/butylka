@@ -8,12 +8,15 @@ import {
   now,
   playUiTick,
   startMic,
+  startMixedTake,
   startTrack,
   stopTrack,
   trackTime,
   unlockAudio,
   type MicHandle,
+  type MixedTake,
 } from "@/lib/audio";
+import { getSavedTrack, listSavedTracks, saveTrack, songFromSaved } from "@/lib/library";
 import { songDuration, type Song } from "@/lib/songs";
 import { COVER_COST, TAKE_COST, formatChallenge, playerById, useGame } from "@/lib/store";
 
@@ -33,7 +36,9 @@ export function KaraokeStage() {
   const partner = playerById(players, useGame((s) => s.partnerId));
   const challenge = useGame((s) => s.challenge);
   const finishKaraoke = useGame((s) => s.finishKaraoke);
+  const setLastTake = useGame((s) => s.setLastTake);
   const spendNotes = useGame((s) => s.spendNotes);
+  const replaceCustomSongs = useGame((s) => s.replaceCustomSongs);
   const singerNotes = singer?.notes ?? 0;
   const [lane, setLane] = useState<"ask" | "live" | "take" | "cover" | null>(null);
 
@@ -48,6 +53,7 @@ export function KaraokeStage() {
   const doneRef = useRef(false);
   const startedRef = useRef(false);
   const micRef = useRef<MicHandle | null>(null);
+  const recRef = useRef<MixedTake | null>(null);
   const energyRef = useRef({
     sum: 0,
     n: 0,
@@ -56,15 +62,27 @@ export function KaraokeStage() {
     scored: new Set<number>(),
   });
 
-  function settle() {
+  async function settle() {
     if (doneRef.current || !song) return;
     doneRef.current = true;
+    const rec = recRef.current;
+    recRef.current = null;
+    const hadFallbackMic = Boolean(micRef.current);
+    let blob: Blob | null = null;
+    if (rec) {
+      try {
+        blob = await rec.stop();
+      } catch {
+        blob = null;
+      }
+    }
     stopTrack();
     micRef.current?.stop();
+    micRef.current = null;
     const e = energyRef.current;
     const hits = e.scored.size;
     const avg = e.n ? e.sum / e.n : 0;
-    const usedMic = Boolean(micRef.current);
+    const usedMic = hadFallbackMic || Boolean(blob && blob.size > 2000);
     let score: number;
     if (usedMic) {
       score = Math.round(
@@ -74,33 +92,69 @@ export function KaraokeStage() {
       const stay = Math.min(1, elapsedRef.current / durationRef.current);
       score = Math.round(2400 + stay * 1800);
     }
+    if (blob && blob.size > 2000) {
+      setLastTake(blob);
+      if (song.pack === "mine") {
+        try {
+          const saved = await getSavedTrack(song.id);
+          if (saved) {
+            await saveTrack({ ...saved, takeBlob: blob });
+            const all = await listSavedTracks();
+            replaceCustomSongs(all.map((t) => songFromSaved(t, singer?.name ?? saved.title)));
+          }
+        } catch {
+          /* keep lastTake in memory */
+        }
+      }
+    }
     finishKaraoke(Math.min(9999, score), usedMic);
   }
 
   const begin = useCallback((play: Song, withMic: boolean) => {
     if (!play || startedRef.current || doneRef.current) return false;
     unlockAudio();
-    const handle = startTrack(play);
-    if (!handle) {
-      setNeedsTap(true);
-      return false;
-    }
     startedRef.current = true;
     setNeedsTap(false);
-    startedAtRef.current = handle.startedAt;
-    durationRef.current = handle.duration;
-    if (withMic) {
-      void startMic().then((mic) => {
+    durationRef.current = songDuration(play);
+
+    if (withMic && play.audioUrl) {
+      void startMixedTake(play.audioUrl).then((rec) => {
         if (doneRef.current) {
-          mic?.stop();
+          void rec?.stop();
           return;
         }
-        micRef.current = mic;
-        setHadMic(Boolean(mic));
+        if (rec) {
+          recRef.current = rec;
+          startedAtRef.current = now();
+          setHadMic(true);
+          return;
+        }
+        const handle = startTrack(play);
+        if (handle) {
+          startedAtRef.current = handle.startedAt;
+          durationRef.current = handle.duration;
+        }
+        void startMic().then((mic) => {
+          if (doneRef.current) {
+            mic?.stop();
+            return;
+          }
+          micRef.current = mic;
+          setHadMic(Boolean(mic));
+        });
       });
     } else {
+      const handle = startTrack(play);
+      if (!handle) {
+        startedRef.current = false;
+        setNeedsTap(true);
+        return false;
+      }
+      startedAtRef.current = handle.startedAt;
+      durationRef.current = handle.duration;
       setHadMic(false);
     }
+
     window.setTimeout(() => {
       if (!audioRunning() && !useGame.getState().muted) setNeedsTap(true);
     }, 180);
@@ -170,6 +224,8 @@ export function KaraokeStage() {
       startedRef.current = false;
       stopTrack();
       micRef.current?.stop();
+      void recRef.current?.stop();
+      recRef.current = null;
     };
   }, [song, begin]);
 
@@ -181,8 +237,7 @@ export function KaraokeStage() {
       const t = fileT != null ? fileT : Math.max(0, now() - startedAtRef.current);
       elapsedRef.current = t;
       setElapsed(t);
-      const mic = micRef.current;
-      const lvl = mic?.level() ?? 0;
+      const lvl = recRef.current?.level() ?? micRef.current?.level() ?? 0;
       setLevel(lvl);
       const { i } = currentLine(song, t);
       const e = energyRef.current;

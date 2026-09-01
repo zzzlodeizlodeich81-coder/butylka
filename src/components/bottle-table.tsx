@@ -117,8 +117,12 @@ function normalize(a: number) {
   return x;
 }
 
+function bottlePoint(angle: number) {
+  return angle - Math.PI / 2;
+}
+
 function isPointing(bottleAngle: number, seatAngle: number) {
-  let d = Math.abs(normalize(bottleAngle - seatAngle));
+  let d = Math.abs(normalize(bottlePoint(bottleAngle) - seatAngle));
   if (d > Math.PI) d = Math.PI * 2 - d;
   return d < 0.28;
 }
@@ -212,7 +216,7 @@ function drawScene(
 export function BottleTable() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const angleRef = useRef(-Math.PI / 2);
+  const angleRef = useRef(0);
   const animRef = useRef(0);
   const avatarsRef = useRef(new Map<string, HTMLImageElement>());
   const players = useGame((s) => s.players);
@@ -293,7 +297,7 @@ export function BottleTable() {
     const { singerId: next } = startSpin();
     const list = useGame.getState().players;
     const idx = list.findIndex((p) => p.id === next);
-    const target = slotAngle(idx < 0 ? 0 : idx, list.length);
+    const target = slotAngle(idx < 0 ? 0 : idx, list.length) + Math.PI / 2;
     const reduced =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
