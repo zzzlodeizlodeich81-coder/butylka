@@ -49,7 +49,7 @@ export function CookBridge() {
         return;
       }
 
-      toast.message("Suno варит. Крутите бутылку — когда сварится, почернеет.");
+      toast.message("Suno варит. Крутите балалайку — когда сварится, почернеет.");
 
       const started = await startSunoGenerate({
         data: {
@@ -135,7 +135,7 @@ export function CookBridge() {
       if (!live) return;
 
       readyOmen(song, cooked.sunoPrompt);
-      toast.message("Песня готова. Бутылочка темнеет.");
+      toast.message("Песня готова. Балалайка темнеет.");
     })().catch(() => {
       if (!live) return;
       toast.error("Suno не ответил.");

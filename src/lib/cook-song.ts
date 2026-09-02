@@ -118,7 +118,7 @@ JSON:
       const song = buildSong({
         id: uid("omen"),
         title: String(parsed.title).slice(0, 48),
-        artist: String(parsed.artist || "чёрная бутылка").slice(0, 32),
+        artist: String(parsed.artist || "чёрная балалайка").slice(0, 32),
         genre: parseGenre(String(parsed.genre || "hyperpop")) as Genre,
         bpm,
         mood: "стол",

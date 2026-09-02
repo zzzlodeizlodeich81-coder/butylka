@@ -4,7 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Бутылочка";
+const APP_NAME = "Балалаечка";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -15,7 +15,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#f4efe6" },
       {
         name: "description",
-        content: "Караоке за столом: свои треки, бутылочка выбирает кто поёт.",
+        content: "Караоке за столом: свои треки, балалайка выбирает кто поёт.",
       },
     ],
     links: [

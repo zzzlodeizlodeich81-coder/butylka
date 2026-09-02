@@ -37,7 +37,7 @@ function timedLines(text: string, duration: number) {
 }
 
 export function BringSong() {
-  const toTable = useGame((s) => s.toTable);
+  const toVerse = useGame((s) => s.toVerse);
   const tableSongs = useGame((s) => s.customSongs);
   const mode = useGame((s) => s.mode);
   const you = useGame((s) => s.players.find((p) => p.id === s.youId));
@@ -216,15 +216,15 @@ export function BringSong() {
     setPlayingId(track.id);
   }
 
-  function goTable() {
+  function goVerse() {
     const ready = mode === "net" ? tableSongs.length + tracks.length : tracks.length;
     if (!ready) {
-      toast.error("Положи хотя бы один свой трек.");
+      toast.error("Положи хотя бы один свой трек — петь, пока из строк варится новая.");
       return;
     }
     stopPreview();
     playUiTick();
-    toTable();
+    toVerse();
   }
 
   if (studio) {
@@ -329,10 +329,10 @@ export function BringSong() {
           type="button"
           size="lg"
           className="h-14 rounded-xl"
-          onClick={goTable}
+          onClick={goVerse}
           disabled={mode === "net" ? !tableSongs.length && !tracks.length : !tracks.length}
         >
-          {tracks.length ? `За стол · ${tracks.length}` : "Сначала свой трек"}
+          {tracks.length || tableSongs.length ? "Дальше — круг строк" : "Сначала свой трек"}
         </Button>
       </div>
     </div>

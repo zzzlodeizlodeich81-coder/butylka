@@ -35,7 +35,7 @@ function woodFill(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
   ctx.restore();
 }
 
-function drawBottle(
+function drawBalalaika(
   ctx: CanvasRenderingContext2D,
   angle: number,
   scale: number,
@@ -45,54 +45,86 @@ function drawBottle(
   ctx.save();
   ctx.rotate(angle);
 
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
   ctx.beginPath();
-  ctx.ellipse(scale * 0.06, scale * 0.1, scale * 0.34, scale * 1.05, 0, 0, Math.PI * 2);
+  ctx.moveTo(scale * 0.08, scale * 1.24);
+  ctx.lineTo(scale * 0.68, scale * 0.12);
+  ctx.lineTo(-scale * 0.5, scale * 0.12);
+  ctx.closePath();
   ctx.fill();
 
-  const glass = ctx.createLinearGradient(-scale * 0.4, 0, scale * 0.45, 0);
+  const body = ctx.createLinearGradient(-scale * 0.55, scale * 0.1, scale * 0.55, scale * 1.1);
   if (omen) {
-    glass.addColorStop(0, "#070707");
-    glass.addColorStop(0.35, "#1a1012");
-    glass.addColorStop(0.5, "#3a2428");
-    glass.addColorStop(0.72, "#12090b");
-    glass.addColorStop(1, "#050505");
+    body.addColorStop(0, "#070707");
+    body.addColorStop(0.4, "#1a1012");
+    body.addColorStop(0.7, "#3a2428");
+    body.addColorStop(1, "#0a0606");
   } else {
-    glass.addColorStop(0, "#1a2c22");
-    glass.addColorStop(0.32, "#3d5c48");
-    glass.addColorStop(0.5, "#9dccab");
-    glass.addColorStop(0.68, "#2f4a38");
-    glass.addColorStop(1, "#15241c");
+    body.addColorStop(0, "#6a3a16");
+    body.addColorStop(0.35, "#d4a24a");
+    body.addColorStop(0.55, "#f0d08a");
+    body.addColorStop(0.8, "#c47a32");
+    body.addColorStop(1, "#5a3014");
   }
-  ctx.fillStyle = glass;
-
+  ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.roundRect(-scale * 0.36, -scale * 0.12, scale * 0.72, scale * 1.12, scale * 0.34);
+  ctx.moveTo(0, scale * 1.2);
+  ctx.lineTo(scale * 0.6, scale * 0.04);
+  ctx.lineTo(-scale * 0.6, scale * 0.04);
+  ctx.closePath();
   ctx.fill();
 
+  ctx.fillStyle = omen ? "#0c0708" : "#2c1810";
   ctx.beginPath();
-  ctx.roundRect(-scale * 0.13, -scale * 1.02, scale * 0.26, scale * 0.98, scale * 0.12);
+  ctx.arc(0, scale * 0.46, scale * 0.11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = omen ? "#5a2a2e" : "#f1ebe3";
+  ctx.lineWidth = Math.max(1.2, scale * 0.025);
+  ctx.stroke();
+
+  const neck = ctx.createLinearGradient(-scale * 0.08, 0, scale * 0.08, 0);
+  neck.addColorStop(0, omen ? "#0c0708" : "#2a160c");
+  neck.addColorStop(0.5, omen ? "#2a1618" : "#6a4422");
+  neck.addColorStop(1, omen ? "#10080a" : "#1a1008");
+  ctx.fillStyle = neck;
+  ctx.beginPath();
+  ctx.roundRect(-scale * 0.075, -scale * 1.02, scale * 0.15, scale * 1.1, scale * 0.04);
   ctx.fill();
 
-  ctx.fillStyle = omen ? "#1a1214" : "#d8cfc3";
-  ctx.beginPath();
-  ctx.roundRect(-scale * 0.14, -scale * 1.16, scale * 0.28, scale * 0.18, scale * 0.06);
-  ctx.fill();
-  ctx.fillStyle = omen ? "#5a2a2e" : "#8a8378";
-  ctx.fillRect(-scale * 0.14, -scale * 1.04, scale * 0.28, scale * 0.04);
+  ctx.strokeStyle = omen ? "rgba(181,82,74,0.28)" : "rgba(241,235,227,0.35)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 7; i++) {
+    const y = -scale * 0.08 - i * scale * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(-scale * 0.06, y);
+    ctx.lineTo(scale * 0.06, y);
+    ctx.stroke();
+  }
 
-  ctx.fillStyle = omen ? "#2a1618" : "#e8dfd4";
+  ctx.fillStyle = omen ? "#1a1012" : "#4a2a12";
   ctx.beginPath();
-  ctx.roundRect(-scale * 0.26, scale * 0.12, scale * 0.52, scale * 0.4, scale * 0.06);
+  ctx.roundRect(-scale * 0.13, -scale * 1.24, scale * 0.26, scale * 0.26, scale * 0.06);
   ctx.fill();
-  ctx.fillStyle = omen ? "#c4b5a0" : "#141210";
-  ctx.font = `600 ${Math.max(10, scale * 0.17)}px Unbounded, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(omen ? "ОН" : "НЕЙРО", 0, scale * 0.28);
-  ctx.font = `500 ${Math.max(7, scale * 0.1)}px Manrope, sans-serif`;
-  ctx.fillStyle = omen ? "#8a6a68" : "#6f6860";
-  ctx.fillText(omen ? "ПОЁТ" : "KARAOKE", 0, scale * 0.42);
+
+  ctx.fillStyle = omen ? "#b5524a" : "#f1ebe3";
+  for (const [x, y] of [
+    [-0.075, -1.17],
+    [0, -1.2],
+    [0.075, -1.17],
+  ] as const) {
+    ctx.beginPath();
+    ctx.arc(scale * x, scale * y, scale * 0.032, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = omen ? "rgba(196,181,160,0.5)" : "rgba(255,248,236,0.9)";
+  ctx.lineWidth = Math.max(1, scale * 0.015);
+  for (const x of [-0.035, 0, 0.035]) {
+    ctx.beginPath();
+    ctx.moveTo(scale * x, -scale * 1.16);
+    ctx.lineTo(scale * x * 4.2, scale * 0.98);
+    ctx.stroke();
+  }
 
   ctx.restore();
 
@@ -100,13 +132,13 @@ function drawBottle(
   ctx.globalCompositeOperation = "lighter";
   ctx.fillStyle = omen
     ? spinning
-      ? "rgba(181,82,74,0.22)"
+      ? "rgba(181,82,74,0.24)"
       : "rgba(181,82,74,0.1)"
     : spinning
-      ? "rgba(232,223,212,0.18)"
-      : "rgba(232,223,212,0.11)";
+      ? "rgba(240,208,138,0.22)"
+      : "rgba(240,208,138,0.1)";
   ctx.beginPath();
-  ctx.ellipse(-scale * 0.14, 0, scale * 0.08, scale * 0.62, -0.18, 0, Math.PI * 2);
+  ctx.ellipse(-scale * 0.12, scale * 0.2, scale * 0.08, scale * 0.7, -0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -209,7 +241,7 @@ function drawScene(
 
   ctx.save();
   ctx.translate(cx, cy);
-  drawBottle(ctx, angle, tableR * 0.38, spinning, omen);
+  drawBalalaika(ctx, angle, tableR * 0.4, spinning, omen);
   ctx.restore();
 }
 
@@ -344,7 +376,7 @@ export function BottleTable() {
     <div className="flex min-h-0 flex-1 flex-col">
       <p className="px-5 text-center text-sm text-muted">
         {omen
-          ? "Бутылочка тёмная. Стол затих."
+          ? "Балалайка тёмная. Стол затих."
           : cookStatus === "cooking"
             ? "Suno собирает песню из ваших строк. Пойте пока."
             : cookStatus === "failed"
@@ -365,7 +397,7 @@ export function BottleTable() {
               onClick={spin}
               disabled={spinning}
             >
-              {spinning ? "Крутится…" : "Крутить бутылку"}
+              {spinning ? "Крутится…" : "Крутить балалайку"}
             </Button>
             {cookStatus === "idle" || cookStatus === "failed" ? (
               <Button variant="ghost" onClick={toVerse}>

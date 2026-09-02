@@ -34,13 +34,13 @@ export function Wordmark({ large = false }: { large?: boolean }) {
       >
         <path
           fill="currentColor"
-          d="M13.2 8.2h5.6c.5 0 .9.4.9.9v6.2c1.6.7 2.7 2.2 2.7 4.1v6.1c0 2.4-2.3 4.3-5.2 4.3h-2.4c-2.9 0-5.2-1.9-5.2-4.3v-6.1c0-1.9 1.1-3.4 2.7-4.1V9.1c0-.5.4-.9.9-.9Z"
+          d="M15.4 3.2h1.2c.4 0 .7.3.7.7v10.2l6.2 11.4c.2.4 0 .9-.5.9H8.8c-.5 0-.7-.5-.5-.9l6.2-11.4V3.9c0-.4.3-.7.7-.7Z"
         />
-        <rect x="12.4" y="4.2" width="7.2" height="4.2" rx="1.2" className="fill-accent" />
-        <rect x="12.2" y="14.6" width="7.6" height="5.2" rx="1" className="fill-accent" />
+        <rect x="14.6" y="2.2" width="2.8" height="2.2" rx="0.6" className="fill-accent" />
+        <circle cx="16" cy="19.4" r="1.4" className="fill-accent" />
       </svg>
       <p className={cn("font-display tracking-wide text-fg", large ? "text-4xl" : "text-base")}>
-        БУТЫЛОЧКА
+        БАЛАЛАЕЧКА
       </p>
     </div>
   );
@@ -54,7 +54,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Свои треки с Suno. Бутылочка крутит колоду. Хиты не кладём.
+          Свои треки с Suno. Балалайка выбирает кто поёт. Хиты не кладём.
         </p>
         <div className="mt-5">
           <ChavoButton />
@@ -377,7 +377,7 @@ export function Reveal() {
       <div />
       <div>
         <PersonAvatar url={singer.avatarUrl} name={singer.name} size="lg" className="mx-auto" />
-        <p className="mt-3 text-sm tracking-wide text-muted">{omen ? "Чёрная бутылка выбрала" : "Поёт"}</p>
+        <p className="mt-3 text-sm tracking-wide text-muted">{omen ? "Чёрная балалайка выбрала" : "Поёт"}</p>
         <p className="mt-2 font-display text-5xl text-fg">{singer.name}</p>
         {partner ? <p className="mt-3 text-lg text-muted">вместе с {partner.name}</p> : null}
         <p className="mx-auto mt-6 max-w-sm text-base leading-relaxed text-fg">
