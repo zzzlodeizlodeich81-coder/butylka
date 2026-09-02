@@ -18,6 +18,7 @@ import {
 import { getSavedTrack, listSavedTracks, saveTrack, songFromSaved } from "@/lib/library";
 import { songDuration, type Song } from "@/lib/songs";
 import { COVER_COST, TAKE_COST, formatChallenge, playerById, useGame } from "@/lib/store";
+import { useNet } from "@/components/net-sync";
 
 function currentLine(song: Song, t: number) {
   if (t < (song.lines[0]?.t ?? 0)) return { i: -1, line: null };
@@ -32,6 +33,9 @@ export function KaraokeStage() {
   const song = useGame((s) => s.song);
   const players = useGame((s) => s.players);
   const singer = playerById(players, useGame((s) => s.singerId));
+  const youId = useGame((s) => s.youId);
+  const net = useNet();
+  const mine = singer?.id === youId;
   const partner = playerById(players, useGame((s) => s.partnerId));
   const challenge = useGame((s) => s.challenge);
   const finishKaraoke = useGame((s) => s.finishKaraoke);
@@ -65,6 +69,7 @@ export function KaraokeStage() {
   async function settle() {
     if (doneRef.current || !song) return;
     doneRef.current = true;
+    net?.setLocalAudio(null);
     const rec = recRef.current;
     recRef.current = null;
     const hadFallbackMic = Boolean(micRef.current);
@@ -136,6 +141,16 @@ export function KaraokeStage() {
           recRef.current = rec;
           arm(now(), rec.duration() || songDuration(play));
           setHadMic(true);
+          if (useGame.getState().mode === "net") {
+            void navigator.mediaDevices
+              .getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+              .then((stream) => {
+                net?.setLocalAudio(stream);
+              })
+              .catch(() => {
+                /* peers hear minus only */
+              });
+          }
           return;
         }
         const handle = startTrack(play);
@@ -223,12 +238,13 @@ export function KaraokeStage() {
     );
     const startTimer = window.setTimeout(() => {
       if (!live) return;
-      if (song.hasTake || song.hasCover) {
+      const me = useGame.getState().youId === useGame.getState().singerId;
+      if ((song.hasTake || song.hasCover) && me) {
         setLane("ask");
         return;
       }
       setLane("live");
-      if (!begin(song, true)) setNeedsTap(true);
+      if (!begin(song, me)) setNeedsTap(true);
     }, 2100);
 
     return () => {
@@ -271,6 +287,11 @@ export function KaraokeStage() {
         if (e.lineN > 6 && e.lineEnergy / e.lineN > 0.07) e.scored.add(i);
       }
       if (t >= durationRef.current && t > 2) {
+        const s = useGame.getState();
+        if (s.mode === "net" && s.singerId !== s.youId) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
         settle();
         return;
       }
@@ -405,9 +426,13 @@ export function KaraokeStage() {
         })}
       </div>
 
-      <Button variant="secondary" className="w-full rounded-xl" onClick={settle}>
-        Дальше
-      </Button>
+      {useGame.getState().mode !== "net" || mine ? (
+        <Button variant="secondary" className="w-full rounded-xl" onClick={settle}>
+          Дальше
+        </Button>
+      ) : (
+        <p className="h-11 text-center text-sm leading-[2.75rem] text-muted">Слушаем</p>
+      )}
     </div>
   );
 }

@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
+import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 import { Route as ApiSunoAudioRouteImport } from './routes/api/suno-audio'
 import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
+import { Route as RCodeRouteImport } from './routes/r.$code'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiHostAudioRoute = ApiHostAudioRouteImport.update({
   id: '/api/host-audio',
   path: '/api/host-audio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRtcRoute = ApiRtcRouteImport.update({
+  id: '/api/rtc',
+  path: '/api/rtc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSunoAudioRoute = ApiSunoAudioRouteImport.update({
@@ -34,40 +41,71 @@ const ApiSunoHookRoute = ApiSunoHookRouteImport.update({
   path: '/api/suno-hook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RCodeRoute = RCodeRouteImport.update({
+  id: '/r/$code',
+  path: '/r/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/host-audio': typeof ApiHostAudioRoute
+  '/api/rtc': typeof ApiRtcRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
+  '/r/$code': typeof RCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/host-audio': typeof ApiHostAudioRoute
+  '/api/rtc': typeof ApiRtcRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
+  '/r/$code': typeof RCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/host-audio': typeof ApiHostAudioRoute
+  '/api/rtc': typeof ApiRtcRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
+  '/r/$code': typeof RCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/host-audio' | '/api/suno-audio' | '/api/suno-hook'
+  fullPaths:
+    | '/'
+    | '/api/host-audio'
+    | '/api/rtc'
+    | '/api/suno-audio'
+    | '/api/suno-hook'
+    | '/r/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/host-audio' | '/api/suno-audio' | '/api/suno-hook'
+  to:
+    | '/'
+    | '/api/host-audio'
+    | '/api/rtc'
+    | '/api/suno-audio'
+    | '/api/suno-hook'
+    | '/r/$code'
   id:
-    '__root__' | '/' | '/api/host-audio' | '/api/suno-audio' | '/api/suno-hook'
+    | '__root__'
+    | '/'
+    | '/api/host-audio'
+    | '/api/rtc'
+    | '/api/suno-audio'
+    | '/api/suno-hook'
+    | '/r/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHostAudioRoute: typeof ApiHostAudioRoute
+  ApiRtcRoute: typeof ApiRtcRoute
   ApiSunoAudioRoute: typeof ApiSunoAudioRoute
   ApiSunoHookRoute: typeof ApiSunoHookRoute
+  RCodeRoute: typeof RCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -86,6 +124,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHostAudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/rtc': {
+      id: '/api/rtc'
+      path: '/api/rtc'
+      fullPath: '/api/rtc'
+      preLoaderRoute: typeof ApiRtcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/suno-audio': {
       id: '/api/suno-audio'
       path: '/api/suno-audio'
@@ -100,14 +145,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSunoHookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/r/$code': {
+      id: '/r/$code'
+      path: '/r/$code'
+      fullPath: '/r/$code'
+      preLoaderRoute: typeof RCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHostAudioRoute: ApiHostAudioRoute,
+  ApiRtcRoute: ApiRtcRoute,
   ApiSunoAudioRoute: ApiSunoAudioRoute,
   ApiSunoHookRoute: ApiSunoHookRoute,
+  RCodeRoute: RCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

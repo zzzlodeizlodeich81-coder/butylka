@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { netSend } from "@/lib/net-bus";
 import { CATALOG, pickTableThree, pickThree, type Song } from "@/lib/songs";
 import { uid } from "@/lib/utils";
 
@@ -132,6 +133,10 @@ type GameState = {
   phase: Phase;
   players: Player[];
   youId: string;
+  mode: "local" | "net";
+  roomCode: string | null;
+  hostId: string | null;
+  wantHost: boolean;
   singerId: string | null;
   partnerId: string | null;
   challenge: Challenge | null;
@@ -193,6 +198,37 @@ type GameState = {
   setSfxGain: (v: number) => void;
   toggleMute: () => void;
   rehydrate: () => void;
+  createRoom: () => string;
+  joinRoom: (code: string) => void;
+  adoptNet: (selfId: string, asHost: boolean) => void;
+  applySnap: (snap: NetSnap) => void;
+  playLocal: () => void;
+};
+
+export type NetSnap = {
+  phase: Phase;
+  players: Player[];
+  hostId: string;
+  singerId: string | null;
+  partnerId: string | null;
+  challenge: Challenge | null;
+  options: Song[];
+  song: Song | null;
+  lastScore: number;
+  lastHadMic: boolean;
+  lastSkip: { fromId: string; toId: string; kind: SkipKind } | null;
+  lastGifts: ReceivedGift[];
+  lastHearts: number;
+  round: number;
+  spinning: boolean;
+  customSongs: Song[];
+  chat: ChatMessage[];
+  verseIndex: number;
+  verseLines: VerseLine[];
+  cookStatus: CookStatus;
+  omen: boolean;
+  omenSong: Song | null;
+  sunoPrompt: string;
 };
 
 function otherPlayer(players: Player[], id: string) {
@@ -210,6 +246,10 @@ export const useGame = create<GameState>((set, get) => ({
   phase: "gate",
   players: initialPlayers,
   youId: initialPlayers[0].id,
+  mode: "local",
+  roomCode: null,
+  hostId: null,
+  wantHost: false,
   singerId: null,
   partnerId: null,
   challenge: null,
@@ -284,6 +324,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toVerse: () => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "toVerse" });
+      return;
+    }
     const players = get().players.map((p) => ({
       ...p,
       name: p.name.trim() || "Без имени",
@@ -309,6 +353,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   submitVerse: (text, late) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "verse", text, late });
+      return;
+    }
     const { players, verseIndex, verseLines } = get();
     const player = players[verseIndex];
     if (!player) return;
@@ -364,6 +412,14 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   startSpin: () => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "spin" });
+      return {
+        singerId: get().singerId ?? get().youId,
+        partnerId: get().partnerId,
+        challenge: get().challenge ?? CHALLENGES[0],
+      };
+    }
     const { players, singerId, omen } = get();
     const candidates = players.filter((p) => p.id !== singerId);
     const pool = candidates.length ? candidates : players;
@@ -386,6 +442,10 @@ export const useGame = create<GameState>((set, get) => ({
   finishSpin: () => set({ spinning: false, phase: "reveal" }),
 
   skipTurn: (toId, kind) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "skip", toId, kind });
+      return true;
+    }
     if (get().omen) return false;
     const { singerId, players } = get();
     const singer = players.find((p) => p.id === singerId);
@@ -416,6 +476,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toSongPick: () => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "toSong" });
+      return;
+    }
     const { omen, omenSong } = get();
     if (omen && omenSong) {
       set({ song: omenSong, phase: "karaoke" });
@@ -449,9 +513,19 @@ export const useGame = create<GameState>((set, get) => ({
 
   replaceCustomSongs: (songs: Song[]) => set({ customSongs: songs }),
 
-  chooseSong: (song) => set({ song, phase: "karaoke" }),
+  chooseSong: (song) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "choose", song: wireSong(song) ?? song });
+      return;
+    }
+    set({ song, phase: "karaoke" });
+  },
 
   finishKaraoke: (score, hadMic) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "done", score, hadMic });
+      return;
+    }
     const { singerId, partnerId, players, omen } = get();
     const share = partnerId ? Math.round(score * 0.55) : score;
     const partnerShare = partnerId ? Math.round(score * 0.45) : 0;
@@ -475,6 +549,10 @@ export const useGame = create<GameState>((set, get) => ({
   setLastTake: (blob) => set({ lastTake: blob }),
 
   sendHeart: (fromId) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "heart" });
+      return;
+    }
     const { singerId, players } = get();
     if (!singerId || fromId === singerId) return;
     set({
@@ -484,6 +562,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   sendGift: (fromId, kind) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "gift", kind });
+      return true;
+    }
     const { singerId, players } = get();
     const gift = GIFT_CATALOG.find((g) => g.id === kind);
     const giver = players.find((p) => p.id === fromId);
@@ -501,6 +583,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   sendChat: (text, toId) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "chat", text, toId });
+      return;
+    }
     const trimmed = text.trim();
     if (!trimmed) return;
     const msg: ChatMessage = {
@@ -517,6 +603,10 @@ export const useGame = create<GameState>((set, get) => ({
   setChatTarget: (to) => set({ chatTarget: to, chatOpen: true }),
 
   nextRound: () => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "nextRound" });
+      return;
+    }
     set({
       phase: "table",
       round: get().round + 1,
@@ -553,6 +643,85 @@ export const useGame = create<GameState>((set, get) => ({
   setMusicGain: (v) => set({ musicGain: v }),
   setSfxGain: (v) => set({ sfxGain: v }),
   toggleMute: () => set({ muted: !get().muted }),
+
+  playLocal: () => set({ mode: "local", roomCode: null, hostId: null, wantHost: false }),
+
+  createRoom: () => {
+    const code = Math.random().toString(36).slice(2, 8);
+    set({
+      mode: "net",
+      roomCode: code,
+      wantHost: true,
+      hostId: get().youId,
+      players: get().players.filter((p) => p.id === get().youId),
+      phase: "lobby",
+    });
+    return code;
+  },
+
+  joinRoom: (raw) => {
+    const code = raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16);
+    if (!code) return;
+    set({
+      mode: "net",
+      roomCode: code,
+      wantHost: false,
+      hostId: null,
+      players: get().players.filter((p) => p.id === get().youId),
+      phase: get().phase === "gate" || get().phase === "profile" ? get().phase : "lobby",
+    });
+  },
+
+  adoptNet: (selfId, asHost) => {
+    const prev = get().players.find((p) => p.id === get().youId);
+    const mine: Player = {
+      id: selfId,
+      name: prev?.name || "я",
+      color: PLAYER_COLORS[0],
+      score: prev?.score ?? 0,
+      avatarUrl: prev?.avatarUrl ?? null,
+      notes: prev?.notes ?? START_NOTES,
+      hearts: prev?.hearts ?? 0,
+    };
+    set({
+      youId: selfId,
+      hostId: asHost ? selfId : get().hostId,
+      wantHost: asHost,
+      players: [mine],
+    });
+  },
+
+  applySnap: (snap) => {
+    if (get().mode !== "net") return;
+    const youId = get().youId;
+    set({
+      phase: snap.phase,
+      players: snap.players.some((p) => p.id === youId)
+        ? snap.players
+        : [...snap.players, get().players.find((p) => p.id === youId)!].filter(Boolean),
+      hostId: snap.hostId,
+      singerId: snap.singerId,
+      partnerId: snap.partnerId,
+      challenge: snap.challenge,
+      options: snap.options,
+      song: snap.song,
+      lastScore: snap.lastScore,
+      lastHadMic: snap.lastHadMic,
+      lastSkip: snap.lastSkip,
+      lastGifts: snap.lastGifts,
+      lastHearts: snap.lastHearts,
+      round: snap.round,
+      spinning: snap.spinning,
+      customSongs: snap.customSongs,
+      chat: snap.chat,
+      verseIndex: snap.verseIndex,
+      verseLines: snap.verseLines,
+      cookStatus: snap.cookStatus,
+      omen: snap.omen,
+      omenSong: snap.omenSong,
+      sunoPrompt: snap.sunoPrompt,
+    });
+  },
 
   rehydrate: () => {
     if (typeof window === "undefined") return;
@@ -606,8 +775,8 @@ function stripDeadAudio(song: Song | null | undefined): Song | null {
 if (typeof window !== "undefined") {
   useGame.subscribe((s) => {
     try {
-      if (s.phase === "gate") {
-        sessionStorage.removeItem("bottle-session");
+      if (s.phase === "gate" || s.mode === "net") {
+        if (s.phase === "gate") sessionStorage.removeItem("bottle-session");
         return;
       }
       sessionStorage.setItem(
@@ -647,5 +816,25 @@ if (typeof window !== "undefined") {
 }
 
 export function playerById(players: Player[], id: string | null) {
+  if (!id) return null;
   return players.find((p) => p.id === id) ?? null;
 }
+
+export function tableIsHost(s?: { mode: "local" | "net"; hostId: string | null; youId: string }) {
+  const st = s ?? useGame.getState();
+  return st.mode !== "net" || st.hostId === st.youId;
+}
+
+export function wireSong(song: Song | null): Song | null {
+  if (!song) return null;
+  const http = (u?: string) => (u && !u.startsWith("blob:") ? u : undefined);
+  return {
+    ...song,
+    audioUrl: http(song.audioUrl),
+    takeUrl: http(song.takeUrl),
+    coverUrl: http(song.coverUrl),
+    hasTake: Boolean(http(song.takeUrl)),
+    hasCover: Boolean(http(song.coverUrl)),
+  };
+}
+

@@ -175,17 +175,77 @@ function AvatarPicker({ id, url, name }: { id: string; url: string | null; name:
 export function Lobby() {
   const players = useGame((s) => s.players);
   const youId = useGame((s) => s.youId);
+  const mode = useGame((s) => s.mode);
+  const roomCode = useGame((s) => s.roomCode);
+  const wantHost = useGame((s) => s.wantHost);
   const setPlayerName = useGame((s) => s.setPlayerName);
   const addPlayer = useGame((s) => s.addPlayer);
   const removePlayer = useGame((s) => s.removePlayer);
   const toBring = useGame((s) => s.toBring);
+  const createRoom = useGame((s) => s.createRoom);
+  const joinRoom = useGame((s) => s.joinRoom);
+  const playLocal = useGame((s) => s.playLocal);
+  const [code, setCode] = useState("");
+
+  function shareLink(next: string) {
+    const url = `${window.location.origin}/r/${next}`;
+    void navigator.clipboard?.writeText(url).then(
+      () => toast.success("Ссылка скопирована."),
+      () => toast.message(url),
+    );
+    window.history.replaceState(null, "", `/r/${next}`);
+  }
+
+  if (mode === "net" && roomCode) {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+        <Wordmark />
+        <h1 className="mt-8 font-display text-3xl text-fg">Стол {roomCode}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Ссылка на стол. До 8 человек, даже из разных городов. {wantHost ? "Ты хозяин." : "Ждём хозяина."}
+        </p>
+        <ul className="mt-6 flex flex-1 flex-col gap-2">
+          {players.map((p) => (
+            <li key={p.id} className="flex items-center gap-2">
+              <PersonAvatar url={p.avatarUrl} name={p.name} size="md" />
+              <p className="font-medium text-fg">{p.name}</p>
+              {p.id === youId ? <span className="text-xs text-subtle">ты</span> : null}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button variant="secondary" onClick={() => shareLink(roomCode)}>
+            Скопировать ссылку
+          </Button>
+          {wantHost ? (
+            <Button
+              size="lg"
+              className="h-14 rounded-xl"
+              disabled={players.length < 2}
+              onClick={() => {
+                playUiTick();
+                toBring();
+              }}
+            >
+              {players.length < 2 ? "Ждём ещё человека" : "Дальше — колода"}
+            </Button>
+          ) : (
+            <p className="h-14 text-center text-sm leading-[3.5rem] text-muted">Хозяин откроет колоду</p>
+          )}
+          <Button variant="ghost" onClick={() => playLocal()}>
+            Один телефон
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <Wordmark />
       <h1 className="mt-8 font-display text-3xl text-fg">Кто за столом</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        От двух до восьми. У каждого — фото или микрофон, и 10 нот.
+        По сети — свои телефоны. На одном телефоне — как раньше.
       </p>
 
       <ul className="mt-6 flex flex-1 flex-col gap-2">
@@ -218,17 +278,45 @@ export function Lobby() {
       <div className="mt-4 flex flex-col gap-2">
         <Button variant="secondary" onClick={addPlayer} disabled={players.length >= 8}>
           <Plus />
-          Ещё человек
+          Ещё человек на этом телефоне
         </Button>
         <Button
           size="lg"
           className="h-14 rounded-xl"
           onClick={() => {
             playUiTick();
+            const next = createRoom();
+            shareLink(next);
+          }}
+        >
+          Стол по сети
+        </Button>
+        <div className="flex gap-2">
+          <Input
+            placeholder="код стола"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            maxLength={16}
+          />
+          <Button
+            variant="secondary"
+            onClick={() => {
+              joinRoom(code);
+              playUiTick();
+            }}
+          >
+            Войти
+          </Button>
+        </div>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            playUiTick();
+            playLocal();
             toBring();
           }}
         >
-          Дальше — колода
+          Один телефон — колода
         </Button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { buildSong, type LyricLine, type Song } from "@/lib/songs";
 import { looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
+import { proxyAudio } from "@/lib/suno";
 
 const DB_NAME = "butylka-library";
 const STORE = "tracks";
@@ -191,7 +192,7 @@ export function songFromSaved(track: SavedTrack, artist: string): Song {
     mood: track.minusBlob ? "минус" : "свой трек",
     texts: lyricsLines(track.lyrics, track.title),
     lines: timed,
-    audioUrl: url,
+    audioUrl: track.sourceUrl ? proxyAudio(track.sourceUrl) : url,
     audioDuration: track.duration,
     minus: false,
     pack: "mine",

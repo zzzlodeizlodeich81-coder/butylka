@@ -52,6 +52,7 @@ export interface P2PRoomOptions {
   onMessage?: (from: string, data: unknown, channel: "state" | "reliable") => void;
   /** Fires once, on the first successful signaling poll (registration). */
   onConnected?: () => void;
+  onRemoteStream?: (peerId: string, stream: MediaStream | null) => void;
 }
 
 interface PeerSlot {
@@ -106,6 +107,7 @@ export class P2PRoom {
   private closed = false;
   private everPolled = false;
   private lastPeersFingerprint = "";
+  private localStream: MediaStream | null = null;
 
   constructor(opts: P2PRoomOptions) {
     this.opts = opts;
@@ -165,6 +167,11 @@ export class P2PRoom {
 
   peerList(): PeerInfo[] {
     return [...this.peers.values()].map((s) => ({ ...s.info }));
+  }
+
+  setLocalAudio(stream: MediaStream | null): void {
+    this.localStream = stream;
+    for (const slot of this.peers.values()) this.syncAudio(slot);
   }
 
   // ── signaling loop ─────────────────────────────────────────────────────────
@@ -265,6 +272,11 @@ export class P2PRoom {
     };
     this.peers.set(peerId, slot);
 
+    pc.ontrack = (e) => {
+      const stream = e.streams[0] ?? new MediaStream(e.track ? [e.track] : []);
+      this.opts.onRemoteStream?.(peerId, stream);
+      e.track?.addEventListener("ended", () => this.opts.onRemoteStream?.(peerId, null));
+    };
     pc.onicecandidate = (e) => {
       if (e.candidate) void this.sendSignal(peerId, "ice", e.candidate.toJSON());
     };
@@ -302,14 +314,25 @@ export class P2PRoom {
     pc.ondatachannel = (e) => this.attachChannel(slot, e.channel);
 
     if (initiator) {
-      // Creating the channels triggers negotiationneeded → the offer.
       this.attachChannel(
         slot,
         pc.createDataChannel("state", { ordered: false, maxRetransmits: 0 }),
       );
       this.attachChannel(slot, pc.createDataChannel("reliable", { ordered: true }));
     }
+    this.syncAudio(slot);
     return slot;
+  }
+
+  private syncAudio(slot: PeerSlot): void {
+    const track = this.localStream?.getAudioTracks()[0] ?? null;
+    const audioSender = slot.pc.getSenders().find((s) => s.track?.kind === "audio");
+    if (track && this.localStream) {
+      if (audioSender) void audioSender.replaceTrack(track);
+      else slot.pc.addTrack(track, this.localStream);
+    } else if (audioSender) {
+      void audioSender.replaceTrack(null);
+    }
   }
 
   private attachChannel(slot: PeerSlot, channel: RTCDataChannel): void {
