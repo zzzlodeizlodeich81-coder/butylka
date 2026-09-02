@@ -42,6 +42,14 @@ export function lyricsForSuno(lines: string[]) {
   return parts.join("\n").slice(0, 4800);
 }
 
+function lyricsPrompt(lyrics: string[] | string) {
+  if (typeof lyrics === "string") {
+    if (/\[(Verse|Chorus|Bridge|Intro|Outro)\]/i.test(lyrics)) return lyrics.slice(0, 4800);
+    return lyricsForSuno(lyrics.split(/\n/).map((l) => l.trim()).filter(Boolean));
+  }
+  return lyricsForSuno(lyrics);
+}
+
 export type SunoClip = {
   audioId: string;
   audioUrl: string;
@@ -52,9 +60,9 @@ export type SunoClip = {
 };
 
 export const startSunoGenerate = createServerFn({ method: "POST" })
-  .validator((input: { title: string; style: string; lyrics: string[] }) => input)
+  .validator((input: { title: string; style: string; lyrics: string[] | string }) => input)
   .handler(async ({ data }) => {
-    const prompt = lyricsForSuno(data.lyrics);
+    const prompt = lyricsPrompt(data.lyrics);
     const { res, body } = await sunoFetch("/api/v1/generate", {
       method: "POST",
       body: JSON.stringify({
@@ -78,6 +86,45 @@ export const startSunoGenerate = createServerFn({ method: "POST" })
       return { ok: false as const, error: msg };
     }
     return { ok: true as const, taskId };
+  });
+
+export const startSunoLyrics = createServerFn({ method: "POST" })
+  .validator((input: { prompt: string }) => input)
+  .handler(async ({ data }) => {
+    const { res, body } = await sunoFetch("/api/v1/lyrics", {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: data.prompt.slice(0, 200),
+        callBackUrl: CALLBACK,
+      }),
+    });
+    const code = Number(body.code ?? res.status);
+    const taskId = pick<string>(body.data as Record<string, unknown>, "taskId", "task_id");
+    if (code !== 200 || !taskId) {
+      return { ok: false as const, error: String(body.msg ?? `Suno ${code}`) };
+    }
+    return { ok: true as const, taskId };
+  });
+
+export const pollSunoLyrics = createServerFn({ method: "GET" })
+  .validator((input: { taskId: string }) => input)
+  .handler(async ({ data }) => {
+    const { body } = await sunoFetch(
+      `/api/v1/lyrics/record-info?taskId=${encodeURIComponent(data.taskId)}`,
+    );
+    const outer = (body.data ?? {}) as Record<string, unknown>;
+    const response = (outer.response ?? outer) as Record<string, unknown>;
+    const status = String(pick(response, "status") ?? pick(outer, "status") ?? "PENDING");
+    const failed = /FAIL|ERROR|SENSITIVE/i.test(status);
+    const raw = (pick<unknown[]>(response, "data") ?? []) as Record<string, unknown>[];
+    const variants = raw
+      .map((v) => ({
+        title: String(pick(v, "title") ?? ""),
+        text: String(pick(v, "text", "lyrics") ?? ""),
+        status: String(pick(v, "status") ?? ""),
+      }))
+      .filter((v) => v.text.replace(/\s+/g, " ").trim().length > 24);
+    return { ok: true as const, status, failed, variants };
   });
 
 export const pollSunoGenerate = createServerFn({ method: "GET" })
