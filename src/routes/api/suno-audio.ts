@@ -1,12 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+const HOSTS = [
+  "aiquickdraw.com",
+  "suno.ai",
+  "sunoapi.org",
+  "suno.com",
+  "removeai.ai",
+  "cloudfront.net",
+];
+
 function allowed(raw: string) {
-  if (
-    /^https:\/\/([a-z0-9.-]+\.)*(aiquickdraw\.com|suno\.ai|sunoapi\.org|suno\.com)\//i.test(raw)
-  ) {
-    return true;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "https:") return false;
+    const host = u.hostname.toLowerCase();
+    return HOSTS.some((d) => host === d || host.endsWith(`.${d}`));
+  } catch {
+    return false;
   }
-  return /^https:\/\/[a-z0-9.-]+\.cloudfront\.net\/.+\.(m4a|mp3|wav|ogg)(\?|$)/i.test(raw);
 }
 
 export const Route = createFileRoute("/api/suno-audio")({
@@ -30,7 +41,7 @@ export const Route = createFileRoute("/api/suno-audio")({
         return new Response(up.body, {
           status: 200,
           headers: {
-            "content-type": up.headers.get("content-type") || "audio/mp4",
+            "content-type": up.headers.get("content-type") || "audio/mpeg",
             "cache-control": "public, max-age=3600",
           },
         });

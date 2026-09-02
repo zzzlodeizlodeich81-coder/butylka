@@ -142,21 +142,30 @@ export function BringSong() {
       if (!started.ok) throw new Error(started.error);
       let audio: string | null = null;
       let duration = 80;
+      let clips: { audioUrl: string; duration: number }[] = [];
       for (let i = 0; i < 48; i++) {
         await new Promise((r) => window.setTimeout(r, 4000));
         const st = await pollSunoGenerate({ data: { taskId: started.taskId } });
         if (st.failed) throw new Error("Suno не принял текст.");
-        const clip = st.clips.find((c) => c.audioUrl);
-        if (clip?.audioUrl) {
-          audio = clip.audioUrl;
-          duration = clip.duration || duration;
-          break;
+        const ready = st.clips.filter((c) => c.audioUrl);
+        if (ready.length) {
+          clips = ready.map((c) => ({ audioUrl: c.audioUrl, duration: c.duration || 80 }));
+          if (st.status === "SUCCESS" || ready.length >= 1) break;
         }
       }
-      if (!audio) throw new Error("Suno не успел. Попробуй ещё раз.");
-      const res = await fetch(proxyAudio(audio));
-      if (!res.ok) throw new Error("Не скачался новый трек.");
-      const blob = await res.blob();
+      if (!clips.length) throw new Error("Suno не успел. Попробуй ещё раз.");
+      let blob: Blob | null = null;
+      for (const clip of clips) {
+        const res = await fetch(proxyAudio(clip.audioUrl));
+        if (!res.ok) continue;
+        const next = await res.blob();
+        if (next.size < 8000) continue;
+        blob = next;
+        audio = clip.audioUrl;
+        duration = clip.duration || duration;
+        break;
+      }
+      if (!blob || !audio) throw new Error("Не скачался новый трек.");
       const id = uid("suno");
       const text = rows.join("\n");
       const saved: SavedTrack = {
