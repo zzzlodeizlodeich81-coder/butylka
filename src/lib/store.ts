@@ -316,6 +316,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toBring: () => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "toBring" });
+      return;
+    }
     const players = get().players.map((p) => ({
       ...p,
       name: p.name.trim() || "Без имени",
@@ -345,6 +349,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toTable: () => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "toTable" });
+      return;
+    }
     const players = get().players.map((p) => ({
       ...p,
       name: p.name.trim() || "Без имени",
@@ -507,11 +515,23 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   addCustomSong: (song) => {
+    if (get().mode === "net" && get().hostId !== get().youId) {
+      netSend({ t: "addSong", song: wireSong(song) ?? song });
+      return;
+    }
     const customSongs = [song, ...get().customSongs.filter((s) => s.id !== song.id)].slice(0, 24);
     set({ customSongs });
   },
 
-  replaceCustomSongs: (songs: Song[]) => set({ customSongs: songs }),
+  replaceCustomSongs: (songs: Song[]) => {
+    if (get().mode === "net") {
+      for (const song of songs) {
+        if (wireSong(song)?.audioUrl) get().addCustomSong(song);
+      }
+      return;
+    }
+    set({ customSongs: songs });
+  },
 
   chooseSong: (song) => {
     if (get().mode === "net" && get().hostId !== get().youId) {

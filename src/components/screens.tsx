@@ -177,7 +177,6 @@ export function Lobby() {
   const youId = useGame((s) => s.youId);
   const mode = useGame((s) => s.mode);
   const roomCode = useGame((s) => s.roomCode);
-  const wantHost = useGame((s) => s.wantHost);
   const setPlayerName = useGame((s) => s.setPlayerName);
   const addPlayer = useGame((s) => s.addPlayer);
   const removePlayer = useGame((s) => s.removePlayer);
@@ -202,7 +201,7 @@ export function Lobby() {
         <Wordmark />
         <h1 className="mt-8 font-display text-3xl text-fg">Стол {roomCode}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Ссылка на стол. До 8 человек, даже из разных городов. {wantHost ? "Ты хозяин." : "Ждём хозяина."}
+          Ссылка на стол. До 8 человек, хоть из разных городов. Каждый кидает свой Suno.
         </p>
         <ul className="mt-6 flex flex-1 flex-col gap-2">
           {players.map((p) => (
@@ -217,21 +216,17 @@ export function Lobby() {
           <Button variant="secondary" onClick={() => shareLink(roomCode)}>
             Скопировать ссылку
           </Button>
-          {wantHost ? (
-            <Button
-              size="lg"
-              className="h-14 rounded-xl"
-              disabled={players.length < 2}
-              onClick={() => {
-                playUiTick();
-                toBring();
-              }}
-            >
-              {players.length < 2 ? "Ждём ещё человека" : "Дальше — колода"}
-            </Button>
-          ) : (
-            <p className="h-14 text-center text-sm leading-[3.5rem] text-muted">Хозяин откроет колоду</p>
-          )}
+          <Button
+            size="lg"
+            className="h-14 rounded-xl"
+            disabled={players.length < 2}
+            onClick={() => {
+              playUiTick();
+              toBring();
+            }}
+          >
+            {players.length < 2 ? "Ждём ещё человека" : "Дальше — колода"}
+          </Button>
           <Button variant="ghost" onClick={() => playLocal()}>
             Один телефон
           </Button>

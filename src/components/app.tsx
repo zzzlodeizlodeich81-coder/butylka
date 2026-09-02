@@ -25,7 +25,7 @@ function Shell() {
   return (
     <Chrome>
       {host ? <CookBridge /> : null}
-      {phase === "bring" ? host ? <BringSong /> : <WaitDeck /> : null}
+      {phase === "bring" ? <BringSong /> : null}
       {phase === "verse" ? <VerseRound /> : null}
       {phase === "table" ? <BottleTable /> : null}
       {phase === "reveal" ? <Reveal /> : null}
@@ -33,15 +33,6 @@ function Shell() {
       {phase === "karaoke" ? <KaraokeStage /> : null}
       {phase === "result" ? <Result /> : null}
     </Chrome>
-  );
-}
-
-function WaitDeck() {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 text-center">
-      <p className="font-display text-2xl text-fg">Хозяин собирает колоду</p>
-      <p className="mt-2 max-w-xs text-sm text-muted">Песни появятся у всех, когда стол начнётся.</p>
-    </div>
   );
 }
 

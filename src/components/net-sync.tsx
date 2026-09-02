@@ -26,7 +26,10 @@ type NetAct =
   | { t: "done"; score: number; hadMic: boolean }
   | { t: "toSong" }
   | { t: "nextRound" }
-  | { t: "toVerse" };
+  | { t: "toVerse" }
+  | { t: "toBring" }
+  | { t: "toTable" }
+  | { t: "addSong"; song: Song };
 
 const NetCtx = createContext<{
   sendAct: (act: NetAct) => void;
@@ -138,6 +141,15 @@ function applyAct(from: string, act: NetAct) {
       return;
     case "toVerse":
       g.toVerse();
+      return;
+    case "toBring":
+      g.toBring();
+      return;
+    case "toTable":
+      g.toTable();
+      return;
+    case "addSong":
+      g.addCustomSong(act.song);
       return;
     default:
       return;

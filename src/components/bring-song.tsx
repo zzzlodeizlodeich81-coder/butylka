@@ -38,6 +38,8 @@ function timedLines(text: string, duration: number) {
 
 export function BringSong() {
   const toTable = useGame((s) => s.toTable);
+  const tableSongs = useGame((s) => s.customSongs);
+  const mode = useGame((s) => s.mode);
   const you = useGame((s) => s.players.find((p) => p.id === s.youId));
   const artist = you?.name ?? "мой трек";
   const [tracks, setTracks] = useState<SavedTrack[]>([]);
@@ -215,7 +217,8 @@ export function BringSong() {
   }
 
   function goTable() {
-    if (!tracks.length) {
+    const ready = mode === "net" ? tableSongs.length + tracks.length : tracks.length;
+    if (!ready) {
       toast.error("Положи хотя бы один свой трек.");
       return;
     }
@@ -241,8 +244,12 @@ export function BringSong() {
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Только Suno: ссылка на публичный трек или сварить новый. Хиты не кладём — минус чужой песни это уже авторское.
+        Каждый кидает свой Suno: ссылка или «сварить». На тестах генерация с общего ключа, потом — за ноты.
+        Хиты не кладём.
       </p>
+      {mode === "net" && tableSongs.length ? (
+        <p className="mt-3 text-xs text-subtle">На столе уже {tableSongs.length} трек(ов) от всех.</p>
+      ) : null}
 
       <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
         {tracks.map((track) => (
@@ -318,7 +325,13 @@ export function BringSong() {
       </div>
 
       <div className="mt-4 flex flex-col gap-2">
-        <Button type="button" size="lg" className="h-14 rounded-xl" onClick={goTable} disabled={!tracks.length}>
+        <Button
+          type="button"
+          size="lg"
+          className="h-14 rounded-xl"
+          onClick={goTable}
+          disabled={mode === "net" ? !tableSongs.length && !tracks.length : !tracks.length}
+        >
           {tracks.length ? `За стол · ${tracks.length}` : "Сначала свой трек"}
         </Button>
       </div>
