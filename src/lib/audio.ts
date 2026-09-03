@@ -463,6 +463,8 @@ export function startTrack(song: Song): { startedAt: number; duration: number } 
     element.src = song.audioUrl;
     fileEl = element;
     applyGains();
+    applyKaraokeRate(element);
+    element.addEventListener("ended", () => stop(), { once: true });
     void element.play().catch(() => {
       /* karaoke overlay asks for a tap */
     });
@@ -478,6 +480,8 @@ export function startTrack(song: Song): { startedAt: number; duration: number } 
       elementSrc = null;
     }
     fileEl = element;
+    applyKaraokeRate(element);
+    element.addEventListener("ended", () => stop(), { once: true });
     void element.play().catch(() => {
       /* karaoke overlay */
     });
@@ -511,9 +515,77 @@ export function startTrack(song: Song): { startedAt: number; duration: number } 
   active = { stop };
   window.setTimeout(() => {
     if (active && active.stop === stop) stop();
-  }, (duration + 0.4) * 1000);
+  }, (duration / karaokeRate() + 0.8) * 1000);
 
   return { startedAt, duration };
+}
+
+let karaokeKey = 0;
+let karaokeEcho = false;
+let karaokeVoice = true;
+let echoMix: GainNode | null = null;
+let voiceGain: GainNode | null = null;
+
+function karaokeRate() {
+  return Math.pow(2, karaokeKey / 12);
+}
+
+function applyKaraokeRate(el: HTMLAudioElement | null = fileEl) {
+  if (!el) return;
+  const rate = karaokeRate();
+  el.playbackRate = rate;
+  el.preservesPitch = false;
+  const anyEl = el as HTMLAudioElement & { mozPreservesPitch?: boolean; webkitPreservesPitch?: boolean };
+  anyEl.mozPreservesPitch = false;
+  anyEl.webkitPreservesPitch = false;
+}
+
+function applyKaraokeVoice() {
+  const t = buses?.ctx.currentTime ?? 0;
+  if (voiceGain) voiceGain.gain.setTargetAtTime(karaokeVoice ? 0.85 : 0, t, 0.04);
+  if (echoMix) echoMix.gain.setTargetAtTime(karaokeEcho && karaokeVoice ? 0.3 : 0, t, 0.04);
+}
+
+export function setKaraokeKey(semitones: number) {
+  karaokeKey = Math.max(-4, Math.min(4, Math.round(semitones)));
+  applyKaraokeRate();
+}
+
+export function getKaraokeKey() {
+  return karaokeKey;
+}
+
+export function setKaraokeEcho(on: boolean) {
+  karaokeEcho = on;
+  applyKaraokeVoice();
+}
+
+export function getKaraokeEcho() {
+  return karaokeEcho;
+}
+
+export function setKaraokeVoice(on: boolean) {
+  karaokeVoice = on;
+  applyKaraokeVoice();
+}
+
+export function getKaraokeVoice() {
+  return karaokeVoice;
+}
+
+function attachEcho(ctx: AudioContext, from: AudioNode, to: AudioNode) {
+  const delay = ctx.createDelay(0.6);
+  delay.delayTime.value = 0.2;
+  const mix = ctx.createGain();
+  mix.gain.value = karaokeEcho && karaokeVoice ? 0.3 : 0;
+  const fb = ctx.createGain();
+  fb.gain.value = 0.2;
+  from.connect(delay);
+  delay.connect(mix);
+  mix.connect(to);
+  delay.connect(fb);
+  fb.connect(delay);
+  echoMix = mix;
 }
 
 export function now() {
@@ -536,7 +608,13 @@ export async function startMic(): Promise<MicHandle | null> {
     const analyser = b.ctx.createAnalyser();
     analyser.fftSize = 512;
     analyser.smoothingTimeConstant = 0.65;
+    const voice = b.ctx.createGain();
+    voice.gain.value = karaokeVoice ? 0.85 : 0;
     src.connect(analyser);
+    src.connect(voice);
+    voice.connect(b.sfx);
+    attachEcho(b.ctx, voice, b.sfx);
+    voiceGain = voice;
     const data = new Uint8Array(analyser.fftSize);
     return {
       level: () => {
@@ -550,6 +628,16 @@ export async function startMic(): Promise<MicHandle | null> {
       },
       stop: () => {
         src.disconnect();
+        voice.disconnect();
+        if (voiceGain === voice) voiceGain = null;
+        if (echoMix) {
+          try {
+            echoMix.disconnect();
+          } catch {
+            /* ignore */
+          }
+          echoMix = null;
+        }
         stream.getTracks().forEach((tr) => tr.stop());
       },
     };
@@ -593,6 +681,7 @@ export async function startMixedTake(playUrl: string): Promise<MixedTake | null>
   el.src = playUrl;
   fileEl = el;
   applyGains();
+  applyKaraokeRate(el);
 
   const dest = ctx.createMediaStreamDestination();
   const mix = ctx.createGain();
@@ -610,9 +699,13 @@ export async function startMixedTake(playUrl: string): Promise<MixedTake | null>
 
   const micSrc = ctx.createMediaStreamSource(stream);
   const micGain = ctx.createGain();
-  micGain.gain.value = 1.2;
+  micGain.gain.value = karaokeVoice ? 1.05 : 0;
   micSrc.connect(micGain);
   micGain.connect(dest);
+  micGain.connect(b.sfx);
+  attachEcho(ctx, micGain, dest);
+  echoMix?.connect(b.sfx);
+  voiceGain = micGain;
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
   analyser.smoothingTimeConstant = 0.65;
@@ -652,6 +745,15 @@ export async function startMixedTake(playUrl: string): Promise<MixedTake | null>
         /* ignore */
       }
       if (fileEl === el) fileEl = null;
+      if (voiceGain === micGain) voiceGain = null;
+      if (echoMix) {
+        try {
+          echoMix.disconnect();
+        } catch {
+          /* ignore */
+        }
+        echoMix = null;
+      }
       stream.getTracks().forEach((t) => t.stop());
       window.setTimeout(() => {
         try {

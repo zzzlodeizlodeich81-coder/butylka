@@ -12,6 +12,12 @@ import {
   stopTrack,
   trackTime,
   unlockAudio,
+  getKaraokeEcho,
+  getKaraokeKey,
+  getKaraokeVoice,
+  setKaraokeEcho,
+  setKaraokeKey,
+  setKaraokeVoice,
   type MicHandle,
   type MixedTake,
 } from "@/lib/audio";
@@ -48,6 +54,9 @@ export function KaraokeStage() {
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
   const [hadMic, setHadMic] = useState(false);
+  const [keyN, setKeyN] = useState(getKaraokeKey);
+  const [echoOn, setEchoOn] = useState(getKaraokeEcho);
+  const [voiceOn, setVoiceOn] = useState(getKaraokeVoice);
   const [needsTap, setNeedsTap] = useState(false);
   const [armed, setArmed] = useState(false);
   const startedAtRef = useRef(0);
@@ -424,6 +433,62 @@ export function KaraokeStage() {
             />
           );
         })}
+      </div>
+
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-2 py-1">
+          <button
+            type="button"
+            className="grid size-9 place-items-center text-lg text-fg"
+            aria-label="Тон ниже"
+            onClick={() => {
+              const n = Math.max(-4, keyN - 1);
+              setKaraokeKey(n);
+              setKeyN(n);
+            }}
+          >
+            −
+          </button>
+          <span className="text-xs tabular-nums text-muted">
+            тон {keyN > 0 ? `+${keyN}` : keyN}
+          </span>
+          <button
+            type="button"
+            className="grid size-9 place-items-center text-lg text-fg"
+            aria-label="Тон выше"
+            onClick={() => {
+              const n = Math.min(4, keyN + 1);
+              setKaraokeKey(n);
+              setKeyN(n);
+            }}
+          >
+            +
+          </button>
+        </div>
+        <Button
+          type="button"
+          variant={voiceOn ? "secondary" : "ghost"}
+          className="h-11 rounded-xl"
+          onClick={() => {
+            const next = !voiceOn;
+            setKaraokeVoice(next);
+            setVoiceOn(next);
+          }}
+        >
+          {voiceOn ? "Голос" : "Голос выкл"}
+        </Button>
+        <Button
+          type="button"
+          variant={echoOn ? "secondary" : "ghost"}
+          className="h-11 rounded-xl"
+          onClick={() => {
+            const next = !echoOn;
+            setKaraokeEcho(next);
+            setEchoOn(next);
+          }}
+        >
+          {echoOn ? "Эхо" : "Эхо выкл"}
+        </Button>
       </div>
 
       {useGame.getState().mode !== "net" || mine ? (
