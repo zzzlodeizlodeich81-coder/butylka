@@ -385,7 +385,7 @@ export function Reveal() {
         </p>
         {omen && omenSong ? (
           <p className="mt-4 text-sm text-muted">
-            {omenSong.title} · {omenSong.artist}
+            {omenSong.title} · поём с голосом, так слышно мелодию
           </p>
         ) : null}
       </div>

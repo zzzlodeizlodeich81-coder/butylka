@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { buildSong } from "@/lib/songs";
 import { linesFromAligned, proxyAudio } from "@/lib/suno";
-import { pullSunoAligned, pullSunoMinus } from "@/lib/suno-flow";
+import { pullSunoAligned } from "@/lib/suno-flow";
 import { pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -130,19 +130,6 @@ export function CookBridge() {
         return;
       }
 
-      let instrumental = clip.audioUrl;
-      let haveMinus = false;
-      toast.message("Снимаю минус…");
-      const stems = await pullSunoMinus(
-        { taskId: started.taskId, audioId: clip.audioId, audioUrl: clip.audioUrl },
-        () => live,
-      );
-      if (!live) return;
-      if (stems?.instrumentalUrl) {
-        instrumental = stems.instrumentalUrl;
-        haveMinus = true;
-      }
-
       const texts = lyricRows(lyrics.text).length ? lyricRows(lyrics.text) : lyricRows(clip.lyrics);
       const words = await pullSunoAligned(started.taskId, clip.audioId, () => live);
       if (!live) return;
@@ -156,14 +143,14 @@ export function CookBridge() {
         mood: "из строк",
         texts,
         lines: aligned.length >= 3 ? aligned : undefined,
-        audioUrl: proxyAudio(instrumental),
+        audioUrl: proxyAudio(clip.audioUrl),
         audioDuration: clip.duration > 8 ? clip.duration : undefined,
         generated: true,
-        minus: !haveMinus,
+        minus: false,
       });
 
       readyOmen(song, style);
-      toast.message("Песня готова. Балалайка темнеет.");
+      toast.message("Песня готова. Балалайка темнеет. Поём с голосом — так слышно как звучит.");
     })().catch(() => {
       if (!live) return;
       toast.error("Suno не ответил.");

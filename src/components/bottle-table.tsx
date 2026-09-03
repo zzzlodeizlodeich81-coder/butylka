@@ -376,7 +376,7 @@ export function BottleTable() {
     <div className="flex min-h-0 flex-1 flex-col">
       <p className="px-5 text-center text-sm text-muted">
         {omen
-          ? "Балалайка тёмная. Стол затих."
+          ? "Балалайка тёмная. Новую песню поём с голосом — так слышно как звучит."
           : cookStatus === "cooking"
             ? "Suno собирает песню из ваших строк. Пойте пока."
             : cookStatus === "failed"

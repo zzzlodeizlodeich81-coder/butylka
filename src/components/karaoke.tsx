@@ -335,7 +335,7 @@ export function KaraokeStage() {
           <p className="font-display text-lg leading-tight text-fg">{song.title}</p>
           <p className="text-sm text-muted">
             {song.artist}
-            {song.generated ? " · только что" : ""}
+            {song.generated ? " · с голосом, её ещё не слышали" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2 text-muted">
