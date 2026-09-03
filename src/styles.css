@@ -28,18 +28,22 @@
     -moz-osx-font-smoothing: grayscale;
     background: var(--color-bg);
     color: var(--color-fg);
-    overflow-x: hidden;
+    overflow-x: clip;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100dvh;
   }
 
   body {
     min-height: 100dvh;
+    height: auto;
     background:
       radial-gradient(120% 70% at 50% -8%, #fff7ee 0%, var(--color-bg) 58%);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    overscroll-behavior: none;
-    overflow-x: hidden;
-    touch-action: manipulation;
+    overflow-x: clip;
+    overflow-y: auto;
+    touch-action: pan-y pinch-zoom;
   }
 
   button:not(:disabled),

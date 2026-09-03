@@ -16,7 +16,7 @@ import {
 } from "@/lib/library";
 import { linesFromPlain, looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
-import { importSunoSong, pollSunoGenerate, startSunoGenerate } from "@/lib/suno-server";
+import { importSunoSong, pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
 import { prepareKaraokeTrack } from "@/lib/stems";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -128,17 +128,45 @@ export function BringSong() {
       toast.error("Название для новой песни.");
       return;
     }
-    if (rows.length < 4) {
-      toast.error("Нужны хотя бы 4 строки текста — своё, не чужой хит.");
+    if (!rows.length) {
+      toast.error("Тема: хотя бы одна строка. Три — уже отлично, Suno допишет стихи.");
       return;
     }
     setBusy("cook");
     try {
+      let lyricsText = rows.join("\n");
+      let trackTitle = title.trim().slice(0, 48);
+      const asTheme = rows.length < 8;
+      if (asTheme) {
+        toast.message("Suno пишет стихи по теме…");
+        const idea = themeToLyricsPrompt(`${trackTitle}. ${rows.join(" / ")}`);
+        const startedLyrics = await startSunoLyrics({ data: { prompt: idea } });
+        if (!startedLyrics.ok) throw new Error(startedLyrics.error);
+        let poem: { title: string; text: string } | null = null;
+        for (let i = 0; i < 24; i++) {
+          await new Promise((r) => window.setTimeout(r, 4000));
+          const st = await pollSunoLyrics({ data: { taskId: startedLyrics.taskId } });
+          if (st.failed) throw new Error("Suno не принял тему.");
+          const hit = st.variants.find((v) => v.text.length > 40);
+          if (hit) {
+            poem = hit;
+            break;
+          }
+          if (st.status === "SUCCESS" && st.variants[0]) {
+            poem = st.variants[0];
+            break;
+          }
+        }
+        if (!poem) throw new Error("Стихи не пришли. Попробуй ещё раз.");
+        lyricsText = poem.text;
+        if (poem.title) trackTitle = poem.title.slice(0, 48);
+        toast.message("Стихи готовы. Варим трек…");
+      }
       const started = await startSunoGenerate({
         data: {
-          title: title.trim(),
+          title: trackTitle,
           style: (style.trim() || "russian pop, party vocal").slice(0, 200),
-          lyrics: rows,
+          lyrics: lyricsText,
         },
       });
       if (!started.ok) throw new Error(started.error);
@@ -169,16 +197,15 @@ export function BringSong() {
       }
       if (!blob || !audio) throw new Error("Не скачался новый трек.");
       const id = uid("suno");
-      const text = rows.join("\n");
       const saved: SavedTrack = {
         id,
-        title: title.trim().slice(0, 48),
-        lyrics: text,
+        title: trackTitle,
+        lyrics: lyricsText,
         duration,
         mime: blob.type || "audio/mpeg",
         addedAt: Date.now(),
         blob,
-        lines: timedLines(text, duration),
+        lines: timedLines(lyricsText, duration),
         sourceUrl: audio,
       };
       await saveTrack(saved);
@@ -241,7 +268,7 @@ export function BringSong() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className="flex flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Каждый кидает свой Suno: ссылка или «сварить». На тестах генерация с общего ключа, потом — за ноты.
@@ -251,7 +278,7 @@ export function BringSong() {
         <p className="mt-3 text-xs text-subtle">На столе уже {tableSongs.length} трек(ов) от всех.</p>
       ) : null}
 
-      <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
+      <div className="mt-5 flex flex-col gap-3">
         {tracks.map((track) => (
           <div key={track.id} className="rounded-xl border border-border bg-surface px-3 py-3">
             <div className="flex items-center gap-2">
@@ -311,7 +338,7 @@ export function BringSong() {
             <textarea
               value={lyrics}
               onChange={(e) => setLyrics(e.target.value)}
-              placeholder="Свои строки, по одной на линию. Минимум четыре."
+              placeholder="Тема или свои строки. Три строки хватит — Suno допишет стихи с юмором."
               rows={5}
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
             />

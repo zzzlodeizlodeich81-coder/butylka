@@ -49,7 +49,7 @@ export function Wordmark({ large = false }: { large?: boolean }) {
 export function GateScreen() {
   const enter = useGame((s) => s.enter);
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-between px-6 py-[max(2rem,env(safe-area-inset-top))]">
+    <div className="flex min-h-dvh flex-col items-center justify-between overflow-y-auto px-6 py-[max(2rem,env(safe-area-inset-top))]">
       <div />
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
@@ -94,7 +94,7 @@ export function ProfileScreen() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <Wordmark />
       <h1 className="mt-8 font-display text-3xl text-fg">Это ты</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -197,7 +197,7 @@ export function Lobby() {
 
   if (mode === "net" && roomCode) {
     return (
-      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
         <Wordmark />
         <h1 className="mt-8 font-display text-3xl text-fg">Стол {roomCode}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -236,7 +236,7 @@ export function Lobby() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <Wordmark />
       <h1 className="mt-8 font-display text-3xl text-fg">Кто за столом</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -636,7 +636,7 @@ export function Chrome({ children }: { children: ReactNode }) {
   const cookStatus = useGame((s) => s.cookStatus);
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-lg flex-col bg-bg">
+    <div className="relative mx-auto flex h-dvh w-full max-w-lg flex-col overflow-y-auto overflow-x-clip bg-bg">
       <header className="flex items-center justify-between gap-3 px-5 pt-[max(0.85rem,env(safe-area-inset-top))] pb-2">
         <Wordmark />
         <div className="flex items-center gap-1">

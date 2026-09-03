@@ -59,10 +59,26 @@ export type SunoClip = {
   lyrics: string;
 };
 
+export function themeToLyricsPrompt(theme: string) {
+  const clean = theme.replace(/\s+/g, " ").trim();
+  return `Весёлая русская песня с юмором, живые рифмы, правильные ударения, не корявый перевод. Тема: ${clean}`.slice(
+    0,
+    200,
+  );
+}
+
+function vocalGenderFromStyle(style: string): "m" | "f" | undefined {
+  if (/женск|female|\bgirl\b|\bwom/i.test(style)) return "f";
+  if (/мужск|male|\bman\b|\bmale vocal/i.test(style)) return "m";
+  return undefined;
+}
+
 export const startSunoGenerate = createServerFn({ method: "POST" })
   .validator((input: { title: string; style: string; lyrics: string[] | string }) => input)
   .handler(async ({ data }) => {
     const prompt = lyricsPrompt(data.lyrics);
+    const gender = vocalGenderFromStyle(data.style);
+    const style = `${data.style}, clear russian vocals, correct word stress, sung not spoken`.slice(0, 1000);
     const { res, body } = await sunoFetch("/api/v1/generate", {
       method: "POST",
       body: JSON.stringify({
@@ -71,12 +87,13 @@ export const startSunoGenerate = createServerFn({ method: "POST" })
         model: "V5_5",
         callBackUrl: CALLBACK,
         prompt,
-        style: data.style.slice(0, 900),
-        title: data.title.slice(0, 80),
+        style,
+        title: data.title.slice(0, 100),
         duration: 80,
-        negativeTags: "podcast, spoken word, audiobook, mumble rap",
-        weirdnessConstraint: 0.7,
-        styleWeight: 0.6,
+        negativeTags: "podcast, spoken word, audiobook, mumble rap, robotic, off-key",
+        weirdnessConstraint: 0.18,
+        styleWeight: 0.5,
+        ...(gender ? { vocalGender: gender } : {}),
       }),
     });
     const code = Number(body.code ?? res.status);

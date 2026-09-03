@@ -10,6 +10,7 @@ import {
   startSunoGenerate,
   startSunoLyrics,
   startSunoStems,
+  themeToLyricsPrompt,
 } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -34,7 +35,7 @@ function lyricsPromptFromTable(lines: { name: string; text: string }[]) {
     .filter((t) => t && t !== "…")
     .slice(0, 8);
   const blob = rows.join(" / ");
-  return `Русская песня из строк за столом: ${blob}`.slice(0, 200);
+  return themeToLyricsPrompt(blob || "вечер за столом");
 }
 
 function lyricRows(text: string) {

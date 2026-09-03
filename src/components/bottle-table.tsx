@@ -47,9 +47,9 @@ function drawBalalaika(
 
   ctx.fillStyle = "rgba(0,0,0,0.45)";
   ctx.beginPath();
-  ctx.moveTo(scale * 0.08, scale * 1.24);
-  ctx.lineTo(scale * 0.68, scale * 0.12);
-  ctx.lineTo(-scale * 0.5, scale * 0.12);
+  ctx.moveTo(scale * 0.08, scale * 1.28);
+  ctx.lineTo(scale * 0.7, scale * 1.22);
+  ctx.lineTo(-scale * 0.52, scale * 1.22);
   ctx.closePath();
   ctx.fill();
 
@@ -68,15 +68,15 @@ function drawBalalaika(
   }
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.moveTo(0, scale * 1.2);
-  ctx.lineTo(scale * 0.6, scale * 0.04);
-  ctx.lineTo(-scale * 0.6, scale * 0.04);
+  ctx.moveTo(0, scale * 0.02);
+  ctx.lineTo(scale * 0.64, scale * 1.2);
+  ctx.lineTo(-scale * 0.64, scale * 1.2);
   ctx.closePath();
   ctx.fill();
 
   ctx.fillStyle = omen ? "#0c0708" : "#2c1810";
   ctx.beginPath();
-  ctx.arc(0, scale * 0.46, scale * 0.11, 0, Math.PI * 2);
+  ctx.arc(0, scale * 0.72, scale * 0.12, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = omen ? "#5a2a2e" : "#f1ebe3";
   ctx.lineWidth = Math.max(1.2, scale * 0.025);
@@ -122,7 +122,7 @@ function drawBalalaika(
   for (const x of [-0.035, 0, 0.035]) {
     ctx.beginPath();
     ctx.moveTo(scale * x, -scale * 1.16);
-    ctx.lineTo(scale * x * 4.2, scale * 0.98);
+    ctx.lineTo(scale * x * 8, scale * 1.08);
     ctx.stroke();
   }
 
