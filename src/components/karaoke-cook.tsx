@@ -16,7 +16,8 @@ import { objectUrlFor, listSavedTracks, saveTrack, songFromSaved, type SavedTrac
 import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
-import { pollSunoGenerate, pollSunoStems, startSunoCover, startSunoStems } from "@/lib/suno-server";
+import { pullMinusBlobs } from "@/lib/suno-flow";
+import { pollSunoGenerate, startSunoCover } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 
 type Props = {
@@ -174,32 +175,16 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     setBusy("Снимаю минус… минута-две");
     try {
       const audioUrl = track.sourceUrl || (await hostFile(track.blob));
-      const started = await startSunoStems({ data: { audioUrl } });
-      if (!started.ok) throw new Error(started.error);
-      let instrumental: string | null = null;
-      let vocal: string | null = null;
-      for (let i = 0; i < 40; i++) {
-        await new Promise((r) => window.setTimeout(r, 2500));
-        const st = await pollSunoStems({ data: { taskId: started.taskId } });
-        if (st.failed) throw new Error("Кухня не сняла голос.");
-        if (st.ready && st.instrumentalUrl) {
-          instrumental = st.instrumentalUrl;
-          vocal = st.vocalUrl;
-          break;
-        }
-      }
-      if (!instrumental) throw new Error("Минус не успел. Попробуй ещё раз.");
-      const res = await fetch(proxyAudio(instrumental));
-      if (!res.ok) throw new Error("Не скачался минус.");
-      const minusBlob = await res.blob();
-      let vocalBlob: Blob | undefined;
-      if (vocal) {
-        const v = await fetch(proxyAudio(vocal));
-        if (v.ok) vocalBlob = await v.blob();
-      }
-      const next = { ...track, minusBlob, vocalBlob: vocalBlob ?? track.vocalBlob };
+      const pulled = await pullMinusBlobs({ audioUrl });
+      if (!pulled) throw new Error("Минус не успел. Попробуй ещё раз.");
+      const next = {
+        ...track,
+        minusBlob: pulled.minusBlob,
+        vocalBlob: pulled.vocalBlob ?? track.vocalBlob,
+        sourceUrl: pulled.instrumentalUrl,
+      };
       await persist(next);
-      toast.success(vocalBlob ? "Минус и вокал в колоде. Можно скачать." : "Минус в колоде. Можно скачать.");
+      toast.success(pulled.vocalBlob ? "Минус и вокал в колоде. Можно скачать." : "Минус в колоде. Можно скачать.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не вышел минус.");
     } finally {

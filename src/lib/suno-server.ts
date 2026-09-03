@@ -244,22 +244,36 @@ export const pollSunoStems = createServerFn({ method: "GET" })
     const { body } = await sunoFetch(
       `/api/v1/vocal-removal/record-info?taskId=${encodeURIComponent(data.taskId)}`,
     );
-    const outer = (body.data ?? {}) as Record<string, unknown>;
-    const info = (outer.vocal_removal_info ?? outer.response ?? outer) as Record<string, unknown>;
+    const outer = (body.data ?? body) as Record<string, unknown>;
+    const response = (outer.response ?? outer) as Record<string, unknown>;
+    const info = (response.vocal_removal_info ??
+      outer.vocal_removal_info ??
+      response) as Record<string, unknown>;
     const flag = String(
       pick(outer, "successFlag", "success_flag", "status") ??
+        pick(response, "status") ??
         pick(info, "status") ??
         "PENDING",
     );
-    const failed = /FAIL|ERROR/i.test(flag);
-    const ready = flag === "SUCCESS" || Boolean(pick(info, "instrumentalUrl", "instrumental_url"));
+    const n = Number(flag);
+    const failed = n === 2 || /FAIL|ERROR/i.test(flag);
+    const instrumentalUrl =
+      pick<string>(info, "instrumentalUrl", "instrumental_url") ??
+      pick<string>(response, "instrumentalUrl", "instrumental_url") ??
+      pick<string>(outer, "instrumentalUrl", "instrumental_url") ??
+      null;
+    const vocalUrl =
+      pick<string>(info, "vocalUrl", "vocal_url") ??
+      pick<string>(response, "vocalUrl", "vocal_url") ??
+      null;
+    const ready = n === 1 || /SUCCESS|COMPLETE/i.test(flag) || Boolean(instrumentalUrl);
     return {
       ok: true as const,
       status: flag,
       failed,
       ready,
-      instrumentalUrl: pick<string>(info, "instrumentalUrl", "instrumental_url") ?? null,
-      vocalUrl: pick<string>(info, "vocalUrl", "vocal_url") ?? null,
+      instrumentalUrl,
+      vocalUrl,
     };
   });
 
@@ -271,14 +285,23 @@ export const getSunoTimestamps = createServerFn({ method: "POST" })
       body: JSON.stringify({ taskId: data.taskId, audioId: data.audioId }),
     });
     if (!res.ok && Number(body.code) !== 200) return { ok: false as const, words: [] as AlignedWord[] };
-    const inner = (body.data ?? {}) as Record<string, unknown>;
-    const raw = (inner.alignedWords ?? inner.aligned_words ?? []) as Record<string, unknown>[];
+    const inner = (body.data ?? body) as Record<string, unknown>;
+    const nested = (inner.data ?? inner.response ?? inner) as Record<string, unknown>;
+    const raw = (nested.alignedWords ??
+      nested.aligned_words ??
+      inner.alignedWords ??
+      inner.aligned_words ??
+      []) as Record<string, unknown>[];
     const words: AlignedWord[] = raw
-      .map((w) => ({
-        word: String(w.word ?? ""),
-        startS: Number(w.startS ?? w.start_s ?? 0),
-        endS: Number(w.endS ?? w.end_s ?? 0),
-      }))
+      .map((w) => {
+        const startS = Number(w.startS ?? w.start_s ?? w.start ?? 0);
+        const endS = Number(w.endS ?? w.end_s ?? w.end ?? 0);
+        return {
+          word: String(w.word ?? w.text ?? ""),
+          startS: startS > 400 ? startS / 1000 : startS,
+          endS: endS > 400 ? endS / 1000 : endS,
+        };
+      })
       .filter((w) => w.word);
     return { ok: true as const, words };
   });

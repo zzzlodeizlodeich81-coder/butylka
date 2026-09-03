@@ -2,16 +2,8 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { buildSong } from "@/lib/songs";
 import { linesFromAligned, proxyAudio } from "@/lib/suno";
-import {
-  getSunoTimestamps,
-  pollSunoGenerate,
-  pollSunoLyrics,
-  pollSunoStems,
-  startSunoGenerate,
-  startSunoLyrics,
-  startSunoStems,
-  themeToLyricsPrompt,
-} from "@/lib/suno-server";
+import { pullSunoAligned, pullSunoMinus } from "@/lib/suno-flow";
+import { pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 
@@ -128,7 +120,7 @@ export function CookBridge() {
         }
         if (info.clips.length) {
           clip = info.clips[0];
-          if (info.status === "SUCCESS" || clip.audioUrl) break;
+          if (info.status === "SUCCESS" && clip.audioUrl) break;
         }
       }
       if (!live) return;
@@ -139,52 +131,36 @@ export function CookBridge() {
       }
 
       let instrumental = clip.audioUrl;
-      let minus = true;
-      const stems = await startSunoStems({
-        data: { taskId: started.taskId, audioId: clip.audioId },
-      });
-      if (stems.ok) {
-        for (let i = 0; i < 18 && live; i++) {
-          await sleep(7000, () => live);
-          if (!live) return;
-          const st = await pollSunoStems({ data: { taskId: stems.taskId } });
-          if (st.failed) break;
-          if (st.ready && st.instrumentalUrl) {
-            instrumental = st.instrumentalUrl;
-            minus = false;
-            break;
-          }
-        }
-      }
+      let haveMinus = false;
+      toast.message("Снимаю минус…");
+      const stems = await pullSunoMinus(
+        { taskId: started.taskId, audioId: clip.audioId, audioUrl: clip.audioUrl },
+        () => live,
+      );
       if (!live) return;
+      if (stems?.instrumentalUrl) {
+        instrumental = stems.instrumentalUrl;
+        haveMinus = true;
+      }
 
-      const texts = lyricRows(lyrics.text);
-      let song = buildSong({
+      const texts = lyricRows(lyrics.text).length ? lyricRows(lyrics.text) : lyricRows(clip.lyrics);
+      const words = await pullSunoAligned(started.taskId, clip.audioId, () => live);
+      if (!live) return;
+      const aligned = words.length ? linesFromAligned(words, texts) : [];
+      const song = buildSong({
         id: uid("omen"),
         title: clip.title || title,
         artist: "стол",
         genre: "indie",
         bpm: 110,
         mood: "из строк",
-        texts: texts.length ? texts : lyricRows(clip.lyrics),
+        texts,
+        lines: aligned.length >= 3 ? aligned : undefined,
         audioUrl: proxyAudio(instrumental),
         audioDuration: clip.duration > 8 ? clip.duration : undefined,
         generated: true,
-        minus,
+        minus: !haveMinus,
       });
-
-      try {
-        const stamps = await getSunoTimestamps({
-          data: { taskId: started.taskId, audioId: clip.audioId },
-        });
-        if (stamps.ok && stamps.words.length > 8) {
-          const aligned = linesFromAligned(stamps.words);
-          if (aligned.length >= 4) song = { ...song, lines: aligned };
-        }
-      } catch {
-        /* keep fitted lines */
-      }
-      if (!live) return;
 
       readyOmen(song, style);
       toast.message("Песня готова. Балалайка темнеет.");

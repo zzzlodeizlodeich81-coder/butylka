@@ -15,7 +15,8 @@ import {
   type SavedTrack,
 } from "@/lib/library";
 import { linesFromPlain, looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
-import { proxyAudio } from "@/lib/suno";
+import { linesFromAligned, proxyAudio } from "@/lib/suno";
+import { pullMinusBlobs, pullSunoAligned } from "@/lib/suno-flow";
 import { importSunoSong, pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
 import { prepareKaraokeTrack } from "@/lib/stems";
 import { useGame } from "@/lib/store";
@@ -100,12 +101,25 @@ export function BringSong() {
         lines: timedLines(text, duration || hit.duration),
         sourceUrl: hit.audioUrl,
       };
+      toast.message("Снимаю минус…");
+      const pulled = await pullMinusBlobs({ audioUrl: hit.audioUrl });
+      if (pulled) {
+        saved.minusBlob = pulled.minusBlob;
+        saved.vocalBlob = pulled.vocalBlob ?? saved.vocalBlob;
+        saved.sourceUrl = pulled.instrumentalUrl;
+      }
       await saveTrack(saved);
       const next = await syncSongs(artist);
       setTracks(next);
       setSunoUrl("");
       setLyrics("");
-      toast.success(text ? "С Suno в колоде, текст тоже." : "С Suno в колоде. Текст допиши в студии.");
+      toast.success(
+        pulled
+          ? "С Suno в колоде, минус снят."
+          : text
+            ? "С Suno в колоде. Минус не снялся — снимешь в студии."
+            : "С Suno в колоде. Текст допиши в студии.",
+      );
       playUiTick();
       setStudio(next.find((t) => t.id === id) ?? saved);
     } catch (err) {
@@ -172,30 +186,34 @@ export function BringSong() {
       if (!started.ok) throw new Error(started.error);
       let audio: string | null = null;
       let duration = 80;
-      let clips: { audioUrl: string; duration: number }[] = [];
+      let audioId = "";
       for (let i = 0; i < 48; i++) {
         await new Promise((r) => window.setTimeout(r, 4000));
         const st = await pollSunoGenerate({ data: { taskId: started.taskId } });
         if (st.failed) throw new Error("Suno не принял текст.");
         const ready = st.clips.filter((c) => c.audioUrl);
-        if (ready.length) {
-          clips = ready.map((c) => ({ audioUrl: c.audioUrl, duration: c.duration || 80 }));
-          if (st.status === "SUCCESS" || ready.length >= 1) break;
+        if (ready.length && (st.status === "SUCCESS" || ready[0].duration > 8)) {
+          audio = ready[0].audioUrl;
+          duration = ready[0].duration || duration;
+          audioId = ready[0].audioId;
+          if (st.status === "SUCCESS") break;
         }
       }
-      if (!clips.length) throw new Error("Suno не успел. Попробуй ещё раз.");
-      let blob: Blob | null = null;
-      for (const clip of clips) {
-        const res = await fetch(proxyAudio(clip.audioUrl));
-        if (!res.ok) continue;
-        const next = await res.blob();
-        if (next.size < 8000) continue;
-        blob = next;
-        audio = clip.audioUrl;
-        duration = clip.duration || duration;
-        break;
-      }
-      if (!blob || !audio) throw new Error("Не скачался новый трек.");
+      if (!audio) throw new Error("Suno не успел. Попробуй ещё раз.");
+      const res = await fetch(proxyAudio(audio));
+      if (!res.ok) throw new Error("Не скачался новый трек.");
+      const blob = await res.blob();
+      if (blob.size < 8000) throw new Error("Не скачался новый трек.");
+      const words = audioId ? await pullSunoAligned(started.taskId, audioId) : [];
+      const rowsForTime = lyricsText
+        .split(/\n/)
+        .map((l) => l.replace(/^\[[^\]]+]\s*/, "").trim())
+        .filter((l) => l && !/^\[/.test(l));
+      const aligned = words.length
+        ? linesFromAligned(words, rowsForTime)
+        : timedLines(lyricsText, duration) ?? [];
+      toast.message("Снимаю минус…");
+      const pulled = await pullMinusBlobs({ taskId: started.taskId, audioId, audioUrl: audio });
       const id = uid("suno");
       const saved: SavedTrack = {
         id,
@@ -205,8 +223,10 @@ export function BringSong() {
         mime: blob.type || "audio/mpeg",
         addedAt: Date.now(),
         blob,
-        lines: timedLines(lyricsText, duration),
-        sourceUrl: audio,
+        lines: aligned.length ? aligned : undefined,
+        sourceUrl: pulled?.instrumentalUrl ?? audio,
+        minusBlob: pulled?.minusBlob,
+        vocalBlob: pulled?.vocalBlob,
       };
       await saveTrack(saved);
       const next = await syncSongs(artist);
