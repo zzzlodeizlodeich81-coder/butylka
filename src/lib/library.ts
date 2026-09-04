@@ -200,5 +200,11 @@ export function songFromSaved(track: SavedTrack, artist: string): Song {
     hasCover: Boolean(track.coverBlob),
     takeUrl: track.takeBlob ? objectUrlFor(`${track.id}-take`, track.takeBlob) : undefined,
     coverUrl: track.coverBlob ? objectUrlFor(`${track.id}-cover`, track.coverBlob) : undefined,
+    minusUrl: track.minusBlob ? url : undefined,
+    guideUrl: track.minusBlob
+      ? track.sourceUrl
+        ? proxyAudio(track.sourceUrl)
+        : objectUrlFor(track.id, track.blob)
+      : undefined,
   });
 }

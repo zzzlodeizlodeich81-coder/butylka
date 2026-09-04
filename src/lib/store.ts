@@ -853,6 +853,8 @@ export function wireSong(song: Song | null): Song | null {
     audioUrl: http(song.audioUrl),
     takeUrl: http(song.takeUrl),
     coverUrl: http(song.coverUrl),
+    guideUrl: http(song.guideUrl),
+    minusUrl: http(song.minusUrl),
     hasTake: Boolean(http(song.takeUrl)),
     hasCover: Boolean(http(song.coverUrl)),
   };

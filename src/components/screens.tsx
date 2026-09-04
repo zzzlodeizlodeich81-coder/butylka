@@ -385,7 +385,7 @@ export function Reveal() {
         </p>
         {omen && omenSong ? (
           <p className="mt-4 text-sm text-muted">
-            {omenSong.title} · поём с голосом, так слышно мелодию
+            {omenSong.title} · сначала послушай, потом пой в минус
           </p>
         ) : null}
       </div>
@@ -485,7 +485,7 @@ export function Result() {
             title: song?.title ?? "запись",
             lyrics: "",
             duration: song?.audioDuration ?? 0,
-            mime: lastTake?.type || "audio/webm",
+            mime: lastTake?.type || "audio/wav",
             addedAt: Date.now(),
             blob: lastTake ?? new Blob(),
           }),

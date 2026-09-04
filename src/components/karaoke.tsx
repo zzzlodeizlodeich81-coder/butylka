@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   now,
   playUiTick,
+  previewFile,
   startMic,
   startMixedTake,
   startTrack,
@@ -141,7 +142,8 @@ export function KaraokeStage() {
     };
 
     if (withMic && play.audioUrl) {
-      void startMixedTake(play.audioUrl).then((rec) => {
+      const bed = play.minusUrl || (play.guideUrl ? null : play.audioUrl);
+      void startMixedTake(bed || play.audioUrl, bed).then((rec) => {
         if (doneRef.current) {
           void rec?.stop();
           return;
@@ -335,7 +337,7 @@ export function KaraokeStage() {
           <p className="font-display text-lg leading-tight text-fg">{song.title}</p>
           <p className="text-sm text-muted">
             {song.artist}
-            {song.generated ? " · с голосом, её ещё не слышали" : ""}
+            {song.generated ? " · сначала послушай, потом минус" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2 text-muted">
@@ -382,8 +384,22 @@ export function KaraokeStage() {
           <div className="flex w-full max-w-sm flex-col gap-2">
             <p className="font-display text-2xl text-fg">Как поёшь?</p>
             <p className="mb-2 text-sm text-muted">
-              Живьём бесплатно. Запись и кавер — ноты. У {singer.name} {singerNotes}.
+              {song.guideUrl
+                ? "Сначала послушай оригинал. Петь будем в минус — без второго голоса. Файл wav."
+                : "Живьём бесплатно, в минус. Запись — wav. У " + singer.name + ` ${singerNotes}.`}
             </p>
+            {song.guideUrl ? (
+              <Button
+                variant="secondary"
+                className="rounded-xl"
+                onClick={() => {
+                  unlockAudio();
+                  previewFile(song.guideUrl!);
+                }}
+              >
+                Слушать оригинал
+              </Button>
+            ) : null}
             <Button className="rounded-xl" onClick={() => pickLane("live")}>
               Петь живьём · 0
             </Button>

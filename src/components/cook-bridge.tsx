@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { buildSong } from "@/lib/songs";
 import { linesFromAligned, proxyAudio } from "@/lib/suno";
-import { pullSunoAligned } from "@/lib/suno-flow";
+import { pullSunoAligned, pullSunoMinus } from "@/lib/suno-flow";
 import { pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -130,6 +130,14 @@ export function CookBridge() {
         return;
       }
 
+      toast.message("Снимаю минус через Suno — в запись голос на голос не пойдёт.");
+      const stems = await pullSunoMinus(
+        { taskId: started.taskId, audioId: clip.audioId, audioUrl: clip.audioUrl },
+        () => live,
+      );
+      if (!live) return;
+      const guide = proxyAudio(clip.audioUrl);
+      const bed = stems?.instrumentalUrl ? proxyAudio(stems.instrumentalUrl) : guide;
       const texts = lyricRows(lyrics.text).length ? lyricRows(lyrics.text) : lyricRows(clip.lyrics);
       const words = await pullSunoAligned(started.taskId, clip.audioId, () => live);
       if (!live) return;
@@ -143,14 +151,20 @@ export function CookBridge() {
         mood: "из строк",
         texts,
         lines: aligned.length >= 3 ? aligned : undefined,
-        audioUrl: proxyAudio(clip.audioUrl),
+        audioUrl: bed,
         audioDuration: clip.duration > 8 ? clip.duration : undefined,
         generated: true,
-        minus: false,
+        minus: !stems?.instrumentalUrl,
+        guideUrl: guide,
+        minusUrl: stems?.instrumentalUrl ? bed : undefined,
       });
 
       readyOmen(song, style);
-      toast.message("Песня готова. Балалайка темнеет. Поём с голосом — так слышно как звучит.");
+      toast.message(
+        stems?.instrumentalUrl
+          ? "Песня готова. Сначала послушай оригинал, потом пой в минус."
+          : "Песня готова. Минус не снялся — поём с голосом.",
+      );
     })().catch(() => {
       if (!live) return;
       toast.error("Suno не ответил.");

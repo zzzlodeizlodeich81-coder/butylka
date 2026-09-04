@@ -37,6 +37,8 @@ export type Song = {
   hasCover?: boolean;
   takeUrl?: string;
   coverUrl?: string;
+  guideUrl?: string;
+  minusUrl?: string;
 };
 
 export const GENRE_LABEL: Record<Genre, string> = {
@@ -116,6 +118,8 @@ export function buildSong(input: {
   hasCover?: boolean;
   takeUrl?: string;
   coverUrl?: string;
+  guideUrl?: string;
+  minusUrl?: string;
 }): Song {
   const lines = input.lines?.length
     ? input.lines
@@ -141,6 +145,8 @@ export function buildSong(input: {
     hasCover: input.hasCover,
     takeUrl: input.takeUrl,
     coverUrl: input.coverUrl,
+    guideUrl: input.guideUrl,
+    minusUrl: input.minusUrl,
   };
 }
 

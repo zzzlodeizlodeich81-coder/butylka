@@ -171,7 +171,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [tapping]);
 
-  async function cookMinus() {
+  async function cookMinus(): Promise<SavedTrack | null> {
     setBusy("Снимаю минус… минута-две");
     try {
       const audioUrl = track.sourceUrl || (await hostFile(track.blob));
@@ -181,12 +181,13 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
         ...track,
         minusBlob: pulled.minusBlob,
         vocalBlob: pulled.vocalBlob ?? track.vocalBlob,
-        sourceUrl: pulled.instrumentalUrl,
       };
       await persist(next);
       toast.success(pulled.vocalBlob ? "Минус и вокал в колоде. Можно скачать." : "Минус в колоде. Можно скачать.");
+      return next;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не вышел минус.");
+      return null;
     } finally {
       setBusy(null);
     }
@@ -194,16 +195,25 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
 
   async function startRecord() {
     unlockAudio();
-    const backing = track.minusBlob ?? track.blob;
-    const key = track.minusBlob ? `${track.id}-minus` : track.id;
-    const handle = await startMixedTake(objectUrlFor(key, backing));
+    let current = track;
+    if (!current.minusBlob) {
+      toast.message("Сначала сниму минус через Suno — иначе голос ляжет на голос.");
+      const next = await cookMinus();
+      if (!next?.minusBlob) {
+        toast.error("Минус не снялся. Без него запись не пишем.");
+        return;
+      }
+      current = next;
+    }
+    const bed = objectUrlFor(`${current.id}-minus`, current.minusBlob!);
+    const handle = await startMixedTake(bed, bed);
     if (!handle) {
       toast.error("Микрофон не открылся.");
       return;
     }
     recRef.current = handle;
     setRecording(true);
-    toast.message(track.minusBlob ? "Минус в ушах — пой." : "Поёшь поверх оригинала. Минус лучше снять заранее.");
+    toast.message("Минус в ушах — пой. Файл будет wav.");
   }
 
   async function finishRecord() {
@@ -248,7 +258,11 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     }
     setBusy("Варю кавер… пару минут");
     try {
-      const ext = /mp4|m4a|aac/i.test(track.takeBlob.type) ? "take.m4a" : "take.webm";
+      const ext = /wav/i.test(track.takeBlob.type)
+        ? "take.wav"
+        : /mp4|m4a|aac/i.test(track.takeBlob.type)
+          ? "take.m4a"
+          : "take.wav";
       const audioUrl = await hostFile(track.takeBlob, ext);
       const started = await startSunoCover({
         data: {
