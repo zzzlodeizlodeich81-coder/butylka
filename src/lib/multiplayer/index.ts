@@ -8,4 +8,6 @@ export type {
   PeerRow,
   SignalRow,
   RtcPollResponse,
+  RoomAct,
+  RoomState,
 } from "./p2p";

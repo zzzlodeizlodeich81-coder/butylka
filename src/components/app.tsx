@@ -44,7 +44,17 @@ export function App({ invite }: { invite?: string }) {
     if (invite) {
       const s = useGame.getState();
       if (!(s.mode === "net" && s.roomCode === invite && s.wantHost)) {
-        s.joinRoom(invite);
+        let asHost = s.wantHost && s.roomCode === invite;
+        try {
+          const saved = JSON.parse(sessionStorage.getItem("bottle-net") || "null") as {
+            roomCode?: string;
+            wantHost?: boolean;
+          } | null;
+          if (saved?.roomCode === invite && saved.wantHost) asHost = true;
+        } catch {
+          /* ignore */
+        }
+        s.joinRoom(invite, asHost);
       }
     }
     armAudioGestures();

@@ -199,7 +199,7 @@ type GameState = {
   toggleMute: () => void;
   rehydrate: () => void;
   createRoom: () => string;
-  joinRoom: (code: string) => void;
+  joinRoom: (code: string, asHost?: boolean) => void;
   adoptNet: (selfId: string, asHost: boolean) => void;
   applySnap: (snap: NetSnap) => void;
   playLocal: () => void;
@@ -316,7 +316,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toBring: () => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "toBring" });
       return;
     }
@@ -328,7 +328,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toVerse: () => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "toVerse" });
       return;
     }
@@ -349,7 +349,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toTable: () => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "toTable" });
       return;
     }
@@ -361,7 +361,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   submitVerse: (text, late) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "verse", text, late });
       return;
     }
@@ -420,7 +420,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   startSpin: () => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "spin" });
       return {
         singerId: get().singerId ?? get().youId,
@@ -450,7 +450,7 @@ export const useGame = create<GameState>((set, get) => ({
   finishSpin: () => set({ spinning: false, phase: "reveal" }),
 
   skipTurn: (toId, kind) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "skip", toId, kind });
       return true;
     }
@@ -484,7 +484,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toSongPick: () => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "toSong" });
       return;
     }
@@ -515,7 +515,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   addCustomSong: (song) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "addSong", song: wireSong(song) ?? song });
       return;
     }
@@ -534,7 +534,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   chooseSong: (song) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "choose", song: wireSong(song) ?? song });
       return;
     }
@@ -542,7 +542,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   finishKaraoke: (score, hadMic) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "done", score, hadMic });
       return;
     }
@@ -569,7 +569,7 @@ export const useGame = create<GameState>((set, get) => ({
   setLastTake: (blob) => set({ lastTake: blob }),
 
   sendHeart: (fromId) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "heart" });
       return;
     }
@@ -582,7 +582,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   sendGift: (fromId, kind) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "gift", kind });
       return true;
     }
@@ -603,7 +603,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   sendChat: (text, toId) => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "chat", text, toId });
       return;
     }
@@ -623,7 +623,7 @@ export const useGame = create<GameState>((set, get) => ({
   setChatTarget: (to) => set({ chatTarget: to, chatOpen: true }),
 
   nextRound: () => {
-    if (get().mode === "net" && get().hostId !== get().youId) {
+    if (get().mode === "net" && !get().wantHost && get().hostId !== get().youId) {
       netSend({ t: "nextRound" });
       return;
     }
@@ -664,39 +664,99 @@ export const useGame = create<GameState>((set, get) => ({
   setSfxGain: (v) => set({ sfxGain: v }),
   toggleMute: () => set({ muted: !get().muted }),
 
-  playLocal: () => set({ mode: "local", roomCode: null, hostId: null, wantHost: false }),
+  playLocal: () => {
+    try {
+      sessionStorage.removeItem("bottle-net");
+    } catch {
+      /* ignore */
+    }
+    set({ mode: "local", roomCode: null, hostId: null, wantHost: false });
+  },
 
   createRoom: () => {
     const code = Math.random().toString(36).slice(2, 8);
+    const you =
+      get().players.find((p) => p.id === get().youId) ??
+      get().players[0] ??
+      blankPlayer("Макс", 0);
+    const name = you.name.trim() || "Макс";
+    try {
+      sessionStorage.setItem(
+        "bottle-net",
+        JSON.stringify({
+          roomCode: code,
+          wantHost: true,
+          name,
+          avatarUrl: you.avatarUrl ?? null,
+        }),
+      );
+    } catch {
+      /* quota */
+    }
     set({
       mode: "net",
       roomCode: code,
       wantHost: true,
-      hostId: get().youId,
-      players: get().players.filter((p) => p.id === get().youId),
+      hostId: you.id,
+      youId: you.id,
+      players: [{ ...you, name }],
       phase: "lobby",
     });
     return code;
   },
 
-  joinRoom: (raw) => {
+  joinRoom: (raw, asHost = false) => {
     const code = raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16);
     if (!code) return;
+    let host = asHost;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("bottle-net") || "null") as {
+        roomCode?: string;
+        wantHost?: boolean;
+        name?: string;
+        avatarUrl?: string | null;
+      } | null;
+      if (saved?.roomCode === code && saved.wantHost) host = true;
+      sessionStorage.setItem(
+        "bottle-net",
+        JSON.stringify({
+          ...saved,
+          roomCode: code,
+          wantHost: host,
+          name: saved?.name ?? get().players.find((p) => p.id === get().youId)?.name,
+          avatarUrl: saved?.avatarUrl ?? get().players.find((p) => p.id === get().youId)?.avatarUrl ?? null,
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+    const you = get().players.find((p) => p.id === get().youId);
     set({
       mode: "net",
       roomCode: code,
-      wantHost: false,
-      hostId: null,
-      players: get().players.filter((p) => p.id === get().youId),
+      wantHost: host,
+      hostId: host ? get().youId : null,
+      players: you ? [{ ...you }] : get().players.filter((p) => p.id === get().youId),
       phase: get().phase === "gate" || get().phase === "profile" ? get().phase : "lobby",
     });
   },
 
   adoptNet: (selfId, asHost) => {
-    const prev = get().players.find((p) => p.id === get().youId);
+    const prev =
+      get().players.find((p) => p.id === get().youId) ?? get().players[0];
+    let name = (prev?.name ?? "").trim();
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("bottle-net") || "null") as {
+        name?: string;
+      } | null;
+      if (!name || name === "я") name = String(saved?.name ?? "").trim() || name;
+    } catch {
+      /* ignore */
+    }
+    if (!name || name === "я") name = "Макс";
     const mine: Player = {
       id: selfId,
-      name: prev?.name || "я",
+      name: name.slice(0, 16),
       color: PLAYER_COLORS[0],
       score: prev?.score ?? 0,
       avatarUrl: prev?.avatarUrl ?? null,
@@ -840,9 +900,9 @@ export function playerById(players: Player[], id: string | null) {
   return players.find((p) => p.id === id) ?? null;
 }
 
-export function tableIsHost(s?: { mode: "local" | "net"; hostId: string | null; youId: string }) {
+export function tableIsHost(s?: { mode: "local" | "net"; hostId: string | null; youId: string; wantHost?: boolean }) {
   const st = s ?? useGame.getState();
-  return st.mode !== "net" || st.hostId === st.youId;
+  return st.mode !== "net" || Boolean(st.wantHost) || st.hostId === st.youId;
 }
 
 export function wireSong(song: Song | null): Song | null {

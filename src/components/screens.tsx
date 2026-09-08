@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatButton, ChatDrawer } from "@/components/chat-drawer";
 import { ChavoButton } from "@/components/chavo";
+import { useNet } from "@/components/net-sync";
 import { PersonAvatar } from "@/components/person-avatar";
 import { TrackTakes } from "@/components/track-takes";
 import { playUiTick, setMixer, unlockAudio } from "@/lib/audio";
@@ -184,6 +185,9 @@ export function Lobby() {
   const createRoom = useGame((s) => s.createRoom);
   const joinRoom = useGame((s) => s.joinRoom);
   const playLocal = useGame((s) => s.playLocal);
+  const hostId = useGame((s) => s.hostId);
+  const wantHost = useGame((s) => s.wantHost);
+  const net = useNet();
   const [code, setCode] = useState("");
 
   function shareLink(next: string) {
@@ -195,37 +199,70 @@ export function Lobby() {
     window.history.replaceState(null, "", `/r/${next}`);
   }
 
+  function shareVk(next: string) {
+    const url = `${window.location.origin}/r/${next}`;
+    const vk = `https://vk.com/share.php?url=${encodeURIComponent(url)}&title=${encodeURIComponent("Балалаечка — садись за стол")}&comment=${encodeURIComponent("Караоке за одним столом. Открой ссылку с телефона.")}`;
+    window.open(vk, "_blank", "noopener,noreferrer,width=640,height=560");
+    window.history.replaceState(null, "", `/r/${next}`);
+  }
+
   if (mode === "net" && roomCode) {
+    const isHost = wantHost || hostId === youId;
+    const ready = players.length >= 2;
+    const looking = Boolean(net && !net.joined);
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
         <Wordmark />
         <h1 className="mt-8 font-display text-3xl text-fg">Стол {roomCode}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Ссылка на стол. До 8 человек, хоть из разных городов. Каждый кидает свой Suno.
+          {looking ? " Ищем стол…" : ready ? " Все на месте." : " Ждём, когда откроют ссылку."}
         </p>
         <ul className="mt-6 flex flex-1 flex-col gap-2">
-          {players.map((p) => (
-            <li key={p.id} className="flex items-center gap-2">
-              <PersonAvatar url={p.avatarUrl} name={p.name} size="md" />
-              <p className="font-medium text-fg">{p.name}</p>
-              {p.id === youId ? <span className="text-xs text-subtle">ты</span> : null}
-            </li>
-          ))}
+          {players.map((p) => {
+            const isYou = p.id === youId || p.id === net?.selfId;
+            const live = net?.peers.find((x) => x.id === p.id);
+            const here = isYou || Boolean(live) || Boolean(net?.roster.some((x) => x.id === p.id));
+            return (
+              <li key={p.id} className="flex items-center gap-2">
+                <PersonAvatar url={p.avatarUrl} name={p.name} size="md" />
+                <p className="font-medium text-fg">{p.name}</p>
+                {isYou ? <span className="text-xs text-subtle">ты</span> : null}
+                {p.id === hostId && !isYou ? <span className="text-xs text-subtle">стол</span> : null}
+                {!isYou ? (
+                  <span className="text-xs text-subtle">
+                    {live?.connectionState === "connected"
+                      ? "голос"
+                      : here
+                        ? "за столом"
+                        : "ищем…"}
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
         <div className="mt-4 flex flex-col gap-2">
           <Button variant="secondary" onClick={() => shareLink(roomCode)}>
             Скопировать ссылку
           </Button>
+          <Button variant="secondary" onClick={() => shareVk(roomCode)}>
+            Кинуть в VK
+          </Button>
           <Button
             size="lg"
             className="h-14 rounded-xl"
-            disabled={players.length < 2}
+            disabled={!ready || !isHost}
             onClick={() => {
               playUiTick();
+              if (!isHost) {
+                toast.message("Ждём хозяина стола — он жмёт «колода».");
+                return;
+              }
               toBring();
             }}
           >
-            {players.length < 2 ? "Ждём ещё человека" : "Дальше — колода"}
+            {!ready ? "Ждём ещё человека" : isHost ? "Дальше — колода" : "Ждём хозяина стола"}
           </Button>
           <Button variant="ghost" onClick={() => playLocal()}>
             Один телефон

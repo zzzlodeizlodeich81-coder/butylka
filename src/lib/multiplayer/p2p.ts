@@ -1,21 +1,7 @@
-/**
- * Full-mesh WebRTC rooms: one RTCPeerConnection per remote peer, signaled
- * through /api/rtc (see signaling.server.ts), game data flowing directly
- * browser-to-browser afterwards. Client-authoritative by construction — see
- * the multiplayer-p2p skill for when NOT to use this.
- *
- * Negotiation follows the "perfect negotiation" pattern: on a glare (both
- * sides offering at once) the polite peer — the lexicographically smaller id —
- * rolls back and accepts, so pairs converge without wedging.
- */
+import { MqttSignaling } from "./mqtt-signal";
 
 export type SignalKind = "offer" | "answer" | "ice";
 
-/**
- * Wire contract between this client and the signaling relay the app provides
- * at /api/rtc (see the multiplayer-p2p skill for a reference implementation).
- * The client only needs these shapes — the relay's storage is the app's choice.
- */
 export interface PeerRow {
   id: string;
   name: string;
@@ -26,9 +12,24 @@ export interface SignalRow {
   kind: SignalKind;
   payload: unknown;
 }
+export interface RoomAct {
+  id: number;
+  from: string;
+  act: unknown;
+}
 export interface RtcPollResponse {
   peers: PeerRow[];
   signals: SignalRow[];
+  hostId?: string | null;
+  snap?: unknown | null;
+  acts?: RoomAct[];
+}
+
+export interface RoomState {
+  peers: PeerRow[];
+  hostId: string | null;
+  snap: unknown | null;
+  acts: RoomAct[];
 }
 
 export interface PeerInfo {
@@ -45,6 +46,7 @@ export interface P2PRoomOptions {
   room: string;
   selfId: string;
   name?: string;
+  wantHost?: boolean;
   /** Defaults to VITE_STUN_URLS (comma-separated) or Google public STUN. */
   iceServers?: RTCIceServer[];
   onPeersChanged?: (peers: PeerInfo[]) => void;
@@ -53,6 +55,7 @@ export interface P2PRoomOptions {
   /** Fires once, on the first successful signaling poll (registration). */
   onConnected?: () => void;
   onRemoteStream?: (peerId: string, stream: MediaStream | null) => void;
+  onRoomState?: (state: RoomState) => void;
 }
 
 interface PeerSlot {
@@ -61,34 +64,28 @@ interface PeerSlot {
   reliable?: RTCDataChannel;
   makingOffer: boolean;
   ignoreOffer: boolean;
-  /** ICE candidates that arrived before the remote description (buffered). */
   pendingCandidates: RTCIceCandidateInit[];
-  /** Last time this pair made observable progress toward connected. */
   lastProgressAt: number;
-  /** Watchdog recreations (dialer) / stall windows (receiver) so far. */
   recoveryAttempts: number;
-  /** Gave up after MAX_RECOVERY_ATTEMPTS — excluded from fast-poll pressure. */
   terminal?: boolean;
-  /** One-shot: pc was already recreated to absorb a failing remote offer. */
   recreatedForOffer?: boolean;
   info: PeerInfo;
   pingSentAt?: number;
 }
 
 const FAST_POLL_MS = 400;
-const IDLE_POLL_MS = 2000;
+const IDLE_POLL_MS = 1200;
 const PING_INTERVAL_MS = 2000;
 const STALL_MS = 10_000;
 const MAX_RECOVERY_ATTEMPTS = 3;
 const SIGNAL_RETRY_DELAYS_MS = [250, 750];
+const MQTT_TIMEOUT_MS = 6000;
 
 export function defaultIceServers(): RTCIceServer[] {
   const urls = (import.meta.env.VITE_STUN_URLS as string | undefined)
     ?.split(",")
     .map((u) => u.trim())
     .filter(Boolean);
-  // Two independent providers: ICE queries all of them in parallel during
-  // gathering, so either one being unreachable costs nothing.
   return [
     {
       urls: urls?.length ? urls : ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"],
@@ -96,34 +93,46 @@ export function defaultIceServers(): RTCIceServer[] {
   ];
 }
 
+function mergePeers(a: PeerRow[], b: PeerRow[]): PeerRow[] {
+  const map = new Map<string, string>();
+  for (const p of [...a, ...b]) map.set(p.id, p.name || map.get(p.id) || p.id);
+  return [...map.entries()].map(([id, name]) => ({ id, name }));
+}
+
 export class P2PRoom {
   private readonly opts: P2PRoomOptions;
   private readonly peers = new Map<string, PeerSlot>();
-  /** Per-remote-peer signal delivery chains (order-preserving). */
   private readonly signalQueues = new Map<string, Promise<void>>();
   private cursor = 0;
+  private actCursor = 0;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private closed = false;
   private everPolled = false;
   private lastPeersFingerprint = "";
   private localStream: MediaStream | null = null;
+  private mqtt: MqttSignaling | null = null;
+  private mqttReady = false;
+  private lastRoomFp = "";
+  private lastHttpPeers: PeerRow[] = [];
+  private lastMqttPeers: PeerRow[] = [];
 
   constructor(opts: P2PRoomOptions) {
     this.opts = opts;
   }
 
   /**
-   * The first poll IS the join: it registers this peer and returns the
-   * roster. A failed first poll (cold DB, offline tab) must not strand the
-   * room: the loop and timers start regardless and the next poll retries.
+   * HTTP is the source of truth (shared Neon on deploy). MQTT is a parallel
+   * backup so two devices still meet if a serverless instance has no shared DB.
+   * Never wait on MQTT before the first HTTP poll — phones often block the WS.
    */
   async join(): Promise<void> {
     try {
-      await this.pollOnce();
+      await this.pollOnceHttp();
     } catch {
-      // First poll can fail transiently; the scheduled loop below retries.
+      /* first poll can fail transiently */
     }
+    void this.bootMqtt();
     if (this.closed) return;
     this.schedulePoll(this.anyPairConnecting() ? FAST_POLL_MS : IDLE_POLL_MS);
     this.pingTimer = setInterval(() => {
@@ -138,17 +147,16 @@ export class P2PRoom {
     if (this.pingTimer) clearInterval(this.pingTimer);
     for (const slot of this.peers.values()) slot.pc.close();
     this.peers.clear();
-    // Leaving the roster is the teardown broadcast: everyone's next poll
-    // drops this peer and closes their side of the pair.
     void fetch("/api/rtc", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ op: "leave", room: this.opts.room, peer: this.opts.selfId }),
       keepalive: true,
     }).catch(() => {});
+    this.mqtt?.close();
+    this.mqtt = null;
   }
 
-  /** Send on the unreliable game-state channel (drops stale packets). */
   broadcast(data: unknown): void {
     const wire = JSON.stringify({ t: "d", d: data });
     for (const slot of this.peers.values()) {
@@ -156,13 +164,46 @@ export class P2PRoom {
     }
   }
 
-  /** Send reliably (ordered) to one peer, or to all when peerId is omitted. */
   send(data: unknown, peerId?: string): void {
     const wire = JSON.stringify({ t: "d", d: data });
     const targets = peerId ? [this.peers.get(peerId)] : [...this.peers.values()];
     for (const slot of targets) {
       if (slot?.reliable?.readyState === "open") slot.reliable.send(wire);
     }
+  }
+
+  postAct(act: unknown): void {
+    try {
+      this.mqtt?.sendAct(act);
+    } catch {
+      /* mqtt optional */
+    }
+    const body = { op: "act", room: this.opts.room, from: this.opts.selfId, act };
+    void fetch("/api/rtc", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => {});
+  }
+
+  postSnap(snap: unknown, hostId: string): void {
+    try {
+      this.mqtt?.sendSnap(snap, hostId);
+    } catch {
+      /* mqtt optional */
+    }
+    const body = {
+      op: "snap",
+      room: this.opts.room,
+      from: this.opts.selfId,
+      hostId,
+      snap,
+    };
+    void fetch("/api/rtc", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => {});
   }
 
   peerList(): PeerInfo[] {
@@ -174,7 +215,20 @@ export class P2PRoom {
     for (const slot of this.peers.values()) this.syncAudio(slot);
   }
 
-  // ── signaling loop ─────────────────────────────────────────────────────────
+  private async bootMqtt(): Promise<void> {
+    try {
+      await this.ensureMqtt();
+      this.mqttReady = true;
+      await this.pollMqtt();
+    } catch {
+      this.mqttReady = false;
+      if (!this.closed) {
+        window.setTimeout(() => {
+          if (!this.closed && !this.mqttReady) void this.bootMqtt();
+        }, 2500);
+      }
+    }
+  }
 
   private schedulePoll(delay: number): void {
     if (this.closed) return;
@@ -184,45 +238,126 @@ export class P2PRoom {
 
   private anyPairConnecting(): boolean {
     for (const s of this.peers.values()) {
-      // Terminal pairs (NAT-blocked after all recovery attempts) must not pin
-      // the session at the 400ms fast-poll rate.
       if (s.terminal) continue;
       if (s.info.connectionState !== "connected") return true;
     }
     return false;
   }
 
-  private async pollOnce(): Promise<void> {
+  private async ensureMqtt(): Promise<MqttSignaling> {
+    if (this.mqtt) return this.mqtt;
+    const bus = new MqttSignaling({
+      room: this.opts.room,
+      selfId: this.opts.selfId,
+      name: this.opts.name ?? "",
+      wantHost: this.opts.wantHost,
+    });
+    bus.onChange = () => {
+      if (this.closed) return;
+      void this.pollMqtt();
+    };
+    const ok = await Promise.race([
+      bus.connect().then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), MQTT_TIMEOUT_MS)),
+    ]);
+    if (!ok) {
+      bus.close();
+      throw new Error("mqtt timeout");
+    }
+    this.mqtt = bus;
+    return bus;
+  }
+
+  private emitRoom(peers: PeerRow[], extra: { hostId?: string | null; snap?: unknown | null; acts?: RoomAct[] }) {
+    const state: RoomState = {
+      peers,
+      hostId: extra.hostId ?? null,
+      snap: extra.snap ?? null,
+      acts: extra.acts ?? [],
+    };
+    const fp = JSON.stringify({
+      peers: state.peers.map((p) => [p.id, p.name]),
+      hostId: state.hostId,
+      snap: state.snap,
+      acts: state.acts.map((a) => a.id),
+    });
+    if (fp === this.lastRoomFp && state.acts.length === 0) return;
+    this.lastRoomFp = fp;
+    this.opts.onRoomState?.(state);
+  }
+
+  private async pollMqtt(): Promise<void> {
+    if (!this.mqtt || this.closed) return;
+    const body = this.mqtt.snapshot();
+    this.lastMqttPeers = body.peers;
+    if (!this.everPolled) {
+      this.everPolled = true;
+      this.opts.onConnected?.();
+    }
+    const peers = mergePeers(this.lastHttpPeers, body.peers);
+    this.reconcileRoster(peers);
+    const roster = new Set(peers.map((p) => p.id));
+    for (const sig of body.signals) {
+      this.cursor = Math.max(this.cursor, sig.id);
+      await this.onSignal(sig.from, sig.kind, sig.payload, roster);
+      if (this.closed) return;
+    }
+    this.emitRoom(peers, { hostId: body.hostId, snap: body.snap, acts: body.acts });
+  }
+
+  private async pollOnceHttp(): Promise<void> {
     const params = new URLSearchParams({
       room: this.opts.room,
       peer: this.opts.selfId,
       name: this.opts.name ?? "",
       since: String(this.cursor),
+      actSince: String(this.actCursor),
+      host: this.opts.wantHost ? "1" : "0",
     });
     const res = await fetch(`/api/rtc?${params}`);
     if (this.closed) return;
-    if (!res.ok) throw new Error(`signaling poll failed: ${res.status}`);
+    if (!res.ok) {
+      if (!this.everPolled) {
+        this.everPolled = true;
+        this.opts.onConnected?.();
+      }
+      return;
+    }
     const body = (await res.json()) as RtcPollResponse;
     if (this.closed) return;
     if (!this.everPolled) {
       this.everPolled = true;
       this.opts.onConnected?.();
     }
-    this.reconcileRoster(body.peers);
-    const roster = new Set(body.peers.map((p) => p.id));
+    this.lastHttpPeers = body.peers;
+    const peers = mergePeers(body.peers, this.lastMqttPeers);
+    this.reconcileRoster(peers);
+    const roster = new Set(peers.map((p) => p.id));
     for (const sig of body.signals) {
       this.cursor = Math.max(this.cursor, sig.id);
       await this.onSignal(sig.from, sig.kind, sig.payload, roster);
       if (this.closed) return;
     }
+    const acts = body.acts ?? [];
+    for (const a of acts) this.actCursor = Math.max(this.actCursor, a.id);
+    this.emitRoom(peers, { hostId: body.hostId, snap: body.snap, acts });
   }
 
   private async poll(): Promise<void> {
     if (this.closed) return;
     try {
-      await this.pollOnce();
+      await this.pollOnceHttp();
     } catch {
-      // Transient poll failures are expected (tab sleep, deploy roll); retry.
+      /* retry next tick; MQTT may still carry the table */
+    }
+    if (this.mqttReady) {
+      try {
+        await this.pollMqtt();
+      } catch {
+        /* keep http */
+      }
+    } else if (!this.mqtt) {
+      void this.bootMqtt();
     }
     this.schedulePoll(this.anyPairConnecting() ? FAST_POLL_MS : IDLE_POLL_MS);
   }
@@ -235,7 +370,6 @@ export class P2PRoom {
       if (existing) {
         existing.info.name = p.name;
       } else {
-        // Exactly one side dials each pair; the other waits for the offer.
         this.connectTo(p.id, p.name, this.opts.selfId > p.id);
       }
     }
@@ -247,8 +381,6 @@ export class P2PRoom {
     }
     this.emitPeers();
   }
-
-  // ── per-pair connection ────────────────────────────────────────────────────
 
   private connectTo(peerId: string, name: string, initiator: boolean): PeerSlot | null {
     if (this.closed) return null;
@@ -292,8 +424,6 @@ export class P2PRoom {
       }
       this.emitPeers();
       if (pc.connectionState === "failed") {
-        // Refires negotiationneeded → a fresh offer through signaling, so a
-        // lost offer or dead path cannot wedge the pair (glare-safe).
         pc.restartIce();
       }
       if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
@@ -306,7 +436,7 @@ export class P2PRoom {
         await pc.setLocalDescription();
         await this.sendSignal(peerId, "offer", pc.localDescription!.toJSON());
       } catch {
-        // A failed offer is retried on the next negotiationneeded.
+        /* retried on the next negotiationneeded */
       } finally {
         slot.makingOffer = false;
       }
@@ -368,7 +498,6 @@ export class P2PRoom {
     };
   }
 
-  /** Apply buffered ICE candidates once a remote description is in place. */
   private async flushPendingCandidates(slot: PeerSlot): Promise<void> {
     while (slot.pendingCandidates.length > 0) {
       const candidate = slot.pendingCandidates.shift()!;
@@ -390,8 +519,6 @@ export class P2PRoom {
     if (this.closed) return;
     let slot = this.peers.get(from);
     if (!slot) {
-      // New peers dial us in the same poll that adds them to the roster.
-      // Signals outlive membership, so drop senders the roster doesn't vouch for.
       if (!roster.has(from)) return;
       const created = this.connectTo(from, "", false);
       if (!created) return;
@@ -407,11 +534,8 @@ export class P2PRoom {
         slot.ignoreOffer = !polite && collision;
         if (slot.ignoreOffer) return;
         try {
-          await slot.pc.setRemoteDescription(description); // implicit rollback when polite
+          await slot.pc.setRemoteDescription(description);
         } catch (err) {
-          // A pc resumed from suspend can be unable to take any new remote
-          // offer (stale DTLS fingerprint). Rebuild the pair once and apply
-          // the same offer to the fresh pc before giving up.
           if (kind !== "offer" || slot.recreatedForOffer) throw err;
           const attempts = slot.recoveryAttempts;
           const name = slot.info.name;
@@ -435,28 +559,20 @@ export class P2PRoom {
       } else if (kind === "ice") {
         const candidate = payload as RTCIceCandidateInit;
         if (!slot.pc.remoteDescription) {
-          // Candidate raced ahead of its SDP — hold it until the description
-          // lands (flushed after every successful setRemoteDescription).
           slot.pendingCandidates.push(candidate);
           return;
         }
         try {
           await slot.pc.addIceCandidate(candidate);
         } catch (err) {
-          // The enclosing catch would swallow a rethrow; log the real signal.
           if (!slot.ignoreOffer) console.warn("[p2p] addIceCandidate failed:", err);
         }
       }
     } catch {
-      // Negotiation errors resolve on the next offer cycle; state is visible
-      // to the app via connectionState.
+      /* next offer cycle */
     }
   }
 
-  /**
-   * Signals are serialized per remote peer (a candidate must never overtake
-   * its SDP into the DB) and retried on failure with short backoff.
-   */
   private sendSignal(to: string, kind: SignalKind, payload: unknown): Promise<void> {
     const prev = this.signalQueues.get(to) ?? Promise.resolve();
     const next = prev.then(() => this.postSignal(to, kind, payload));
@@ -468,6 +584,9 @@ export class P2PRoom {
   }
 
   private async postSignal(to: string, kind: SignalKind, payload: unknown): Promise<void> {
+    if (this.mqttReady && this.mqtt) {
+      this.mqtt.send(to, kind, payload);
+    }
     for (let attempt = 0; ; attempt++) {
       if (this.closed) return;
       try {
@@ -487,8 +606,6 @@ export class P2PRoom {
         throw new Error(`signal POST failed: ${res.status}`);
       } catch (err) {
         if (attempt >= SIGNAL_RETRY_DELAYS_MS.length) {
-          // Delivery gave up; the pair converges on the next offer cycle (or
-          // the watchdog rebuilds it). Logged once so failures are visible.
           console.warn(`[p2p] signal ${kind} to ${to} failed after retries`, err);
           return;
         }
@@ -497,8 +614,6 @@ export class P2PRoom {
     }
   }
 
-  // ── diagnostics + recovery ─────────────────────────────────────────────────
-
   private pingAll(): void {
     const wire = JSON.stringify({ t: "ping" });
     for (const slot of this.peers.values()) {
@@ -506,28 +621,16 @@ export class P2PRoom {
       const stale =
         slot.pingSentAt !== undefined && performance.now() - slot.pingSentAt > 2 * PING_INTERVAL_MS;
       if (slot.pingSentAt === undefined || stale) {
-        // A lost pong must not freeze rttMs forever: expire and re-ping.
         slot.pingSentAt = performance.now();
         slot.state.send(wire);
       }
     }
   }
 
-  /**
-   * Stuck-pair recovery, piggybacked on the ping interval. A pair that has
-   * made no progress for STALL_MS gets rebuilt by the dialer with a FRESH
-   * RTCPeerConnection (new DTLS identity — fixes the suspend/resume
-   * fingerprint wedge). After MAX_RECOVERY_ATTEMPTS the pair is terminal:
-   * visible to the app as its last connectionState, ignored by fast-poll.
-   */
   private watchdog(): void {
     if (this.closed) return;
     const now = Date.now();
     for (const [peerId, slot] of this.peers) {
-      // pc.close() and some suspend/resume wedges never fire
-      // connectionstatechange — read the LIVE state so a silently-dead pc
-      // still trips the stall timer instead of hiding behind a cached
-      // "connected". Only live progress states refresh the stall clock.
       const live = slot.pc.connectionState;
       if (live !== slot.info.connectionState) {
         slot.info.connectionState = live;
@@ -542,9 +645,8 @@ export class P2PRoom {
         continue;
       }
       slot.recoveryAttempts += 1;
-      slot.lastProgressAt = now; // re-arm the stall window
+      slot.lastProgressAt = now;
       if (this.opts.selfId > peerId) {
-        // We are the dialer: rebuild the pair from scratch.
         const { name } = slot.info;
         const attempts = slot.recoveryAttempts;
         slot.pc.close();
@@ -553,13 +655,10 @@ export class P2PRoom {
         if (fresh) fresh.recoveryAttempts = attempts;
         this.schedulePoll(FAST_POLL_MS);
       }
-      // Receiver side: count the stall window and wait for the dialer's
-      // fresh offer (onSignal absorbs it, recreating our pc if needed).
     }
   }
 
   private async readCandidateType(slot: PeerSlot): Promise<void> {
-    // relay = TURN (none configured by default); srflx/host = direct path.
     try {
       const stats = await slot.pc.getStats();
       let selected: RTCIceCandidatePairStats | undefined;
@@ -575,13 +674,11 @@ export class P2PRoom {
         this.emitPeers();
       }
     } catch {
-      // getStats is best-effort diagnostics only.
+      /* diagnostics only */
     }
   }
 
   private emitPeers(): void {
-    // Only notify when something observable actually changed — React state
-    // setters otherwise re-render consumers on every poll/ping.
     const list = this.peerList();
     const fingerprint = JSON.stringify(
       list.map((p) => [p.id, p.name, p.connectionState, p.candidateType, p.rttMs]),

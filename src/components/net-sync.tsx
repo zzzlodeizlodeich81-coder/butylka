@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
-import { toast } from "sonner";
 import { useP2PRoom, type P2PRoomHandle } from "@/lib/multiplayer";
 import { bindNetSend } from "@/lib/net-bus";
 import {
@@ -36,7 +35,10 @@ const NetCtx = createContext<{
   setLocalAudio: (stream: MediaStream | null) => void;
   remoteStreams: Record<string, MediaStream>;
   peers: P2PRoomHandle["peers"];
+  roster: P2PRoomHandle["roster"];
   joined: boolean;
+  hostId: string | null;
+  selfId: string;
 } | null>(null);
 
 export function useNet() {
@@ -52,7 +54,7 @@ function takeSnap(): NetSnap {
     singerId: s.singerId,
     partnerId: s.partnerId,
     challenge: s.challenge,
-    options: s.options.map((song) => wireSong(song) ?? song),
+    options: s.phase === "song" ? s.options.map((song) => wireSong(song) ?? song) : [],
     song: wireSong(s.song),
     lastScore: s.lastScore,
     lastHadMic: s.lastHadMic,
@@ -156,12 +158,17 @@ function applyAct(from: string, act: NetAct) {
   }
 }
 
+function isAct(data: unknown): data is NetAct {
+  return Boolean(data && typeof data === "object" && "t" in data && (data as { t?: string }).t && (data as { t: string }).t !== "snap");
+}
+
 export function NetSync({ room, children }: { room: string; children: ReactNode }) {
   const name = useGame((s) => s.players.find((p) => p.id === s.youId)?.name ?? "я");
   const wantHost = useGame((s) => s.wantHost);
-  const p2p = useP2PRoom({ room: `b${room}`.slice(0, 64), name });
+  const p2p = useP2PRoom({ room: `b${room}`.slice(0, 64), name, wantHost });
   const adopted = useRef(false);
   const lastFp = useRef("");
+  const lastJoin = useRef("");
 
   useEffect(() => {
     if (adopted.current) return;
@@ -169,42 +176,117 @@ export function NetSync({ room, children }: { room: string; children: ReactNode 
     useGame.getState().adoptNet(p2p.selfId, wantHost);
   }, [p2p.selfId, wantHost]);
 
+  // Sticky host: the person who created the table stays host. Server may
+  // confirm a hostId (first arriver / surviving host). Never elect by min(id)
+  // — that handed the table to a ghost peer and made «колода» a no-op.
   useEffect(() => {
-    return p2p.onMessage((from, data) => {
+    const g = useGame.getState();
+    if (g.mode !== "net") return;
+    if (g.wantHost) {
+      if (g.hostId !== g.youId) useGame.setState({ hostId: g.youId });
+      return;
+    }
+    if (p2p.hostId && p2p.hostId !== g.hostId) {
+      useGame.setState({ hostId: p2p.hostId, wantHost: p2p.hostId === p2p.selfId });
+    }
+  }, [p2p.hostId, p2p.selfId, wantHost]);
+
+  // Seats at the table = HTTP/MQTT roster, not leftover local dummy names.
+  useEffect(() => {
+    const g = useGame.getState();
+    if (g.mode !== "net") return;
+    const mine = g.players.find((p) => p.id === g.youId);
+    const seated = p2p.roster.length ? p2p.roster : [{ id: p2p.selfId, name }];
+    const next = [];
+    const seen = new Set<string>();
+    const self = mine ?? {
+      id: p2p.selfId,
+      name: name.slice(0, 16) || "я",
+      color: PLAYER_COLORS[0],
+      score: 0,
+      avatarUrl: null,
+      notes: START_NOTES,
+      hearts: 0,
+    };
+    next.push({ ...self, id: p2p.selfId });
+    seen.add(p2p.selfId);
+    for (const peer of seated) {
+      if (seen.has(peer.id)) continue;
+      seen.add(peer.id);
+      const prev = g.players.find((p) => p.id === peer.id);
+      next.push(
+        prev
+          ? { ...prev, name: peer.name || prev.name }
+          : {
+              id: peer.id,
+              name: (peer.name || "гость").slice(0, 16),
+              color: PLAYER_COLORS[next.length % PLAYER_COLORS.length],
+              score: 0,
+              avatarUrl: null,
+              notes: START_NOTES,
+              hearts: 0,
+            },
+      );
+    }
+    const same =
+      next.length === g.players.length && next.every((p, i) => p.id === g.players[i]?.id && p.name === g.players[i]?.name);
+    if (!same) useGame.setState({ players: next });
+  }, [p2p.roster, p2p.selfId, name]);
+
+  useEffect(() => {
+    const seen = new Set<string>();
+    const handleAct = (from: string, act: unknown) => {
+      if (!tableIsHost() || !isAct(act)) return;
+      const fp = `${from}:${act.t}:${JSON.stringify(act)}`;
+      if (seen.has(fp)) return;
+      seen.add(fp);
+      if (seen.size > 300) seen.clear();
+      applyAct(from, act);
+    };
+    const offMsg = p2p.onMessage((from, data) => {
       if (!data || typeof data !== "object") return;
       const msg = data as { t?: string; snap?: NetSnap } | NetAct;
-      const host = tableIsHost();
-      if ("t" in msg && msg.t === "snap" && "snap" in msg && msg.snap && !host) {
+      if ("t" in msg && msg.t === "snap" && "snap" in msg && msg.snap && !tableIsHost()) {
         useGame.getState().applySnap(msg.snap);
         return;
       }
-      if (!host) return;
-      if ("t" in msg && msg.t && msg.t !== "snap") applyAct(from, msg as NetAct);
+      handleAct(from, msg);
     });
-  }, [p2p.onMessage]);
+    const offAct = p2p.onAct((from, act) => handleAct(from, act));
+    const offSnap = p2p.onSnap((snap) => {
+      if (tableIsHost()) return;
+      if (snap && typeof snap === "object") useGame.getState().applySnap(snap as NetSnap);
+    });
+    return () => {
+      offMsg();
+      offAct();
+      offSnap();
+    };
+  }, [p2p.onMessage, p2p.onAct, p2p.onSnap]);
 
   useEffect(() => {
     if (!p2p.joined || wantHost) return;
     const hello = () => {
       const you = useGame.getState().players.find((p) => p.id === useGame.getState().youId);
-      p2p.send({
+      const act: NetAct = {
         t: "join",
         name: you?.name ?? name,
         avatarUrl: you?.avatarUrl ?? null,
-      } satisfies NetAct);
+      };
+      const fp = `${act.name}|${act.avatarUrl ?? ""}`;
+      if (fp !== lastJoin.current) {
+        lastJoin.current = fp;
+        p2p.send(act);
+        p2p.postAct(act);
+      } else {
+        p2p.send(act);
+        p2p.postAct(act);
+      }
     };
     hello();
-    const id = window.setInterval(hello, 2500);
+    const id = window.setInterval(hello, 4000);
     return () => clearInterval(id);
-  }, [p2p.joined, p2p.send, wantHost, name]);
-
-  useEffect(() => {
-    if (!wantHost) return;
-    const alive = new Set([p2p.selfId, ...p2p.peers.map((p) => p.id)]);
-    const g = useGame.getState();
-    const next = g.players.filter((p) => p.id === g.youId || alive.has(p.id));
-    if (next.length !== g.players.length) useGame.setState({ players: next });
-  }, [p2p.peers, p2p.selfId, wantHost]);
+  }, [p2p.joined, p2p.send, p2p.postAct, wantHost, name]);
 
   useEffect(() => {
     if (!wantHost) return;
@@ -215,9 +297,10 @@ export function NetSync({ room, children }: { room: string; children: ReactNode 
       if (fp === lastFp.current) return;
       lastFp.current = fp;
       p2p.send({ t: "snap", snap });
+      p2p.postSnap(snap, s.youId);
     });
     return unsub;
-  }, [p2p.send, wantHost]);
+  }, [p2p.send, p2p.postSnap, wantHost]);
 
   function sendAct(act: NetAct) {
     if (tableIsHost()) {
@@ -225,12 +308,13 @@ export function NetSync({ room, children }: { room: string; children: ReactNode 
       return;
     }
     p2p.send(act);
+    p2p.postAct(act);
   }
 
   useEffect(() => {
     bindNetSend((act) => sendAct(act as NetAct));
     return () => bindNetSend(null);
-  }, [p2p.send, wantHost, p2p.selfId]);
+  }, [p2p.send, p2p.postAct, wantHost, p2p.selfId]);
 
   return (
     <NetCtx.Provider
@@ -239,7 +323,10 @@ export function NetSync({ room, children }: { room: string; children: ReactNode 
         setLocalAudio: p2p.setLocalAudio,
         remoteStreams: p2p.remoteStreams,
         peers: p2p.peers,
+        roster: p2p.roster,
         joined: p2p.joined,
+        hostId: p2p.hostId,
+        selfId: p2p.selfId,
       }}
     >
       {Object.entries(p2p.remoteStreams).map(([id, stream]) => (
