@@ -3,20 +3,17 @@ import { BottleTable } from "@/components/bottle-table";
 import { BringSong } from "@/components/bring-song";
 import { CookBridge } from "@/components/cook-bridge";
 import { KaraokeStage } from "@/components/karaoke";
-import { NetSync } from "@/components/net-sync";
+import { NotesShop } from "@/components/notes-shop";
 import { Chrome, GateScreen, Lobby, ProfileScreen, Result, Reveal } from "@/components/screens";
 import { SongPick } from "@/components/song-pick";
 import { VerseRound } from "@/components/verse-round";
 import { listSavedTracks, songFromSaved } from "@/lib/library";
 import { useGame } from "@/lib/store";
 import { armAudioGestures, setMixer, unlockAudio } from "@/lib/audio";
+import { bootVk } from "@/lib/vk/boot";
 
 function Shell() {
   const phase = useGame((s) => s.phase);
-  const mode = useGame((s) => s.mode);
-  const hostId = useGame((s) => s.hostId);
-  const youId = useGame((s) => s.youId);
-  const host = mode !== "net" || hostId === youId;
 
   if (phase === "gate") return <GateScreen />;
   if (phase === "profile") return <ProfileScreen />;
@@ -24,7 +21,7 @@ function Shell() {
 
   return (
     <Chrome>
-      {host ? <CookBridge /> : null}
+      <CookBridge />
       {phase === "bring" ? <BringSong /> : null}
       {phase === "verse" ? <VerseRound /> : null}
       {phase === "table" ? <BottleTable /> : null}
@@ -36,27 +33,10 @@ function Shell() {
   );
 }
 
-export function App({ invite }: { invite?: string }) {
-  const roomCode = useGame((s) => s.roomCode);
-
+export function App() {
   useEffect(() => {
     useGame.getState().rehydrate();
-    if (invite) {
-      const s = useGame.getState();
-      if (!(s.mode === "net" && s.roomCode === invite && s.wantHost)) {
-        let asHost = s.wantHost && s.roomCode === invite;
-        try {
-          const saved = JSON.parse(sessionStorage.getItem("bottle-net") || "null") as {
-            roomCode?: string;
-            wantHost?: boolean;
-          } | null;
-          if (saved?.roomCode === invite && saved.wantHost) asHost = true;
-        } catch {
-          /* ignore */
-        }
-        s.joinRoom(invite, asHost);
-      }
-    }
+    void bootVk();
     armAudioGestures();
     const s = useGame.getState();
     setMixer({ muted: s.muted, music: s.musicGain, sfx: s.sfxGain });
@@ -87,14 +67,12 @@ export function App({ invite }: { invite?: string }) {
       window.removeEventListener("dragover", block);
       window.removeEventListener("drop", block);
     };
-  }, [invite]);
+  }, []);
 
-  if (roomCode) {
-    return (
-      <NetSync key={roomCode} room={roomCode}>
-        <Shell />
-      </NetSync>
-    );
-  }
-  return <Shell />;
+  return (
+    <>
+      <Shell />
+      <NotesShop />
+    </>
+  );
 }

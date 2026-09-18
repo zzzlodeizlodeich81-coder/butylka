@@ -12,6 +12,8 @@ import {
   listSavedTracks,
   saveTrack,
   songFromSaved,
+  downloadBlob,
+  fileNameFor,
   type SavedTrack,
 } from "@/lib/library";
 import { linesFromPlain, looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
@@ -19,8 +21,11 @@ import { linesFromAligned, proxyAudio } from "@/lib/suno";
 import { pullMinusBlobs, pullSunoAligned } from "@/lib/suno-flow";
 import { importSunoSong, pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
 import { prepareKaraokeTrack } from "@/lib/stems";
+import { cookCost, NOTE_PRICE } from "@/lib/notes";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
+import { refreshWallet } from "@/lib/vk/boot";
+import { useWallet } from "@/lib/wallet";
 
 async function syncSongs(artist: string) {
   const saved = await listSavedTracks();
@@ -37,10 +42,15 @@ function timedLines(text: string, duration: number) {
   return rows.length ? linesFromPlain(rows, duration || 80) : undefined;
 }
 
+function paidFail(err: { error?: string; needNotes?: number } | unknown) {
+  const rec = err && typeof err === "object" ? (err as { error?: string; needNotes?: number; message?: string }) : {};
+  toast.error(rec.error || rec.message || "Не вышло.");
+  if (rec.needNotes) useWallet.getState().setShop(true);
+  void refreshWallet();
+}
+
 export function BringSong() {
   const toVerse = useGame((s) => s.toVerse);
-  const tableSongs = useGame((s) => s.customSongs);
-  const mode = useGame((s) => s.mode);
   const you = useGame((s) => s.players.find((p) => p.id === s.youId));
   const artist = you?.name ?? "мой трек";
   const [tracks, setTracks] = useState<SavedTrack[]>([]);
@@ -109,13 +119,18 @@ export function BringSong() {
         saved.sourceUrl = pulled.instrumentalUrl;
       }
       await saveTrack(saved);
+      downloadBlob(saved.blob, fileNameFor(saved.title, "plus", saved.mime));
+      if (saved.minusBlob) {
+        downloadBlob(saved.minusBlob, fileNameFor(saved.title, "minus", saved.minusBlob.type || "audio/mpeg"));
+      }
       const next = await syncSongs(artist);
       setTracks(next);
       setSunoUrl("");
       setLyrics("");
+      void refreshWallet();
       toast.success(
         pulled
-          ? "С Suno в колоде, минус снят."
+          ? "С Suno в колоде, минус снят — файлы скачались."
           : text
             ? "С Suno в колоде. Минус не снялся — снимешь в студии."
             : "С Suno в колоде. Текст допиши в студии.",
@@ -123,7 +138,7 @@ export function BringSong() {
       playUiTick();
       setStudio(next.find((t) => t.id === id) ?? saved);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ссылка не открылась.");
+      paidFail(err);
     } finally {
       setBusy(null);
     }
@@ -155,7 +170,7 @@ export function BringSong() {
         toast.message("Suno пишет стихи по теме…");
         const idea = themeToLyricsPrompt(`${trackTitle}. ${rows.join(" / ")}`);
         const startedLyrics = await startSunoLyrics({ data: { prompt: idea } });
-        if (!startedLyrics.ok) throw new Error(startedLyrics.error);
+        if (!startedLyrics.ok) throw startedLyrics;
         let poem: { title: string; text: string } | null = null;
         for (let i = 0; i < 24; i++) {
           await new Promise((r) => window.setTimeout(r, 4000));
@@ -183,7 +198,7 @@ export function BringSong() {
           lyrics: lyricsText,
         },
       });
-      if (!started.ok) throw new Error(started.error);
+      if (!started.ok) throw started;
       let audio: string | null = null;
       let duration = 80;
       let audioId = "";
@@ -229,15 +244,20 @@ export function BringSong() {
         vocalBlob: pulled?.vocalBlob,
       };
       await saveTrack(saved);
+      downloadBlob(saved.blob, fileNameFor(saved.title, "plus", saved.mime));
+      if (saved.minusBlob) {
+        downloadBlob(saved.minusBlob, fileNameFor(saved.title, "minus", saved.minusBlob.type || "audio/mpeg"));
+      }
       const next = await syncSongs(artist);
       setTracks(next);
       setTitle("");
       setLyrics("");
-      toast.success("Новый трек в колоде.");
+      void refreshWallet();
+      toast.success("Новый трек в колоде — файлы скачались.");
       playUiTick();
       setStudio(next.find((t) => t.id === id) ?? saved);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не сварился трек.");
+      paidFail(err);
     } finally {
       setBusy(null);
     }
@@ -264,7 +284,7 @@ export function BringSong() {
   }
 
   function goVerse() {
-    const ready = mode === "net" ? tableSongs.length + tracks.length : tracks.length;
+    const ready = tracks.length;
     if (!ready) {
       toast.error("Положи хотя бы один свой трек — петь, пока из строк варится новая.");
       return;
@@ -291,12 +311,11 @@ export function BringSong() {
     <div className="flex flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Каждый кидает свой Suno: ссылка или «сварить». На тестах генерация с общего ключа, потом — за ноты.
-        Хиты не кладём.
+        Ссылка с Suno или сварить новый. Трек сразу качается на телефон. Хиты не кладём.
       </p>
-      {mode === "net" && tableSongs.length ? (
-        <p className="mt-3 text-xs text-subtle">На столе уже {tableSongs.length} трек(ов) от всех.</p>
-      ) : null}
+      <p className="mt-2 text-xs text-subtle">
+        Сварить: {cookCost()} нот · минус: {NOTE_PRICE.minus} · забрать ссылку + минус: {NOTE_PRICE.minus}
+      </p>
 
       <div className="mt-5 flex flex-col gap-3">
         {tracks.map((track) => (
@@ -350,7 +369,7 @@ export function BringSong() {
               onChange={(e) => setSunoUrl(e.target.value)}
             />
             <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
-              {busy === "suno" ? "Забираю с Suno…" : "Забрать с Suno"}
+              {busy === "suno" ? "Забираю с Suno…" : `Забрать с Suno · ${NOTE_PRICE.minus} нот`}
             </Button>
             <p className="text-xs text-subtle">Или сварить новый — свой текст, не чужой хит.</p>
             <Input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -363,7 +382,7 @@ export function BringSong() {
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
             />
             <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void cookNew()} disabled={Boolean(busy)}>
-              {busy === "cook" ? "Suno варит… минута-две" : "Сварить трек в Suno"}
+              {busy === "cook" ? "Suno варит… минута-две" : `Сварить трек · ${cookCost()} нот`}
             </Button>
           </>
         ) : (
@@ -377,9 +396,9 @@ export function BringSong() {
           size="lg"
           className="h-14 rounded-xl"
           onClick={goVerse}
-          disabled={mode === "net" ? !tableSongs.length && !tracks.length : !tracks.length}
+          disabled={!tracks.length}
         >
-          {tracks.length || tableSongs.length ? "Дальше — круг строк" : "Сначала свой трек"}
+          {tracks.length ? "Дальше — круг строк" : "Сначала свой трек"}
         </Button>
       </div>
     </div>

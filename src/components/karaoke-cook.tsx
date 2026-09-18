@@ -12,13 +12,16 @@ import {
   unlockAudio,
   type MixedTake,
 } from "@/lib/audio";
-import { objectUrlFor, listSavedTracks, saveTrack, songFromSaved, type SavedTrack } from "@/lib/library";
+import { objectUrlFor, listSavedTracks, saveTrack, songFromSaved, downloadBlob, fileNameFor, type SavedTrack } from "@/lib/library";
 import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
 import { pullMinusBlobs } from "@/lib/suno-flow";
 import { pollSunoGenerate, startSunoCover } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
+import { NOTE_PRICE } from "@/lib/notes";
+import { refreshWallet } from "@/lib/vk/boot";
+import { useWallet } from "@/lib/wallet";
 
 type Props = {
   track: SavedTrack;
@@ -183,10 +186,15 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
         vocalBlob: pulled.vocalBlob ?? track.vocalBlob,
       };
       await persist(next);
-      toast.success(pulled.vocalBlob ? "Минус и вокал в колоде. Можно скачать." : "Минус в колоде. Можно скачать.");
+      downloadBlob(next.minusBlob, fileNameFor(track.title, "minus", next.minusBlob.type || "audio/mpeg"));
+      void refreshWallet();
+      toast.success(pulled.vocalBlob ? "Минус и вокал скачались." : "Минус скачался.");
       return next;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не вышел минус.");
+      const rec = err && typeof err === "object" ? (err as { error?: string; needNotes?: number; message?: string }) : {};
+      toast.error(rec.error || rec.message || "Не вышел минус.");
+      if (rec.needNotes) useWallet.getState().setShop(true);
+      void refreshWallet();
       return null;
     } finally {
       setBusy(null);
@@ -272,7 +280,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
           duration: track.duration,
         },
       });
-      if (!started.ok) throw new Error(started.error);
+      if (!started.ok) throw started;
       let audio: string | null = null;
       for (let i = 0; i < 48; i++) {
         await new Promise((r) => window.setTimeout(r, 4000));
@@ -289,9 +297,14 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
       if (!res.ok) throw new Error("Не скачался кавер.");
       const coverBlob = await res.blob();
       await persist({ ...track, coverBlob });
-      toast.success("Кавер готов. Можно скачать и нести к столу.");
+      downloadBlob(coverBlob, fileNameFor(track.title, "cover", coverBlob.type || "audio/mpeg"));
+      void refreshWallet();
+      toast.success("Кавер скачался.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Кавер не сварился.");
+      const rec = err && typeof err === "object" ? (err as { error?: string; needNotes?: number; message?: string }) : {};
+      toast.error(rec.error || rec.message || "Кавер не сварился.");
+      if (rec.needNotes) useWallet.getState().setShop(true);
+      void refreshWallet();
     } finally {
       setBusy(null);
     }
@@ -383,13 +396,13 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
               Набить такт — жми экран
             </Button>
             <Button variant="secondary" onClick={() => void cookMinus()} disabled={Boolean(busy)}>
-              {busy?.startsWith("Снимаю") ? busy : track.minusBlob ? "Переснять минус" : "Снять минус"}
+              {busy?.startsWith("Снимаю") ? busy : track.minusBlob ? `Переснять минус · ${NOTE_PRICE.minus}` : `Снять минус · ${NOTE_PRICE.minus} нот`}
             </Button>
             <Button onClick={() => void startRecord()} disabled={Boolean(busy)}>
               {track.takeBlob ? "Перезаписать голос" : "Спеть и записать"}
             </Button>
             <Button variant="secondary" onClick={() => void cookCover()} disabled={Boolean(busy) || !track.takeBlob}>
-              {busy?.startsWith("Варю") ? busy : track.coverBlob ? "Переварить кавер" : "Сделать кавер"}
+              {busy?.startsWith("Варю") ? busy : track.coverBlob ? `Переварить кавер · ${NOTE_PRICE.cover}` : `Кавер · ${NOTE_PRICE.cover} нот`}
             </Button>
             <TrackTakes track={track} />
             <Button variant="ghost" onClick={onClose}>

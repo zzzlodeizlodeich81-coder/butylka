@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { AlignedWord } from "@/lib/suno";
+import { NOTE_PRICE, type PaidKind } from "@/lib/notes";
+import { vkMiddleware } from "@/lib/vk/middleware";
+import type { VkUser } from "@/lib/vk/session.server";
 
 const SUNO_BASE = "https://api.sunoapi.org";
 const CALLBACK = "https://httpbin.org/post";
@@ -73,9 +76,39 @@ function vocalGenderFromStyle(style: string): "m" | "f" | undefined {
   return undefined;
 }
 
+async function withNotes<T extends { ok: boolean }>(
+  vk: VkUser | null | undefined,
+  kind: PaidKind,
+  run: () => Promise<T>,
+): Promise<T | { ok: false; error: string; needNotes: number; notes: number }> {
+  if (!vk) {
+    return {
+      ok: false,
+      error: "Ноты покупаются голосами VK. Открой Балалаечку из ВКонтакте.",
+      needNotes: NOTE_PRICE[kind],
+      notes: 0,
+    };
+  }
+  const { refundNotes, spendNotes } = await import("@/lib/notes-db.server");
+  const paid = await spendNotes(vk, kind);
+  if (!paid.ok) {
+    return { ok: false, error: paid.error, needNotes: NOTE_PRICE[kind], notes: paid.notes };
+  }
+  try {
+    const result = await run();
+    if (!result.ok) await refundNotes(vk, kind);
+    return result;
+  } catch (error) {
+    await refundNotes(vk, kind);
+    throw error;
+  }
+}
+
 export const startSunoGenerate = createServerFn({ method: "POST" })
+  .middleware([vkMiddleware])
   .validator((input: { title: string; style: string; lyrics: string[] | string }) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    return withNotes(context.vk, "generate", async () => {
     const prompt = lyricsPrompt(data.lyrics);
     const gender = vocalGenderFromStyle(data.style);
     const style = `${data.style}, clear russian vocals, correct word stress, sung not spoken`.slice(0, 1000);
@@ -103,11 +136,14 @@ export const startSunoGenerate = createServerFn({ method: "POST" })
       return { ok: false as const, error: msg };
     }
     return { ok: true as const, taskId };
+    });
   });
 
 export const startSunoLyrics = createServerFn({ method: "POST" })
+  .middleware([vkMiddleware])
   .validator((input: { prompt: string }) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    return withNotes(context.vk, "lyrics", async () => {
     const { res, body } = await sunoFetch("/api/v1/lyrics", {
       method: "POST",
       body: JSON.stringify({
@@ -121,6 +157,7 @@ export const startSunoLyrics = createServerFn({ method: "POST" })
       return { ok: false as const, error: String(body.msg ?? `Suno ${code}`) };
     }
     return { ok: true as const, taskId };
+    });
   });
 
 export const pollSunoLyrics = createServerFn({ method: "GET" })
@@ -177,8 +214,10 @@ export const pollSunoGenerate = createServerFn({ method: "GET" })
   });
 
 export const startSunoStems = createServerFn({ method: "POST" })
+  .middleware([vkMiddleware])
   .validator((input: { taskId?: string; audioId?: string; audioUrl?: string }) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    return withNotes(context.vk, "minus", async () => {
     const payload = data.audioUrl
       ? {
           audioUrl: data.audioUrl,
@@ -201,11 +240,14 @@ export const startSunoStems = createServerFn({ method: "POST" })
       return { ok: false as const, error: String(body.msg ?? "Не вышло снять минус") };
     }
     return { ok: true as const, taskId: stemTaskId };
+    });
   });
 
 export const startSunoCover = createServerFn({ method: "POST" })
+  .middleware([vkMiddleware])
   .validator((input: { audioUrl: string; title: string; lyrics: string; duration: number }) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    return withNotes(context.vk, "cover", async () => {
     const lines = data.lyrics
       .split(/\n/)
       .map((l) => l.trim())
@@ -236,6 +278,7 @@ export const startSunoCover = createServerFn({ method: "POST" })
       return { ok: false as const, error: String(body.msg ?? "Кавер не приняли.") };
     }
     return { ok: true as const, taskId };
+    });
   });
 
 export const pollSunoStems = createServerFn({ method: "GET" })

@@ -11,10 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
-import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 import { Route as ApiSunoAudioRouteImport } from './routes/api/suno-audio'
 import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
-import { Route as RCodeRouteImport } from './routes/r.$code'
+import { Route as ApiVkPayRouteImport } from './routes/api/vk-pay'
+import { Route as ApiVkSessionRouteImport } from './routes/api/vk-session'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,11 +24,6 @@ const IndexRoute = IndexRouteImport.update({
 const ApiHostAudioRoute = ApiHostAudioRouteImport.update({
   id: '/api/host-audio',
   path: '/api/host-audio',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRtcRoute = ApiRtcRouteImport.update({
-  id: '/api/rtc',
-  path: '/api/rtc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSunoAudioRoute = ApiSunoAudioRouteImport.update({
@@ -41,71 +36,76 @@ const ApiSunoHookRoute = ApiSunoHookRouteImport.update({
   path: '/api/suno-hook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RCodeRoute = RCodeRouteImport.update({
-  id: '/r/$code',
-  path: '/r/$code',
+const ApiVkPayRoute = ApiVkPayRouteImport.update({
+  id: '/api/vk-pay',
+  path: '/api/vk-pay',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVkSessionRoute = ApiVkSessionRouteImport.update({
+  id: '/api/vk-session',
+  path: '/api/vk-session',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/host-audio': typeof ApiHostAudioRoute
-  '/api/rtc': typeof ApiRtcRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
-  '/r/$code': typeof RCodeRoute
+  '/api/vk-pay': typeof ApiVkPayRoute
+  '/api/vk-session': typeof ApiVkSessionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/host-audio': typeof ApiHostAudioRoute
-  '/api/rtc': typeof ApiRtcRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
-  '/r/$code': typeof RCodeRoute
+  '/api/vk-pay': typeof ApiVkPayRoute
+  '/api/vk-session': typeof ApiVkSessionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/host-audio': typeof ApiHostAudioRoute
-  '/api/rtc': typeof ApiRtcRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
-  '/r/$code': typeof RCodeRoute
+  '/api/vk-pay': typeof ApiVkPayRoute
+  '/api/vk-session': typeof ApiVkSessionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/api/host-audio'
-    | '/api/rtc'
     | '/api/suno-audio'
     | '/api/suno-hook'
-    | '/r/$code'
+    | '/api/vk-pay'
+    | '/api/vk-session'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/host-audio'
-    | '/api/rtc'
     | '/api/suno-audio'
     | '/api/suno-hook'
-    | '/r/$code'
+    | '/api/vk-pay'
+    | '/api/vk-session'
   id:
     | '__root__'
     | '/'
     | '/api/host-audio'
-    | '/api/rtc'
     | '/api/suno-audio'
     | '/api/suno-hook'
-    | '/r/$code'
+    | '/api/vk-pay'
+    | '/api/vk-session'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHostAudioRoute: typeof ApiHostAudioRoute
-  ApiRtcRoute: typeof ApiRtcRoute
   ApiSunoAudioRoute: typeof ApiSunoAudioRoute
   ApiSunoHookRoute: typeof ApiSunoHookRoute
-  RCodeRoute: typeof RCodeRoute
+  ApiVkPayRoute: typeof ApiVkPayRoute
+  ApiVkSessionRoute: typeof ApiVkSessionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -124,13 +124,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHostAudioRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/rtc': {
-      id: '/api/rtc'
-      path: '/api/rtc'
-      fullPath: '/api/rtc'
-      preLoaderRoute: typeof ApiRtcRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/suno-audio': {
       id: '/api/suno-audio'
       path: '/api/suno-audio'
@@ -145,11 +138,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSunoHookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/r/$code': {
-      id: '/r/$code'
-      path: '/r/$code'
-      fullPath: '/r/$code'
-      preLoaderRoute: typeof RCodeRouteImport
+    '/api/vk-pay': {
+      id: '/api/vk-pay'
+      path: '/api/vk-pay'
+      fullPath: '/api/vk-pay'
+      preLoaderRoute: typeof ApiVkPayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/vk-session': {
+      id: '/api/vk-session'
+      path: '/api/vk-session'
+      fullPath: '/api/vk-session'
+      preLoaderRoute: typeof ApiVkSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -158,10 +158,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHostAudioRoute: ApiHostAudioRoute,
-  ApiRtcRoute: ApiRtcRoute,
   ApiSunoAudioRoute: ApiSunoAudioRoute,
   ApiSunoHookRoute: ApiSunoHookRoute,
-  RCodeRoute: RCodeRoute,
+  ApiVkPayRoute: ApiVkPayRoute,
+  ApiVkSessionRoute: ApiVkSessionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

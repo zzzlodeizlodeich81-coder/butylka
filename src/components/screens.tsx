@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatButton, ChatDrawer } from "@/components/chat-drawer";
 import { ChavoButton } from "@/components/chavo";
-import { useNet } from "@/components/net-sync";
+import { NotesButton } from "@/components/notes-shop";
 import { PersonAvatar } from "@/components/person-avatar";
 import { TrackTakes } from "@/components/track-takes";
 import { playUiTick, setMixer, unlockAudio } from "@/lib/audio";
@@ -24,6 +24,7 @@ import {
   type SkipKind,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useWallet } from "@/lib/wallet";
 
 export function Wordmark({ large = false }: { large?: boolean }) {
   return (
@@ -55,7 +56,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Свои треки с Suno. Балалайка выбирает кто поёт. Хиты не кладём.
+          Караоке за одним столом. Свои треки с Suno. Ноты — за голоса VK.
         </p>
         <div className="mt-5">
           <ChavoButton />
@@ -176,109 +177,32 @@ function AvatarPicker({ id, url, name }: { id: string; url: string | null; name:
 export function Lobby() {
   const players = useGame((s) => s.players);
   const youId = useGame((s) => s.youId);
-  const mode = useGame((s) => s.mode);
-  const roomCode = useGame((s) => s.roomCode);
   const setPlayerName = useGame((s) => s.setPlayerName);
   const addPlayer = useGame((s) => s.addPlayer);
   const removePlayer = useGame((s) => s.removePlayer);
   const toBring = useGame((s) => s.toBring);
-  const createRoom = useGame((s) => s.createRoom);
-  const joinRoom = useGame((s) => s.joinRoom);
-  const playLocal = useGame((s) => s.playLocal);
-  const hostId = useGame((s) => s.hostId);
-  const wantHost = useGame((s) => s.wantHost);
-  const net = useNet();
-  const [code, setCode] = useState("");
-
-  function shareLink(next: string) {
-    const url = `${window.location.origin}/r/${next}`;
-    void navigator.clipboard?.writeText(url).then(
-      () => toast.success("Ссылка скопирована."),
-      () => toast.message(url),
-    );
-    window.history.replaceState(null, "", `/r/${next}`);
-  }
-
-  function shareVk(next: string) {
-    const url = `${window.location.origin}/r/${next}`;
-    const vk = `https://vk.com/share.php?url=${encodeURIComponent(url)}&title=${encodeURIComponent("Балалаечка — садись за стол")}&comment=${encodeURIComponent("Караоке за одним столом. Открой ссылку с телефона.")}`;
-    window.open(vk, "_blank", "noopener,noreferrer,width=640,height=560");
-    window.history.replaceState(null, "", `/r/${next}`);
-  }
-
-  if (mode === "net" && roomCode) {
-    const isHost = wantHost || hostId === youId;
-    const ready = players.length >= 2;
-    const looking = Boolean(net && !net.joined);
-    return (
-      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
-        <Wordmark />
-        <h1 className="mt-8 font-display text-3xl text-fg">Стол {roomCode}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          Ссылка на стол. До 8 человек, хоть из разных городов. Каждый кидает свой Suno.
-          {looking ? " Ищем стол…" : ready ? " Все на месте." : " Ждём, когда откроют ссылку."}
-        </p>
-        <ul className="mt-6 flex flex-1 flex-col gap-2">
-          {players.map((p) => {
-            const isYou = p.id === youId || p.id === net?.selfId;
-            const live = net?.peers.find((x) => x.id === p.id);
-            const here = isYou || Boolean(live) || Boolean(net?.roster.some((x) => x.id === p.id));
-            return (
-              <li key={p.id} className="flex items-center gap-2">
-                <PersonAvatar url={p.avatarUrl} name={p.name} size="md" />
-                <p className="font-medium text-fg">{p.name}</p>
-                {isYou ? <span className="text-xs text-subtle">ты</span> : null}
-                {p.id === hostId && !isYou ? <span className="text-xs text-subtle">стол</span> : null}
-                {!isYou ? (
-                  <span className="text-xs text-subtle">
-                    {live?.connectionState === "connected"
-                      ? "голос"
-                      : here
-                        ? "за столом"
-                        : "ищем…"}
-                  </span>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-        <div className="mt-4 flex flex-col gap-2">
-          <Button variant="secondary" onClick={() => shareLink(roomCode)}>
-            Скопировать ссылку
-          </Button>
-          <Button variant="secondary" onClick={() => shareVk(roomCode)}>
-            Кинуть в VK
-          </Button>
-          <Button
-            size="lg"
-            className="h-14 rounded-xl"
-            disabled={!ready || !isHost}
-            onClick={() => {
-              playUiTick();
-              if (!isHost) {
-                toast.message("Ждём хозяина стола — он жмёт «колода».");
-                return;
-              }
-              toBring();
-            }}
-          >
-            {!ready ? "Ждём ещё человека" : isHost ? "Дальше — колода" : "Ждём хозяина стола"}
-          </Button>
-          <Button variant="ghost" onClick={() => playLocal()}>
-            Один телефон
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const notes = useWallet((s) => s.notes);
+  const setShop = useWallet((s) => s.setShop);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <Wordmark />
       <h1 className="mt-8 font-display text-3xl text-fg">Кто за столом</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        По сети — свои телефоны. На одном телефоне — как раньше.
+        Один телефон или комп на всех. Балалайка выбирает, кто поёт. Хиты не кладём.
       </p>
+
+      <button
+        type="button"
+        className="mt-4 flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left"
+        onClick={() => setShop(true)}
+      >
+        <span className="text-sm text-muted">Твои ноты</span>
+        <span className="flex items-center gap-1.5 tabular-nums text-fg">
+          <Music className="size-3.5" />
+          {notes}
+        </span>
+      </button>
 
       <ul className="mt-6 flex flex-1 flex-col gap-2">
         {players.map((p) => (
@@ -290,10 +214,7 @@ export function Lobby() {
               maxLength={16}
               aria-label="Имя"
             />
-            <span className="flex w-10 items-center justify-end gap-0.5 tabular-nums text-xs text-muted">
-              <Music className="size-3" />
-              {p.notes}
-            </span>
+            {p.id === youId ? <span className="text-xs text-subtle">ты</span> : null}
             <Button
               variant="ghost"
               size="icon"
@@ -310,45 +231,17 @@ export function Lobby() {
       <div className="mt-4 flex flex-col gap-2">
         <Button variant="secondary" onClick={addPlayer} disabled={players.length >= 8}>
           <Plus />
-          Ещё человек на этом телефоне
+          Ещё человек
         </Button>
         <Button
           size="lg"
           className="h-14 rounded-xl"
           onClick={() => {
             playUiTick();
-            const next = createRoom();
-            shareLink(next);
-          }}
-        >
-          Стол по сети
-        </Button>
-        <div className="flex gap-2">
-          <Input
-            placeholder="код стола"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            maxLength={16}
-          />
-          <Button
-            variant="secondary"
-            onClick={() => {
-              joinRoom(code);
-              playUiTick();
-            }}
-          >
-            Войти
-          </Button>
-        </div>
-        <Button
-          variant="ghost"
-          onClick={() => {
-            playUiTick();
-            playLocal();
             toBring();
           }}
         >
-          Один телефон — колода
+          Дальше — колода
         </Button>
       </div>
     </div>
@@ -680,10 +573,11 @@ export function Chrome({ children }: { children: ReactNode }) {
           {you ? (
             <span className="mr-1 flex items-center gap-1.5 text-sm text-muted">
               <PersonAvatar url={you.avatarUrl} name={you.name} size="sm" />
-              <Music className="size-3.5" />
-              <span className="tabular-nums">{you.notes}</span>
+              <NotesButton />
             </span>
-          ) : null}
+          ) : (
+            <NotesButton />
+          )}
           {phase !== "lobby" && phase !== "bring" && phase !== "profile" ? (
             <Badge className="tabular-nums">
               {omen ? "тёмная" : cookStatus === "cooking" ? "сборка" : `раунд ${round}`}
