@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Play, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Mic, Music, Play, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,25 +7,35 @@ import { KaraokeCook } from "@/components/karaoke-cook";
 import { TrackTakes } from "@/components/track-takes";
 import { previewFile, playUiTick, stopPreview, unlockAudio } from "@/lib/audio";
 import {
-  deleteSavedTrack,
   LIBRARY_MAX,
+  deleteSavedTrack,
+  downloadBlob,
+  fileNameFor,
   listSavedTracks,
   saveTrack,
   songFromSaved,
-  downloadBlob,
-  fileNameFor,
   type SavedTrack,
 } from "@/lib/library";
 import { linesFromPlain, looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
+import { cookCost, NOTE_PRICE } from "@/lib/notes";
 import { linesFromAligned, proxyAudio } from "@/lib/suno";
 import { pullMinusBlobs, pullSunoAligned } from "@/lib/suno-flow";
-import { importSunoSong, pollSunoGenerate, pollSunoLyrics, startSunoGenerate, startSunoLyrics, themeToLyricsPrompt } from "@/lib/suno-server";
-import { prepareKaraokeTrack } from "@/lib/stems";
-import { cookCost, NOTE_PRICE } from "@/lib/notes";
+import { prepareKaraokeTrack, takeAudioFile } from "@/lib/stems";
 import { useGame } from "@/lib/store";
+import {
+  importSunoSong,
+  pollSunoGenerate,
+  pollSunoLyrics,
+  startSunoCover,
+  startSunoGenerate,
+  startSunoLyrics,
+  themeToLyricsPrompt,
+} from "@/lib/suno-server";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
+
+type Desk = "home" | "cook" | "voice" | "file";
 
 async function syncSongs(artist: string) {
   const saved = await listSavedTracks();
@@ -49,18 +59,47 @@ function paidFail(err: { error?: string; needNotes?: number } | unknown) {
   void refreshWallet();
 }
 
+async function hostFile(blob: Blob, name = "track.mp3") {
+  const form = new FormData();
+  form.append("file", new File([blob], name, { type: blob.type || "audio/mpeg" }));
+  const res = await fetch("/api/host-audio", { method: "POST", body: form });
+  const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+  if (!json.ok || !json.url) throw new Error(json.error || "Не выложился файл.");
+  return json.url;
+}
+
+async function blobFromFile(file: File): Promise<SavedTrack> {
+  const prepared = await prepareKaraokeTrack(file, false);
+  const id = uid("file");
+  return {
+    id,
+    title: file.name.replace(/\.[^.]+$/, "").slice(0, 48) || "мой трек",
+    lyrics: "",
+    duration: prepared.duration,
+    mime: file.type || "audio/mpeg",
+    addedAt: Date.now(),
+    blob: file,
+    sourceUrl: prepared.url,
+  };
+}
+
 export function BringSong() {
-  const toVerse = useGame((s) => s.toVerse);
+  const toLobby = useGame((s) => s.toLobby);
   const you = useGame((s) => s.players.find((p) => p.id === s.youId));
   const artist = you?.name ?? "мой трек";
+  const notes = useWallet((s) => s.notes);
+  const setShop = useWallet((s) => s.setShop);
   const [tracks, setTracks] = useState<SavedTrack[]>([]);
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [style, setStyle] = useState("russian pop, party vocal");
   const [sunoUrl, setSunoUrl] = useState("");
-  const [busy, setBusy] = useState<null | "suno" | "cook">(null);
+  const [busy, setBusy] = useState<null | "suno" | "cook" | "file" | "cover">(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [studio, setStudio] = useState<SavedTrack | null>(null);
+  const [desk, setDesk] = useState<Desk>("home");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const coverFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void syncSongs(artist)
@@ -71,9 +110,24 @@ export function BringSong() {
     return () => stopPreview();
   }, [artist]);
 
+  async function persist(saved: SavedTrack) {
+    await saveTrack(saved);
+    downloadBlob(saved.blob, fileNameFor(saved.title, "plus", saved.mime));
+    if (saved.minusBlob) {
+      downloadBlob(saved.minusBlob, fileNameFor(saved.title, "minus", saved.minusBlob.type || "audio/mpeg"));
+    }
+    if (saved.coverBlob) {
+      downloadBlob(saved.coverBlob, fileNameFor(saved.title, "cover", saved.coverBlob.type || "audio/mpeg"));
+    }
+    const next = await syncSongs(artist);
+    setTracks(next);
+    void refreshWallet();
+    return next.find((t) => t.id === saved.id) ?? saved;
+  }
+
   async function addFromSuno() {
     if (tracks.length >= LIBRARY_MAX) {
-      toast.error(`В колоде уже ${LIBRARY_MAX}.`);
+      toast.error(`Уже ${LIBRARY_MAX} треков. Убери один.`);
       return;
     }
     if (!sunoUrl.trim()) {
@@ -98,17 +152,15 @@ export function BringSong() {
       } catch {
         if (!duration) throw new Error("Файл с Suno пришёл, но браузер не прочитал длину.");
       }
-      const id = uid("suno");
-      const text = lyrics.trim() || hit.lyrics;
       const saved: SavedTrack = {
-        id,
+        id: uid("suno"),
         title: (title.trim() || hit.title).slice(0, 48),
-        lyrics: text,
+        lyrics: lyrics.trim() || hit.lyrics,
         duration: duration || hit.duration,
         mime: fileish.type,
         addedAt: Date.now(),
         blob: fileish,
-        lines: timedLines(text, duration || hit.duration),
+        lines: timedLines(lyrics.trim() || hit.lyrics, duration || hit.duration),
         sourceUrl: hit.audioUrl,
       };
       toast.message("Снимаю минус…");
@@ -118,25 +170,11 @@ export function BringSong() {
         saved.vocalBlob = pulled.vocalBlob ?? saved.vocalBlob;
         saved.sourceUrl = pulled.instrumentalUrl;
       }
-      await saveTrack(saved);
-      downloadBlob(saved.blob, fileNameFor(saved.title, "plus", saved.mime));
-      if (saved.minusBlob) {
-        downloadBlob(saved.minusBlob, fileNameFor(saved.title, "minus", saved.minusBlob.type || "audio/mpeg"));
-      }
-      const next = await syncSongs(artist);
-      setTracks(next);
+      const next = await persist(saved);
       setSunoUrl("");
-      setLyrics("");
-      void refreshWallet();
-      toast.success(
-        pulled
-          ? "С Suno в колоде, минус снят — файлы скачались."
-          : text
-            ? "С Suno в колоде. Минус не снялся — снимешь в студии."
-            : "С Suno в колоде. Текст допиши в студии.",
-      );
+      toast.success(pulled ? "С Suno, минус скачался." : "С Suno в студии.");
       playUiTick();
-      setStudio(next.find((t) => t.id === id) ?? saved);
+      if (desk === "voice") setStudio(next);
     } catch (err) {
       paidFail(err);
     } finally {
@@ -146,7 +184,7 @@ export function BringSong() {
 
   async function cookNew() {
     if (tracks.length >= LIBRARY_MAX) {
-      toast.error(`В колоде уже ${LIBRARY_MAX}.`);
+      toast.error(`Уже ${LIBRARY_MAX} треков. Убери один.`);
       return;
     }
     const rows = lyrics
@@ -229,9 +267,8 @@ export function BringSong() {
         : timedLines(lyricsText, duration) ?? [];
       toast.message("Снимаю минус…");
       const pulled = await pullMinusBlobs({ taskId: started.taskId, audioId, audioUrl: audio });
-      const id = uid("suno");
       const saved: SavedTrack = {
-        id,
+        id: uid("suno"),
         title: trackTitle,
         lyrics: lyricsText,
         duration,
@@ -243,19 +280,100 @@ export function BringSong() {
         minusBlob: pulled?.minusBlob,
         vocalBlob: pulled?.vocalBlob,
       };
-      await saveTrack(saved);
-      downloadBlob(saved.blob, fileNameFor(saved.title, "plus", saved.mime));
-      if (saved.minusBlob) {
-        downloadBlob(saved.minusBlob, fileNameFor(saved.title, "minus", saved.minusBlob.type || "audio/mpeg"));
-      }
-      const next = await syncSongs(artist);
-      setTracks(next);
+      const next = await persist(saved);
       setTitle("");
       setLyrics("");
-      void refreshWallet();
-      toast.success("Новый трек в колоде — файлы скачались.");
+      toast.success("Трек скачался.");
       playUiTick();
-      setStudio(next.find((t) => t.id === id) ?? saved);
+      setDesk("home");
+      if (desk === "voice") setStudio(next);
+    } catch (err) {
+      paidFail(err);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function ingestFile(file: File | undefined, openVoice: boolean) {
+    const audio = takeAudioFile(file);
+    if (!audio) {
+      toast.error("Нужен аудиофайл — mp3, wav, m4a.");
+      return;
+    }
+    if (tracks.length >= LIBRARY_MAX) {
+      toast.error(`Уже ${LIBRARY_MAX} треков. Убери один.`);
+      return;
+    }
+    setBusy("file");
+    try {
+      const saved = await blobFromFile(audio);
+      saved.lyrics = lyrics.trim();
+      if (title.trim()) saved.title = title.trim().slice(0, 48);
+      await saveTrack(saved);
+      const nextList = await syncSongs(artist);
+      setTracks(nextList);
+      const next = nextList.find((t) => t.id === saved.id) ?? saved;
+      toast.success("Файл в студии.");
+      playUiTick();
+      if (openVoice) setStudio(next);
+      else setDesk("home");
+    } catch (err) {
+      paidFail(err);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function coverFromUpload(file: File | undefined) {
+    const audio = takeAudioFile(file);
+    if (!audio) {
+      toast.error("Нужен аудиофайл — mp3, wav, m4a.");
+      return;
+    }
+    setBusy("cover");
+    try {
+      const prepared = await prepareKaraokeTrack(audio, false);
+      URL.revokeObjectURL(prepared.url);
+      const hosted = await hostFile(audio, audio.name || "source.mp3");
+      const started = await startSunoCover({
+        data: {
+          audioUrl: hosted,
+          title: (title.trim() || audio.name.replace(/\.[^.]+$/, "") || "Cover").slice(0, 80),
+          lyrics: lyrics.trim() || "karaoke cover, keep the melody",
+          duration: prepared.duration,
+        },
+      });
+      if (!started.ok) throw started;
+      let audioUrl: string | null = null;
+      for (let i = 0; i < 48; i++) {
+        await new Promise((r) => window.setTimeout(r, 4000));
+        const st = await pollSunoGenerate({ data: { taskId: started.taskId } });
+        if (st.failed) throw new Error("Кавер не вышел.");
+        const clip = st.clips.find((c) => c.audioUrl);
+        if (clip?.audioUrl) {
+          audioUrl = clip.audioUrl;
+          break;
+        }
+      }
+      if (!audioUrl) throw new Error("Кавер не успел. Попробуй ещё раз.");
+      const res = await fetch(proxyAudio(audioUrl));
+      if (!res.ok) throw new Error("Не скачался кавер.");
+      const coverBlob = await res.blob();
+      const saved: SavedTrack = {
+        id: uid("cover"),
+        title: (title.trim() || "кавер").slice(0, 48),
+        lyrics: lyrics.trim(),
+        duration: prepared.duration,
+        mime: coverBlob.type || "audio/mpeg",
+        addedAt: Date.now(),
+        blob: coverBlob,
+        coverBlob,
+        sourceUrl: audioUrl,
+      };
+      await persist(saved);
+      toast.success("Кавер скачался.");
+      playUiTick();
+      setDesk("home");
     } catch (err) {
       paidFail(err);
     } finally {
@@ -283,17 +401,6 @@ export function BringSong() {
     setPlayingId(track.id);
   }
 
-  function goVerse() {
-    const ready = tracks.length;
-    if (!ready) {
-      toast.error("Положи хотя бы один свой трек — петь, пока из строк варится новая.");
-      return;
-    }
-    stopPreview();
-    playUiTick();
-    toVerse();
-  }
-
   if (studio) {
     return (
       <KaraokeCook
@@ -309,98 +416,239 @@ export function BringSong() {
 
   return (
     <div className="flex flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      <h1 className="font-display text-3xl text-fg">Караоке-колода</h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted">
-        Ссылка с Suno или сварить новый. Трек сразу качается на телефон. Хиты не кладём.
-      </p>
-      <p className="mt-2 text-xs text-subtle">
-        Сварить: {cookCost()} нот · минус: {NOTE_PRICE.minus} · забрать ссылку + минус: {NOTE_PRICE.minus}
-      </p>
-
-      <div className="mt-5 flex flex-col gap-3">
-        {tracks.map((track) => (
-          <div key={track.id} className="rounded-xl border border-border bg-surface px-3 py-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-accent"
-                onClick={() => hear(track)}
-                aria-label={playingId === track.id ? "Стоп" : "Слушать"}
-              >
-                <Play className="size-4" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-fg">{track.title}</p>
-                <p className="text-xs text-subtle">
-                  {Math.round(track.duration)}с
-                  {track.minusBlob ? " · минус" : " · оригинал"}
-                  {track.lines?.length ? " · по тактам" : " · без тактов"}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="grid size-10 shrink-0 place-items-center text-muted"
-                onClick={() => void remove(track.id)}
-                aria-label="Убрать"
-              >
-                <Trash2 className="size-4" />
-              </button>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              className="mt-2 w-full rounded-xl"
-              onClick={() => {
-                stopPreview();
-                setStudio(track);
-              }}
-            >
-              Собрать караоке
-            </Button>
-            <TrackTakes track={track} className="mt-2" />
-          </div>
-        ))}
-
-        {tracks.length < LIBRARY_MAX ? (
-          <>
-            <Input
-              placeholder="Ссылка suno.com/song/… или suno.com/s/…"
-              value={sunoUrl}
-              onChange={(e) => setSunoUrl(e.target.value)}
-            />
-            <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
-              {busy === "suno" ? "Забираю с Suno…" : `Забрать с Suno · ${NOTE_PRICE.minus} нот`}
-            </Button>
-            <p className="text-xs text-subtle">Или сварить новый — свой текст, не чужой хит.</p>
-            <Input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <Input placeholder="Стиль: russian pop, disco…" value={style} onChange={(e) => setStyle(e.target.value)} />
-            <textarea
-              value={lyrics}
-              onChange={(e) => setLyrics(e.target.value)}
-              placeholder="Тема или свои строки. Три строки хватит — Suno допишет стихи с юмором."
-              rows={5}
-              className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
-            />
-            <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void cookNew()} disabled={Boolean(busy)}>
-              {busy === "cook" ? "Suno варит… минута-две" : `Сварить трек · ${cookCost()} нот`}
-            </Button>
-          </>
-        ) : (
-          <p className="text-sm text-subtle">Три трека — хватит на круг. Убери один, если хочешь другой.</p>
-        )}
-      </div>
-
-      <div className="mt-4 flex flex-col gap-2">
-        <Button
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl text-fg">Студия</h1>
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">
+            Сварить трек, кавер голосом или с файла. Всё качается сразу. Балалаечка — если захотите спеть за столом.
+          </p>
+        </div>
+        <button
           type="button"
-          size="lg"
-          className="h-14 rounded-xl"
-          onClick={goVerse}
-          disabled={!tracks.length}
+          className="shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm tabular-nums text-fg"
+          onClick={() => setShop(true)}
         >
-          {tracks.length ? "Дальше — круг строк" : "Сначала свой трек"}
-        </Button>
+          {notes} нот
+        </button>
       </div>
+
+      {desk === "home" ? (
+        <div className="mt-6 grid gap-2">
+          <button
+            type="button"
+            className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left"
+            onClick={() => setDesk("cook")}
+          >
+            <Music className="mt-0.5 size-5 text-accent" />
+            <span>
+              <span className="block font-medium text-fg">Сварить трек</span>
+              <span className="mt-1 block text-sm text-muted">
+                Тема или свои строки. {cookCost()} нот, файл сразу на телефон.
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left"
+            onClick={() => setDesk("voice")}
+          >
+            <Mic className="mt-0.5 size-5 text-accent" />
+            <span>
+              <span className="block font-medium text-fg">Кавер своим голосом</span>
+              <span className="mt-1 block text-sm text-muted">
+                Спой в минус, Suno соберёт кавер. {NOTE_PRICE.minus}+{NOTE_PRICE.cover} нот.
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left"
+            onClick={() => setDesk("file")}
+          >
+            <Upload className="mt-0.5 size-5 text-accent" />
+            <span>
+              <span className="block font-medium text-fg">Кавер с файла</span>
+              <span className="mt-1 block text-sm text-muted">
+                Загрузи свой трек — получится кавер. {NOTE_PRICE.cover} нот.
+              </span>
+            </span>
+          </button>
+        </div>
+      ) : null}
+
+      {desk === "cook" ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-sm text-muted">Свой текст, не чужой хит. Или ссылка с suno.com.</p>
+          <Input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input placeholder="Стиль: russian pop, disco…" value={style} onChange={(e) => setStyle(e.target.value)} />
+          <textarea
+            value={lyrics}
+            onChange={(e) => setLyrics(e.target.value)}
+            placeholder="Тема или свои строки. Три строки хватит — Suno допишет стихи."
+            rows={5}
+            className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
+          />
+          <Button type="button" className="rounded-xl" onClick={() => void cookNew()} disabled={Boolean(busy)}>
+            {busy === "cook" ? "Suno варит… минута-две" : `Сварить трек · ${cookCost()} нот`}
+          </Button>
+          <Input
+            placeholder="Или ссылка suno.com/song/…"
+            value={sunoUrl}
+            onChange={(e) => setSunoUrl(e.target.value)}
+          />
+          <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
+            {busy === "suno" ? "Забираю с Suno…" : `Забрать с Suno · ${NOTE_PRICE.minus} нот`}
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setDesk("home")}>
+            К студии
+          </Button>
+        </div>
+      ) : null}
+
+      {desk === "voice" ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-muted">
+            Возьми трек, сними минус, спой, потом кавер. Можно из списка ниже, сварить новый или загрузить файл.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="audio/*,.mp3,.wav,.m4a,.ogg"
+            className="hidden"
+            onChange={(e) => void ingestFile(e.target.files?.[0], true)}
+          />
+          <Button type="button" variant="secondary" className="rounded-xl" onClick={() => fileRef.current?.click()} disabled={Boolean(busy)}>
+            {busy === "file" ? "Читаю файл…" : "Загрузить минус или плюс"}
+          </Button>
+          <Button type="button" variant="secondary" className="rounded-xl" onClick={() => setDesk("cook")}>
+            Сначала сварить трек
+          </Button>
+          {tracks.length ? (
+            <ul className="flex flex-col gap-2">
+              {tracks.map((track) => (
+                <li key={track.id}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full justify-start rounded-xl py-3"
+                    onClick={() => {
+                      stopPreview();
+                      setStudio(track);
+                    }}
+                  >
+                    {track.title} · спеть и кавер
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-subtle">Пока пусто — загрузи файл или свари трек.</p>
+          )}
+          <Button type="button" variant="ghost" onClick={() => setDesk("home")}>
+            К студии
+          </Button>
+        </div>
+      ) : null}
+
+      {desk === "file" ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-muted">
+            Кинь свой трек. По желанию допиши слова — кавер выйдет ближе к тексту.
+          </p>
+          <Input placeholder="Название кавера" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <textarea
+            value={lyrics}
+            onChange={(e) => setLyrics(e.target.value)}
+            placeholder="Текст, если есть. Можно пусто."
+            rows={4}
+            className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg placeholder:text-subtle outline-none"
+          />
+          <input
+            ref={coverFileRef}
+            type="file"
+            accept="audio/*,.mp3,.wav,.m4a,.ogg"
+            className="hidden"
+            onChange={(e) => void coverFromUpload(e.target.files?.[0])}
+          />
+          <Button
+            type="button"
+            className="rounded-xl"
+            disabled={Boolean(busy)}
+            onClick={() => coverFileRef.current?.click()}
+          >
+            {busy === "cover" ? "Варю кавер… пару минут" : `Выбрать файл и сварить кавер · ${NOTE_PRICE.cover} нот`}
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setDesk("home")}>
+            К студии
+          </Button>
+        </div>
+      ) : null}
+
+      {desk === "home" && tracks.length ? (
+        <div className="mt-6 flex flex-col gap-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-subtle">на этом телефоне</p>
+          {tracks.map((track) => (
+            <div key={track.id} className="rounded-xl border border-border bg-surface px-3 py-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-accent"
+                  onClick={() => hear(track)}
+                  aria-label={playingId === track.id ? "Стоп" : "Слушать"}
+                >
+                  <Play className="size-4" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-fg">{track.title}</p>
+                  <p className="text-xs text-subtle">
+                    {Math.round(track.duration)}с
+                    {track.minusBlob ? " · минус" : ""}
+                    {track.coverBlob ? " · кавер" : ""}
+                    {track.takeBlob ? " · запись" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="grid size-10 shrink-0 place-items-center text-muted"
+                  onClick={() => void remove(track.id)}
+                  aria-label="Убрать"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-2 w-full rounded-xl"
+                onClick={() => {
+                  stopPreview();
+                  setStudio(track);
+                }}
+              >
+                Минус, спеть, кавер
+              </Button>
+              <TrackTakes track={track} className="mt-2" />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {desk === "home" ? (
+        <div className="mt-8 flex flex-col gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 rounded-xl"
+            onClick={() => {
+              playUiTick();
+              toLobby();
+            }}
+          >
+            Балалаечка — игра за столом
+          </Button>
+          <p className="text-center text-xs text-subtle">По желанию. Студия от этого не зависит.</p>
+        </div>
+      ) : null}
     </div>
   );
 }

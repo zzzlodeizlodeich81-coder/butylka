@@ -320,9 +320,9 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       {recording || tapping ? null : (
         <>
-          <h1 className="font-display text-3xl text-fg">Караоке</h1>
+          <h1 className="font-display text-3xl text-fg">{track.title}</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            {track.title}. «Найти текст по названию» ищет слова по «{track.title}». Не нашли — набей такт, жми экран.
+            Минус, запись голоса, кавер. Файлы качаются сразу. Текст можно набить пальцем под песню.
           </p>
         </>
       )}
@@ -406,7 +406,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
             </Button>
             <TrackTakes track={track} />
             <Button variant="ghost" onClick={onClose}>
-              К колоде
+              К студии
             </Button>
           </div>
         </>

@@ -19,10 +19,12 @@ function Shell() {
   if (phase === "profile") return <ProfileScreen />;
   if (phase === "lobby") return <Lobby />;
 
+  const studio = phase === "studio" || phase === "bring";
+
   return (
     <Chrome>
-      <CookBridge />
-      {phase === "bring" ? <BringSong /> : null}
+      {studio ? <BringSong /> : null}
+      {!studio ? <CookBridge /> : null}
       {phase === "verse" ? <VerseRound /> : null}
       {phase === "table" ? <BottleTable /> : null}
       {phase === "reveal" ? <Reveal /> : null}

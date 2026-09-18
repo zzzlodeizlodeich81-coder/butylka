@@ -5,7 +5,7 @@ import { proxyAudio } from "@/lib/suno";
 const DB_NAME = "butylka-library";
 const STORE = "tracks";
 const VERSION = 1;
-export const LIBRARY_MAX = 3;
+export const LIBRARY_MAX = 8;
 
 export type SavedTrack = {
   id: string;

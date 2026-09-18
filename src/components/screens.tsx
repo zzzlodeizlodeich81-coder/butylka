@@ -56,7 +56,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Караоке за одним столом. Свои треки с Suno. Ноты — за голоса VK.
+          Свои треки с Suno, кавер голосом или с файла. Балалаечка — если захотите спеть за столом.
         </p>
         <div className="mt-5">
           <ChavoButton />
@@ -180,7 +180,8 @@ export function Lobby() {
   const setPlayerName = useGame((s) => s.setPlayerName);
   const addPlayer = useGame((s) => s.addPlayer);
   const removePlayer = useGame((s) => s.removePlayer);
-  const toBring = useGame((s) => s.toBring);
+  const toVerse = useGame((s) => s.toVerse);
+  const toStudio = useGame((s) => s.toStudio);
   const notes = useWallet((s) => s.notes);
   const setShop = useWallet((s) => s.setShop);
 
@@ -189,7 +190,7 @@ export function Lobby() {
       <Wordmark />
       <h1 className="mt-8 font-display text-3xl text-fg">Кто за столом</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Один телефон или комп на всех. Балалайка выбирает, кто поёт. Хиты не кладём.
+        Один телефон или комп. Балалайка выбирает, кто поёт. Хиты не кладём.
       </p>
 
       <button
@@ -238,10 +239,13 @@ export function Lobby() {
           className="h-14 rounded-xl"
           onClick={() => {
             playUiTick();
-            toBring();
+            toVerse();
           }}
         >
-          Дальше — колода
+          Играть
+        </Button>
+        <Button variant="ghost" onClick={() => toStudio()}>
+          Назад в студию
         </Button>
       </div>
     </div>
@@ -384,6 +388,7 @@ export function Result() {
   const players = useGame((s) => s.players);
   const nextRound = useGame((s) => s.nextRound);
   const backToLobby = useGame((s) => s.backToLobby);
+  const toStudio = useGame((s) => s.toStudio);
   const toVerse = useGame((s) => s.toVerse);
   const singer = playerById(players, useGame((s) => s.singerId));
   const youId = useGame((s) => s.youId);
@@ -542,8 +547,8 @@ export function Result() {
         <Button variant="ghost" onClick={toVerse}>
           Ещё круг строк
         </Button>
-        <Button variant="ghost" onClick={backToLobby}>
-          Сменить компанию
+        <Button variant="ghost" onClick={toStudio}>
+          В студию
         </Button>
       </div>
     </div>
@@ -578,7 +583,7 @@ export function Chrome({ children }: { children: ReactNode }) {
           ) : (
             <NotesButton />
           )}
-          {phase !== "lobby" && phase !== "bring" && phase !== "profile" ? (
+          {phase !== "lobby" && phase !== "bring" && phase !== "profile" && phase !== "studio" ? (
             <Badge className="tabular-nums">
               {omen ? "тёмная" : cookStatus === "cooking" ? "сборка" : `раунд ${round}`}
             </Badge>

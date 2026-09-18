@@ -4,6 +4,7 @@ import { uid } from "@/lib/utils";
 
 export type Phase =
   | "gate"
+  | "studio"
   | "profile"
   | "lobby"
   | "bring"
@@ -163,6 +164,7 @@ type GameState = {
   omenSong: Song | null;
   sunoPrompt: string;
   enter: () => void;
+  toStudio: () => void;
   setPlayerName: (id: string, name: string) => void;
   setAvatar: (id: string, url: string | null) => void;
   setYouNotes: (notes: number) => void;
@@ -274,7 +276,28 @@ export const useGame = create<GameState>((set, get) => ({
   omenSong: null,
   sunoPrompt: "",
 
-  enter: () => set({ phase: "profile" }),
+  enter: () => set({ phase: "studio" }),
+
+  toStudio: () =>
+    set({
+      phase: "studio",
+      spinning: false,
+      singerId: null,
+      partnerId: null,
+      challenge: null,
+      song: null,
+      round: 1,
+      lastSkip: null,
+      lastGifts: [],
+      lastHearts: 0,
+      lastTake: null,
+      verseIndex: 0,
+      verseLines: [],
+      cookStatus: "idle",
+      omen: false,
+      omenSong: null,
+      sunoPrompt: "",
+    }),
 
   setPlayerName: (id, name) =>
     set({
@@ -318,11 +341,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   toBring: () => {
-    const players = get().players.map((p) => ({
-      ...p,
-      name: p.name.trim() || "Без имени",
-    }));
-    set({ phase: "bring", players });
+    set({ phase: "studio" });
   },
 
   toVerse: () => {
@@ -615,7 +634,8 @@ export const useGame = create<GameState>((set, get) => ({
       if (!raw) return;
       const data = JSON.parse(raw) as Partial<GameState>;
       if (!data.phase || data.phase === "gate") return;
-      const phase = data.phase === "karaoke" ? "song" : data.phase;
+      const phase =
+        data.phase === "karaoke" ? "song" : data.phase === "bring" ? "studio" : data.phase;
       set({
         phase,
         players:
