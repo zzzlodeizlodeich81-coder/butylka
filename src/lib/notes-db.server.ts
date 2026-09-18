@@ -1,4 +1,5 @@
 import { NOTE_PACKS, NOTE_PRICE, packById, type PaidKind } from "@/lib/notes";
+import { sheetCredit, sheetEnabled, sheetRead, sheetRefund, sheetSpend } from "@/lib/notes-sheet.server";
 import { isPreviewUser, type VkUser } from "@/lib/vk/session.server";
 
 type Sql = { query: <T = Record<string, unknown>>(text: string, params?: unknown[]) => Promise<T[]> };
@@ -90,6 +91,10 @@ function memWallet(vkId: string, name: string) {
 }
 
 export async function readWallet(user: VkUser): Promise<{ notes: number; name: string }> {
+  if (sheetEnabled()) {
+    const row = await sheetRead(user);
+    if (row) return row;
+  }
   const sql = await getSql();
   if (!sql) {
     const row = memWallet(user.vkId, user.name);
@@ -109,6 +114,14 @@ export async function readWallet(user: VkUser): Promise<{ notes: number; name: s
 
 export async function spendNotes(user: VkUser, kind: PaidKind): Promise<{ ok: true; notes: number } | { ok: false; error: string; notes: number }> {
   const cost = NOTE_PRICE[kind];
+  if (sheetEnabled()) {
+    const hit = await sheetSpend(user, kind, cost);
+    if (!hit) return { ok: false, error: "Таблица нот не ответила.", notes: 0 };
+    if (!hit.ok) {
+      return { ok: false, error: `Нужно ${cost} нот.`, notes: Number(hit.notes ?? 0) };
+    }
+    return { ok: true, notes: Number(hit.notes ?? 0) };
+  }
   const sql = await getSql();
   if (!sql) {
     const row = memWallet(user.vkId, user.name);
@@ -140,6 +153,10 @@ export async function spendNotes(user: VkUser, kind: PaidKind): Promise<{ ok: tr
 
 export async function refundNotes(user: VkUser, kind: PaidKind): Promise<number> {
   const cost = NOTE_PRICE[kind];
+  if (sheetEnabled()) {
+    const notes = await sheetRefund(user, kind, cost);
+    return Number(notes ?? 0);
+  }
   const sql = await getSql();
   if (!sql) {
     const row = memWallet(user.vkId, user.name);
@@ -166,6 +183,12 @@ export async function creditPack(
 ): Promise<{ ok: true; notes: number } | { ok: false; error: string }> {
   const pack = packById(item);
   if (!pack) return { ok: false, error: "unknown item" };
+  if (sheetEnabled()) {
+    const hit = await sheetCredit(vkId, orderId, item);
+    if (!hit) return { ok: false, error: "sheet down" };
+    if (!hit.ok) return { ok: false, error: hit.error };
+    return { ok: true, notes: Number(hit.notes ?? pack.notes) };
+  }
   const sql = await getSql();
   if (!sql) {
     const row = memWallet(vkId, "");
