@@ -98,8 +98,16 @@ export function sessionCookie(token: string) {
   return `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${14 * 24 * 3600}${secure ? "; Secure" : ""}`;
 }
 
+function onVercel() {
+  try {
+    return Boolean(process.env.VERCEL);
+  } catch {
+    return false;
+  }
+}
+
 function previewAllowed() {
-  return !vkConfigured() && !dbUrl();
+  return !onVercel() && !vkConfigured() && !dbUrl();
 }
 
 function dbUrl() {

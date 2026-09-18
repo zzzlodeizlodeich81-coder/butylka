@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/vk-session")({
         let vkId = launch?.vkId ?? "";
         let name = (body.name ?? launch?.name ?? "").slice(0, 40);
         if (!vkId) {
-          if (vkConfigured() || process.env.DATABASE_URL?.trim()) {
+          if (process.env.VERCEL || vkConfigured() || process.env.DATABASE_URL?.trim()) {
             return Response.json({ ok: false, error: "Нужен вход через VK." }, { status: 401 });
           }
           vkId = "preview";
