@@ -36,7 +36,9 @@ export async function pullSunoMinus(
       await sleep(4000, live);
       if (!live()) return null;
       const st = await pollSunoStems({ data: { taskId: started.taskId } });
-      if (st.failed) break;
+      if (st.failed) {
+        throw new Error(st.errorMessage || "Suno не снял минус с этого файла.");
+      }
       if (st.instrumentalUrl) {
         return { instrumentalUrl: st.instrumentalUrl, vocalUrl: st.vocalUrl };
       }

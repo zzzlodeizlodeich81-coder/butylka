@@ -9,6 +9,8 @@ const HOSTS = [
   "cloudfront.net",
   "catbox.moe",
   "tmpfiles.org",
+  "redpandaai.co",
+  "tempfile.redpandaai.co",
 ];
 
 function allowed(raw: string) {

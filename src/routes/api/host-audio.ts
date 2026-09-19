@@ -1,5 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+function sunoKey() {
+  return process.env.SUNO_API_KEY?.trim() || "";
+}
+
+function pickUrl(body: Record<string, unknown>): string {
+  const data = (body.data ?? body) as Record<string, unknown>;
+  for (const key of ["downloadUrl", "fileUrl", "url", "file_url", "download_url"]) {
+    const v = data[key];
+    if (typeof v === "string" && v.startsWith("http")) return v;
+  }
+  return "";
+}
+
+async function toSuno(file: Blob, name: string) {
+  const key = sunoKey();
+  if (!key) throw new Error("no suno key");
+  const out = new FormData();
+  out.append("file", file, name);
+  out.append("uploadPath", "minus");
+  out.append("fileName", name);
+  const res = await fetch("https://sunoapiorg.redpandaai.co/api/file-stream-upload", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: out,
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const url = pickUrl(json);
+  if (!url) throw new Error(String(json.msg ?? json.error ?? "Suno не принял файл."));
+  return url;
+}
+
 async function toCatbox(file: Blob) {
   const name = file instanceof File ? file.name : "track.mp3";
   const out = new FormData();
@@ -37,10 +68,11 @@ export const Route = createFileRoute("/api/host-audio")({
           );
         }
         try {
-          const named = new File([file], file instanceof File ? file.name : "take.webm", {
-            type: file.type || "audio/webm",
-          });
-          const url = await toCatbox(named).catch(() => toTmpfiles(named));
+          const name = file instanceof File ? file.name : "track.mp3";
+          const named = new File([file], name, { type: file.type || "audio/mpeg" });
+          const url = await toSuno(named, name)
+            .catch(() => toCatbox(named))
+            .catch(() => toTmpfiles(named));
           return Response.json({ ok: true, url });
         } catch {
           return Response.json({ ok: false, error: "Не выложился файл." }, { status: 502 });

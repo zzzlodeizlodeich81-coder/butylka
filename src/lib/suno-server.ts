@@ -82,12 +82,7 @@ async function withNotes<T extends { ok: boolean }>(
   run: () => Promise<T>,
 ): Promise<T | { ok: false; error: string; needNotes: number; notes: number }> {
   if (!vk) {
-    return {
-      ok: false,
-      error: "Ноты покупаются голосами VK. Открой Балалаечку из ВКонтакте.",
-      needNotes: NOTE_PRICE[kind],
-      notes: 0,
-    };
+    return run();
   }
   const { refundNotes, spendNotes } = await import("@/lib/notes-db.server");
   const paid = await spendNotes(vk, kind);
@@ -237,7 +232,7 @@ export const startSunoStems = createServerFn({ method: "POST" })
     const code = Number(body.code ?? res.status);
     const stemTaskId = pick<string>(body.data as Record<string, unknown>, "taskId", "task_id");
     if (code !== 200 || !stemTaskId) {
-      return { ok: false as const, error: String(body.msg ?? "Не вышло снять минус") };
+      return { ok: false as const, error: String(body.msg ?? `Suno минус: ${code}`) };
     }
     return { ok: true as const, taskId: stemTaskId };
     });
@@ -304,11 +299,13 @@ export const pollSunoStems = createServerFn({ method: "GET" })
       | { audio_url?: string; audioUrl?: string; stem_type_group_name?: string; stemType?: string }[]
       | undefined;
     const fromList = Array.isArray(originData)
-      ? originData.find((row) => /instrument|accompan|minus|karaoke/i.test(`${row.stem_type_group_name ?? ""} ${row.stemType ?? ""}`))
+      ? originData.find((row) =>
+          /instrument|accompan|minus|karaoke/i.test(`${row.stem_type_group_name ?? ""} ${row.stemType ?? ""}`),
+        )
       : undefined;
     const instrumentalUrl =
-      pick<string>(info, "instrumentalUrl", "instrumental_url") ??
       pick<string>(response, "instrumentalUrl", "instrumental_url") ??
+      pick<string>(info, "instrumentalUrl", "instrumental_url") ??
       pick<string>(outer, "instrumentalUrl", "instrumental_url") ??
       fromList?.audio_url ??
       fromList?.audioUrl ??
@@ -317,12 +314,15 @@ export const pollSunoStems = createServerFn({ method: "GET" })
       ? originData.find((row) => /vocal/i.test(`${row.stem_type_group_name ?? ""} ${row.stemType ?? ""}`))
       : undefined;
     const vocalUrl =
-      pick<string>(info, "vocalUrl", "vocal_url") ??
       pick<string>(response, "vocalUrl", "vocal_url") ??
+      pick<string>(info, "vocalUrl", "vocal_url") ??
       vocalHit?.audio_url ??
       vocalHit?.audioUrl ??
       null;
     const ready = n === 1 || /SUCCESS|COMPLETE/i.test(flag) || Boolean(instrumentalUrl);
+    const errorMessage = String(
+      pick(outer, "errorMessage", "error_message") ?? pick(response, "errorMessage") ?? "",
+    );
     return {
       ok: true as const,
       status: flag,
@@ -330,6 +330,7 @@ export const pollSunoStems = createServerFn({ method: "GET" })
       ready,
       instrumentalUrl,
       vocalUrl,
+      errorMessage,
     };
   });
 

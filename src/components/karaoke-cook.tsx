@@ -18,7 +18,6 @@ import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
 import { pullMinusBlobs } from "@/lib/suno-flow";
 import { pollSunoGenerate, startSunoCover } from "@/lib/suno-server";
-import { renderMinus } from "@/lib/stems";
 import { useGame } from "@/lib/store";
 import { NOTE_PRICE } from "@/lib/notes";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -153,11 +152,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     setTapping(false);
     const nextTrack = { ...track, lines, lyrics: rows.join("\n") };
     await persist(nextTrack);
-    toast.success("Такт записан.");
-    if (!nextTrack.minusBlob) {
-      toast.message("Снимаю минус…");
-      await cookMinus(nextTrack);
-    }
+    toast.success("Такт записан. Дальше — снять минус.");
   }
 
   function tapLine() {
@@ -188,30 +183,23 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
   }, [tapping]);
 
   async function cookMinus(from: SavedTrack = track): Promise<SavedTrack | null> {
-    setBusy("Снимаю минус…");
+    setBusy("Suno снимает минус… минута-две");
     try {
-      const local = await renderMinus(from.blob, unlockAudio());
-      if (local && local.size > 4000) {
-        const next = { ...from, minusBlob: local };
-        await persist(next);
-        downloadBlob(next.minusBlob, fileNameFor(from.title, "minus", "audio/wav"));
-        toast.success("Минус готов — сняли на этом телефоне, без Suno.");
-        return next;
-      }
-      setBusy("Suno снимает минус… минута-две");
-      const audioUrl = isPublicHttp(from.sourceUrl) ? from.sourceUrl! : await hostFile(from.blob, fileNameFor(from.title, "plus", from.mime));
+      const audioUrl = isPublicHttp(from.sourceUrl)
+        ? from.sourceUrl!
+        : await hostFile(from.blob, fileNameFor(from.title, "plus", from.mime || "audio/mpeg"));
       const pulled = await pullMinusBlobs({ audioUrl });
       if (!pulled) throw new Error("Минус не успел. Попробуй ещё раз.");
       const next = {
         ...from,
-        sourceUrl: audioUrl,
+        sourceUrl: isPublicHttp(from.sourceUrl) ? from.sourceUrl : audioUrl,
         minusBlob: pulled.minusBlob,
         vocalBlob: pulled.vocalBlob ?? from.vocalBlob,
       };
       await persist(next);
       downloadBlob(next.minusBlob, fileNameFor(from.title, "minus", next.minusBlob.type || "audio/mpeg"));
       void refreshWallet();
-      toast.success(pulled.vocalBlob ? "Минус и вокал скачались." : "Минус скачался.");
+      toast.success(pulled.vocalBlob ? "Минус и вокал с Suno скачались." : "Минус с Suno скачался.");
       return next;
     } catch (err) {
       const rec = err && typeof err === "object" ? (err as { error?: string; needNotes?: number; message?: string }) : {};
@@ -404,7 +392,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
             onClick={() => void finishTap(stamps.length ? stamps : [0])}
             disabled={!stamps.length}
           >
-            Готово — снять минус
+            Готово
           </Button>
         </div>
       ) : (
@@ -427,11 +415,11 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
               Набить такт — жми экран
             </Button>
             <Button variant="secondary" onClick={() => void cookMinus()} disabled={Boolean(busy)}>
-              {busy?.startsWith("Снимаю") || busy?.startsWith("Suno")
+              {busy?.startsWith("Suno") || busy?.startsWith("Снимаю")
                 ? busy
                 : track.minusBlob
-                  ? "Переснять минус"
-                  : "Снять минус"}
+                  ? `Переснять минус · ${NOTE_PRICE.minus}`
+                  : `Снять минус через Suno · ${NOTE_PRICE.minus} нот`}
             </Button>
             <Button onClick={() => void startRecord()} disabled={Boolean(busy)}>
               {track.takeBlob ? "Перезаписать голос" : "Спеть и записать"}
