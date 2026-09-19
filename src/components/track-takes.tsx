@@ -50,7 +50,9 @@ export function TrackTakes({
     }
     setBusy(true);
     try {
-      const minus = track.minusBlob ?? (await fetch(minusUrl!).then((r) => r.blob()));
+      const minus: Blob = track.minusBlob
+        ? track.minusBlob
+        : await fetch(minusUrl as string).then((r) => r.blob());
       const mix = await renderMasteredMix(minus, voice, {
         shiftMs: track.takeShiftMs,
         rate: track.takeRate,
