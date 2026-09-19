@@ -746,42 +746,70 @@ function encodeWavMono(samples: Float32Array, rate: number) {
   return new Blob([out], { type: "audio/wav" });
 }
 
-function wireMaster(ctx: BaseAudioContext, from: AudioNode) {
+function loudnessBoost(samples: Float32Array) {
+  let peak = 0;
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const a = Math.abs(samples[i] ?? 0);
+    peak = Math.max(peak, a);
+    sum += a * a;
+  }
+  if (peak < 0.00004) return samples;
+  const rms = Math.sqrt(sum / Math.max(1, samples.length));
+  const g = Math.min(16, Math.max(0.78 / peak, rms > 0.00002 ? 0.2 / rms : 1));
+  const out = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    const x = (samples[i] ?? 0) * g;
+    out[i] = Math.max(-0.94, Math.min(0.94, x));
+  }
+  return out;
+}
+
+function wireVoice(ctx: BaseAudioContext, from: AudioNode, volume: number) {
   const hpf = ctx.createBiquadFilter();
   hpf.type = "highpass";
-  hpf.frequency.value = 80;
+  hpf.frequency.value = 90;
   hpf.Q.value = 0.7;
+  const presence = ctx.createBiquadFilter();
+  presence.type = "peaking";
+  presence.frequency.value = 3000;
+  presence.Q.value = 0.85;
+  presence.gain.value = 4.5;
   const air = ctx.createBiquadFilter();
   air.type = "highshelf";
-  air.frequency.value = 6500;
-  air.gain.value = 1.8;
-  const body = ctx.createBiquadFilter();
-  body.type = "peaking";
-  body.frequency.value = 2800;
-  body.Q.value = 0.9;
-  body.gain.value = 1.4;
+  air.frequency.value = 7000;
+  air.gain.value = 3;
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -18;
-  comp.knee.value = 10;
-  comp.ratio.value = 3.2;
-  comp.attack.value = 0.01;
-  comp.release.value = 0.14;
+  comp.threshold.value = -28;
+  comp.knee.value = 12;
+  comp.ratio.value = 4;
+  comp.attack.value = 0.008;
+  comp.release.value = 0.12;
+  const out = ctx.createGain();
+  out.gain.value = Math.max(0.4, Math.min(8, volume)) * 1.8;
+  from.connect(hpf);
+  hpf.connect(presence);
+  presence.connect(air);
+  air.connect(comp);
+  comp.connect(out);
+  return out;
+}
+
+function wireLimiter(ctx: BaseAudioContext, from: AudioNode) {
   const limit = ctx.createDynamicsCompressor();
-  limit.threshold.value = -1.1;
+  limit.threshold.value = -1.2;
   limit.knee.value = 0.2;
   limit.ratio.value = 20;
   limit.attack.value = 0.002;
   limit.release.value = 0.08;
   const out = ctx.createGain();
-  out.gain.value = 1.12;
-  from.connect(hpf);
-  hpf.connect(body);
-  body.connect(air);
-  air.connect(comp);
-  comp.connect(limit);
+  out.gain.value = 1.05;
+  from.connect(limit);
   limit.connect(out);
   return out;
 }
+
+const MINUS_BED = 0.55;
 
 export type MixedTake = {
   time: () => number;
@@ -801,7 +829,7 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
       audio: {
         echoCancellation: false,
         noiseSuppression: false,
-        autoGainControl: false,
+        autoGainControl: true,
         channelCount: 1,
       },
     });
@@ -834,10 +862,13 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
   }
 
   const micSrc = ctx.createMediaStreamSource(stream);
+  const micPre = ctx.createGain();
+  micPre.gain.value = 4.2;
+  micSrc.connect(micPre);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
   analyser.smoothingTimeConstant = 0.65;
-  micSrc.connect(analyser);
+  micPre.connect(analyser);
   const data = new Uint8Array(analyser.fftSize);
 
   const chunks: Float32Array[] = [];
@@ -845,7 +876,7 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
   const proc = ctx.createScriptProcessor(4096, 1, 1);
   const silent = ctx.createGain();
   silent.gain.value = 0;
-  micSrc.connect(proc);
+  micPre.connect(proc);
   proc.connect(silent);
   silent.connect(ctx.destination);
   proc.onaudioprocess = (ev) => {
@@ -874,6 +905,7 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
         try {
           mix.disconnect();
           micSrc.disconnect();
+          micPre.disconnect();
           hearSrc?.disconnect();
         } catch {
           /* ignore */
@@ -885,7 +917,7 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
         samples.set(c, o);
         o += c.length;
       }
-      resolve(encodeWavMono(samples, ctx.sampleRate));
+      resolve(encodeWavMono(loudnessBoost(samples), ctx.sampleRate));
     });
 
   return {
@@ -906,7 +938,7 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
 
 export const TAKE_SHIFT_DEFAULT = -180;
 export const TAKE_RATE_DEFAULT = 1;
-export const TAKE_VOLUME_DEFAULT = 1;
+export const TAKE_VOLUME_DEFAULT = 2.6;
 
 export function startTakePreview(
   minusUrl: string,
@@ -930,25 +962,27 @@ export function startTakePreview(
   anyV.mozPreservesPitch = true;
   anyV.webkitPreservesPitch = true;
   const shiftSec = (opts.shiftMs ?? TAKE_SHIFT_DEFAULT) / 1000;
-  const vol = Math.max(0.2, Math.min(2.4, opts.volume ?? TAKE_VOLUME_DEFAULT));
+  const vol = Math.max(0.4, Math.min(8, opts.volume ?? TAKE_VOLUME_DEFAULT));
   previewEl = minus;
   previewVoice = voice;
   if (ctx && b) {
     try {
       const minusSrc = ctx.createMediaElementSource(minus);
       const voiceSrc = ctx.createMediaElementSource(voice);
-      const vg = ctx.createGain();
-      vg.gain.value = vol;
+      const bed = ctx.createGain();
+      bed.gain.value = MINUS_BED;
+      minusSrc.connect(bed);
       const sum = ctx.createGain();
-      minusSrc.connect(sum);
-      voiceSrc.connect(vg);
-      vg.connect(sum);
-      wireMaster(ctx, sum).connect(b.music);
+      bed.connect(sum);
+      wireVoice(ctx, voiceSrc, vol).connect(sum);
+      wireLimiter(ctx, sum).connect(b.music);
     } catch {
-      voice.volume = Math.min(1, vol);
+      voice.volume = 1;
+      minus.volume = MINUS_BED;
     }
   } else {
-    voice.volume = Math.min(1, vol);
+    voice.volume = 1;
+    minus.volume = MINUS_BED;
   }
   const startVoice = () => {
     if (shiftSec < 0 && Number.isFinite(voice.duration) && voice.duration > 0) {
@@ -975,7 +1009,7 @@ export async function renderMasteredMix(
   const voiceBuf = await live.decodeAudioData((await voiceBlob.arrayBuffer()).slice(0));
   const rate = Math.max(0.85, Math.min(1.2, opts.rate ?? TAKE_RATE_DEFAULT));
   const shift = (opts.shiftMs ?? TAKE_SHIFT_DEFAULT) / 1000;
-  const vol = Math.max(0.2, Math.min(2.4, opts.volume ?? TAKE_VOLUME_DEFAULT));
+  const vol = Math.max(0.4, Math.min(8, opts.volume ?? TAKE_VOLUME_DEFAULT));
   const sr = minusBuf.sampleRate;
   const voiceDur = voiceBuf.duration / rate;
   const startVoice = Math.max(0, shift);
@@ -987,13 +1021,13 @@ export async function renderMasteredMix(
   const voiceSrc = offline.createBufferSource();
   voiceSrc.buffer = voiceBuf;
   voiceSrc.playbackRate.value = rate;
-  const vg = offline.createGain();
-  vg.gain.value = vol;
+  const bed = offline.createGain();
+  bed.gain.value = MINUS_BED;
   const sum = offline.createGain();
-  minusSrc.connect(sum);
-  voiceSrc.connect(vg);
-  vg.connect(sum);
-  wireMaster(offline, sum).connect(offline.destination);
+  minusSrc.connect(bed);
+  bed.connect(sum);
+  wireVoice(offline, voiceSrc, vol).connect(sum);
+  wireLimiter(offline, sum).connect(offline.destination);
   minusSrc.start(0);
   voiceSrc.start(startVoice, skipVoice);
   const rendered = await offline.startRendering();

@@ -475,9 +475,9 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
                   <span className="text-sm text-muted">Громкость голоса {Math.round(takeVol * 100)}%</span>
                   <input
                     type="range"
-                    min={0.3}
-                    max={2.2}
-                    step={0.05}
+                    min={0.5}
+                    max={8}
+                    step={0.1}
                     value={takeVol}
                     className="h-11 w-full accent-accent"
                     onChange={(e) => setTakeVol(Number(e.target.value))}
