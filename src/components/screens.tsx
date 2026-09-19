@@ -422,7 +422,7 @@ export function Result() {
             duration: song?.audioDuration ?? 0,
             mime: lastTake?.type || "audio/wav",
             addedAt: Date.now(),
-            blob: take?.blob ?? new Blob(),
+            blob: new Blob(),
           }),
           takeBlob: lastTake ?? take?.takeBlob,
         }

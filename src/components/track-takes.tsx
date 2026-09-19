@@ -38,7 +38,8 @@ export function TrackTakes({
   }
 
   async function grabMix() {
-    if (!track.takeBlob) {
+    const voice = track.takeBlob;
+    if (!voice) {
       toast.error("Сначала запиши голос.");
       return;
     }
@@ -50,7 +51,7 @@ export function TrackTakes({
     setBusy(true);
     try {
       const minus = track.minusBlob ?? (await fetch(minusUrl!).then((r) => r.blob()));
-      const mix = await renderMasteredMix(minus, track.takeBlob, {
+      const mix = await renderMasteredMix(minus, voice, {
         shiftMs: track.takeShiftMs,
         rate: track.takeRate,
         volume: track.takeVolume,
