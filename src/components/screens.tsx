@@ -462,6 +462,7 @@ export function Result() {
           }
           plusUrl={song?.guideUrl || (song?.generated ? song.audioUrl : undefined)}
           minusUrl={song?.minusUrl}
+          mixUrl={song?.generated ? song.guideUrl || song.audioUrl : undefined}
           className="mt-3"
         />
       ) : lastHadMic ? (

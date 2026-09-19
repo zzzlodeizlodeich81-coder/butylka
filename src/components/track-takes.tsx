@@ -9,15 +9,17 @@ export function TrackTakes({
   track,
   minusUrl,
   plusUrl,
+  mixUrl,
   className,
 }: {
   track: SavedTrack;
   minusUrl?: string;
   plusUrl?: string;
+  mixUrl?: string;
   className?: string;
 }) {
   const [busy, setBusy] = useState<"mix" | "plus" | "minus" | null>(null);
-  const bedUrl = track.minusBlob ? objectUrlFor(`${track.id}-minus`, track.minusBlob) : minusUrl;
+  const bedUrl = mixUrl || (track.minusBlob ? objectUrlFor(`${track.id}-minus`, track.minusBlob) : minusUrl);
   const voiceUrl = track.takeBlob ? objectUrlFor(`${track.id}-take`, track.takeBlob) : null;
   const originUrl = track.blob.size >= 800 ? objectUrlFor(track.id, track.blob) : plusUrl;
 
@@ -29,7 +31,7 @@ export function TrackTakes({
     stopPreview();
     if (!bedUrl) {
       previewFile(voiceUrl);
-      toast.message("Это только голос — минуса нет.");
+      toast.message("Это только голос.");
       return;
     }
     startTakePreview(bedUrl, voiceUrl, {
@@ -46,24 +48,24 @@ export function TrackTakes({
       toast.error("Сначала запиши голос.");
       return;
     }
-    if (!track.minusBlob && !minusUrl) {
+    if (!track.minusBlob && !minusUrl && !mixUrl) {
       downloadTake(track, "take");
-      toast.message("Минуса нет — скачался только голос.");
+      toast.message("Нет дорожки — скачался только голос.");
       return;
     }
     setBusy("mix");
     try {
-      const minus: Blob = track.minusBlob
+      const bed: Blob = track.minusBlob && !mixUrl
         ? track.minusBlob
-        : await fetch(minusUrl as string).then((r) => r.blob());
-      const mix = await renderMasteredMix(minus, voice, {
+        : await fetch((mixUrl || minusUrl) as string).then((r) => r.blob());
+      const mix = await renderMasteredMix(bed, voice, {
         shiftMs: track.takeShiftMs,
         rate: track.takeRate,
         volume: track.takeVolume,
         minusVol: track.takeMinusVol,
       });
-      downloadBlob(mix, fileNameFor(track.title, "karaoke", "audio/wav"));
-      toast.success("Караоке: минус + голос.");
+      downloadBlob(mix, fileNameFor(track.title, "duet", "audio/wav"));
+      toast.success("Скачалось: ты + оригинал.");
     } catch {
       toast.error("Сведение не собралось. Скачаю голос.");
       downloadTake(track, "take");

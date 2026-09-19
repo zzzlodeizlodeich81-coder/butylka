@@ -891,12 +891,44 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
     recLen += input.length;
   };
 
+  const recChunks: BlobPart[] = [];
+  let rec: MediaRecorder | null = null;
+  try {
+    rec = typeof MediaRecorder !== "undefined" ? new MediaRecorder(stream) : null;
+    if (rec) {
+      rec.ondataavailable = (e) => {
+        if (e.data.size) recChunks.push(e.data);
+      };
+      rec.start(400);
+    }
+  } catch {
+    rec = null;
+  }
+
   void hear.play().catch(() => {
     /* overlay tap */
   });
 
   const stop = () =>
     new Promise<Blob>((resolve) => {
+      const finishPcm = () => {
+        const samples = new Float32Array(recLen);
+        let o = 0;
+        for (const c of chunks) {
+          samples.set(c, o);
+          o += c.length;
+        }
+        if (recLen > ctx.sampleRate * 0.5) {
+          resolve(encodeWavMono(loudnessBoost(samples), ctx.sampleRate));
+          return;
+        }
+        const raw = new Blob(recChunks, { type: rec?.mimeType.split(";")[0] || "audio/webm" });
+        if (raw.size > 2000) {
+          void blobToWav(raw).then(resolve);
+          return;
+        }
+        resolve(encodeWavMono(loudnessBoost(samples), ctx.sampleRate));
+      };
       try {
         proc.onaudioprocess = null;
         proc.disconnect();
@@ -906,7 +938,6 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
       }
       killAudio(hear);
       if (fileEl === hear) fileEl = null;
-      stream.getTracks().forEach((t) => t.stop());
       window.setTimeout(() => {
         try {
           mix.disconnect();
@@ -917,13 +948,18 @@ export async function startMixedTake(hearUrl: string, _recUrl?: string | null): 
           /* ignore */
         }
       }, 80);
-      const samples = new Float32Array(recLen);
-      let o = 0;
-      for (const c of chunks) {
-        samples.set(c, o);
-        o += c.length;
-      }
-      resolve(encodeWavMono(loudnessBoost(samples), ctx.sampleRate));
+      const wrap = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        finishPcm();
+      };
+      if (rec && rec.state !== "inactive") {
+        rec.onstop = wrap;
+        try {
+          rec.stop();
+        } catch {
+          wrap();
+        }
+      } else wrap();
     });
 
   return {

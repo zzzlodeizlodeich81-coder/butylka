@@ -98,7 +98,7 @@ export function KaraokeStage() {
     const e = energyRef.current;
     const hits = e.scored.size;
     const avg = e.n ? e.sum / e.n : 0;
-    const usedMic = hadFallbackMic || Boolean(blob && blob.size > 2000);
+    const usedMic = hadFallbackMic || Boolean(blob && blob.size > 800);
     let score: number;
     if (usedMic) {
       score = Math.round(
@@ -108,7 +108,7 @@ export function KaraokeStage() {
       const stay = Math.min(1, elapsedRef.current / durationRef.current);
       score = Math.round(2400 + stay * 1800);
     }
-    if (blob && blob.size > 2000) {
+    if (blob && blob.size > 800) {
       setLastTake(blob);
       if (song.pack === "mine") {
         try {
@@ -349,7 +349,7 @@ export function KaraokeStage() {
           <p className="font-display text-lg leading-tight text-fg">{song.title}</p>
           <p className="text-sm text-muted">
             {song.artist}
-            {song.generated ? " · сначала послушай, потом минус" : ""}
+            {song.generated ? " · подпевай плюсу" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2 text-muted">
@@ -436,6 +436,14 @@ export function KaraokeStage() {
           </div>
         ) : !armed ? (
           <p className="font-display text-2xl text-fg">Микрофон…</p>
+        ) : song.generated ? (
+          <div className="min-h-0 w-full flex-1 overflow-auto text-left">
+            {song.lines.map((row, idx) => (
+              <p key={`${row.t}-${idx}`} className="py-1 font-display text-xl leading-snug text-fg sm:text-2xl">
+                {row.text}
+              </p>
+            ))}
+          </div>
         ) : (
           <>
             <p className="min-h-6 text-sm text-subtle">
