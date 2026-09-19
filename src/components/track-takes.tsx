@@ -8,15 +8,18 @@ import { cn } from "@/lib/utils";
 export function TrackTakes({
   track,
   minusUrl,
+  plusUrl,
   className,
 }: {
   track: SavedTrack;
   minusUrl?: string;
+  plusUrl?: string;
   className?: string;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"mix" | "plus" | "minus" | null>(null);
   const bedUrl = track.minusBlob ? objectUrlFor(`${track.id}-minus`, track.minusBlob) : minusUrl;
   const voiceUrl = track.takeBlob ? objectUrlFor(`${track.id}-take`, track.takeBlob) : null;
+  const originUrl = track.blob.size >= 800 ? objectUrlFor(track.id, track.blob) : plusUrl;
 
   function listen() {
     if (!voiceUrl) {
@@ -48,7 +51,7 @@ export function TrackTakes({
       toast.message("Минуса нет — скачался только голос.");
       return;
     }
-    setBusy(true);
+    setBusy("mix");
     try {
       const minus: Blob = track.minusBlob
         ? track.minusBlob
@@ -65,7 +68,34 @@ export function TrackTakes({
       toast.error("Сведение не собралось. Скачаю голос.");
       downloadTake(track, "take");
     } finally {
-      setBusy(false);
+      setBusy(null);
+    }
+  }
+
+  async function grabUrl(kind: "plus" | "minus", url?: string) {
+    if (kind === "plus" && track.blob.size >= 800) {
+      downloadTake(track, "plus");
+      return;
+    }
+    if (kind === "minus" && track.minusBlob) {
+      downloadTake(track, "minus");
+      return;
+    }
+    if (!url) {
+      toast.error(kind === "plus" ? "Нет оригинала." : "Сначала сними минус.");
+      return;
+    }
+    setBusy(kind);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("fail");
+      const blob = await res.blob();
+      downloadBlob(blob, fileNameFor(track.title, kind === "plus" ? "original" : "minus", blob.type || "audio/mpeg"));
+      toast.success(kind === "plus" ? "Оригинал из строк скачался." : "Минус скачался.");
+    } catch {
+      toast.error(kind === "plus" ? "Оригинал не скачался." : "Минус не скачался.");
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -83,17 +113,23 @@ export function TrackTakes({
 
   return (
     <div className={cn("grid grid-cols-2 gap-2", className)}>
-      <Button type="button" variant="secondary" className="rounded-xl" onClick={() => grab("plus")} disabled={track.blob.size < 800}>
-        Скачать оригинал
+      <Button
+        type="button"
+        variant="secondary"
+        className="rounded-xl"
+        onClick={() => void grabUrl("plus", originUrl)}
+        disabled={(!originUrl && track.blob.size < 800) || busy === "plus"}
+      >
+        {busy === "plus" ? "Качаю…" : "Скачать оригинал"}
       </Button>
       <Button
         type="button"
         variant="secondary"
         className="rounded-xl"
-        onClick={() => grab("minus")}
-        disabled={!track.minusBlob}
+        onClick={() => void grabUrl("minus", bedUrl)}
+        disabled={(!track.minusBlob && !minusUrl) || busy === "minus"}
       >
-        Скачать минус
+        {busy === "minus" ? "Качаю…" : "Скачать минус"}
       </Button>
       <Button type="button" className="rounded-xl" onClick={listen} disabled={!track.takeBlob}>
         Слушать что спел
@@ -103,9 +139,9 @@ export function TrackTakes({
         variant="secondary"
         className="rounded-xl"
         onClick={() => void grabMix()}
-        disabled={!track.takeBlob || busy}
+        disabled={!track.takeBlob || busy === "mix"}
       >
-        {busy ? "Свожу…" : "Скачать запись"}
+        {busy === "mix" ? "Свожу…" : "Скачать запись"}
       </Button>
       <Button
         type="button"

@@ -319,7 +319,7 @@ export function Reveal() {
         </p>
         {omen && omenSong ? (
           <p className="mt-4 text-sm text-muted">
-            {omenSong.title} · сначала послушай, потом пой в минус
+            {omenSong.title} · подпеваем плюсу, как дуэт
           </p>
         ) : null}
       </div>
@@ -444,11 +444,26 @@ export function Result() {
       {song ? (
         <p className="mt-2 text-sm text-subtle">
           {song.title} · {song.artist}
-          {song.minus ? " · минус" : ""}
+          {song.generated ? " · плюс из строк" : song.minus ? " · минус" : ""}
         </p>
       ) : null}
-      {downloadTrack ? (
-        <TrackTakes track={downloadTrack} minusUrl={song?.minusUrl || song?.audioUrl} className="mt-3" />
+      {downloadTrack || song?.generated || song?.guideUrl ? (
+        <TrackTakes
+          track={
+            downloadTrack ?? {
+              id: song?.id ?? "omen",
+              title: song?.title ?? "из строк",
+              lyrics: "",
+              duration: song?.audioDuration ?? 0,
+              mime: "audio/mpeg",
+              addedAt: Date.now(),
+              blob: new Blob(),
+            }
+          }
+          plusUrl={song?.guideUrl || (song?.generated ? song.audioUrl : undefined)}
+          minusUrl={song?.minusUrl}
+          className="mt-3"
+        />
       ) : lastHadMic ? (
         <p className="mt-3 text-sm text-muted">Запись не сохранилась — микрофон не дал файл.</p>
       ) : null}

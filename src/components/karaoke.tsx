@@ -143,7 +143,9 @@ export function KaraokeStage() {
     };
 
     if (withMic && play.audioUrl) {
-      const bed = play.minusUrl || (play.guideUrl ? null : play.audioUrl);
+      const bed = play.generated
+        ? play.guideUrl || play.audioUrl
+        : play.minusUrl || (play.guideUrl ? null : play.audioUrl);
       void startMixedTake(bed || play.audioUrl, bed).then((rec) => {
         if (doneRef.current) {
           void rec?.stop();
@@ -394,9 +396,11 @@ export function KaraokeStage() {
           <div className="flex w-full max-w-sm flex-col gap-2">
             <p className="font-display text-2xl text-fg">Как поёшь?</p>
             <p className="mb-2 text-sm text-muted">
-              {song.guideUrl
-                ? "Сначала послушай оригинал. Петь будем в минус — без второго голоса. Файл wav."
-                : "Живьём бесплатно, в минус. Запись — wav. У " + singer.name + ` ${singerNotes}.`}
+              {song.generated
+                ? "Подпевай плюсу — как дуэт. Эту песню стол только сварил, без оригинала мотив не схватить."
+                : song.guideUrl
+                  ? "Сначала послушай оригинал. Петь будем в минус — без второго голоса."
+                  : "Живьём бесплатно, в минус. Запись — wav. У " + singer.name + ` ${singerNotes}.`}
             </p>
             {song.guideUrl ? (
               <Button
@@ -411,7 +415,7 @@ export function KaraokeStage() {
               </Button>
             ) : null}
             <Button className="rounded-xl" onClick={() => pickLane("live")}>
-              Петь живьём · 0
+              {song.generated ? "Подпеть плюсу · 0" : "Петь живьём · 0"}
             </Button>
             <Button
               variant="secondary"

@@ -130,14 +130,14 @@ export function CookBridge() {
         return;
       }
 
-      toast.message("Снимаю минус через Suno — в запись голос на голос не пойдёт.");
+      toast.message("Варится плюс из строк. Минус сниму рядом — качать можно оба.");
       const stems = await pullSunoMinus(
         { taskId: started.taskId, audioId: clip.audioId, audioUrl: clip.audioUrl },
         () => live,
       );
       if (!live) return;
       const guide = proxyAudio(clip.audioUrl);
-      const bed = stems?.instrumentalUrl ? proxyAudio(stems.instrumentalUrl) : guide;
+      const minus = stems?.instrumentalUrl ? proxyAudio(stems.instrumentalUrl) : undefined;
       const texts = lyricRows(lyrics.text).length ? lyricRows(lyrics.text) : lyricRows(clip.lyrics);
       const words = await pullSunoAligned(started.taskId, clip.audioId, () => live);
       if (!live) return;
@@ -151,20 +151,16 @@ export function CookBridge() {
         mood: "из строк",
         texts,
         lines: aligned.length >= 3 ? aligned : undefined,
-        audioUrl: bed,
+        audioUrl: guide,
         audioDuration: clip.duration > 8 ? clip.duration : undefined,
         generated: true,
-        minus: !stems?.instrumentalUrl,
+        minus: false,
         guideUrl: guide,
-        minusUrl: stems?.instrumentalUrl ? bed : undefined,
+        minusUrl: minus,
       });
 
       readyOmen(song, style);
-      toast.message(
-        stems?.instrumentalUrl
-          ? "Песня готова. Сначала послушай оригинал, потом пой в минус."
-          : "Песня готова. Минус не снялся — поём с голосом.",
-      );
+      toast.message("Песня готова. Поёте с плюсом — как дуэт, иначе не угадаешь мотив.");
     })().catch(() => {
       if (!live) return;
       toast.error("Suno не ответил.");
