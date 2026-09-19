@@ -56,7 +56,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Свои треки с Suno, кавер голосом или с файла. Балалаечка — если захотите спеть за столом.
+          Ссылка с твоего Suno — плюс и минус. Кавер голосом. Балалаечка — если захотите за столом.
         </p>
         <div className="mt-5">
           <ChavoButton />

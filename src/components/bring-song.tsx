@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, Music, Play, Trash2, Upload } from "lucide-react";
+import { Link2, Mic, Music, Play, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
 
-type Desk = "home" | "cook" | "voice" | "file";
+type Desk = "home" | "suno" | "cook" | "voice" | "file";
 
 async function syncSongs(artist: string) {
   const saved = await listSavedTracks();
@@ -172,9 +172,10 @@ export function BringSong() {
       }
       const next = await persist(saved);
       setSunoUrl("");
-      toast.success(pulled ? "С Suno, минус скачался." : "С Suno в студии.");
+      toast.success(pulled ? "Плюс и минус скачались. Можно петь." : "С Suno в студии. Минус можно снять ещё раз.");
       playUiTick();
-      if (desk === "voice") setStudio(next);
+      setDesk("home");
+      setStudio(next);
     } catch (err) {
       paidFail(err);
     } finally {
@@ -420,7 +421,7 @@ export function BringSong() {
         <div>
           <h1 className="font-display text-3xl text-fg">Студия</h1>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">
-            Сварить трек, кавер голосом или с файла. Всё качается сразу. Балалаечка — если захотите спеть за столом.
+            Ссылка с твоего Suno — плюс, минус, караоке. Или сварить новый. Балалаечка — если захотите за столом.
           </p>
         </div>
         <button
@@ -434,6 +435,19 @@ export function BringSong() {
 
       {desk === "home" ? (
         <div className="mt-6 grid gap-2">
+          <button
+            type="button"
+            className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left"
+            onClick={() => setDesk("suno")}
+          >
+            <Link2 className="mt-0.5 size-5 text-accent" />
+            <span>
+              <span className="block font-medium text-fg">Забрать с Suno</span>
+              <span className="mt-1 block text-sm text-muted">
+                Ссылка suno.com/song/… Скачается файл, снимем минус, можно петь. {NOTE_PRICE.minus} нот.
+              </span>
+            </span>
+          </button>
           <button
             type="button"
             className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left"
@@ -476,9 +490,29 @@ export function BringSong() {
         </div>
       ) : null}
 
+      {desk === "suno" ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-muted">
+            Вставь ссылку со своего Suno. Заберём трек, снимем минус, оба файла качнутся. Дальше — караоке или кавер голосом.
+          </p>
+          <Input
+            placeholder="suno.com/song/… или suno.com/s/…"
+            value={sunoUrl}
+            onChange={(e) => setSunoUrl(e.target.value)}
+          />
+          <Input placeholder="Название, если хочешь своё" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
+            {busy === "suno" ? "Забираю с Suno… минус следом" : `Забрать плюс и минус · ${NOTE_PRICE.minus} нот`}
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setDesk("home")}>
+            К студии
+          </Button>
+        </div>
+      ) : null}
+
       {desk === "cook" ? (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-sm text-muted">Свой текст, не чужой хит. Или ссылка с suno.com.</p>
+          <p className="text-sm text-muted">Свой текст, не чужой хит.</p>
           <Input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
           <Input placeholder="Стиль: russian pop, disco…" value={style} onChange={(e) => setStyle(e.target.value)} />
           <textarea
@@ -490,14 +524,6 @@ export function BringSong() {
           />
           <Button type="button" className="rounded-xl" onClick={() => void cookNew()} disabled={Boolean(busy)}>
             {busy === "cook" ? "Suno варит… минута-две" : `Сварить трек · ${cookCost()} нот`}
-          </Button>
-          <Input
-            placeholder="Или ссылка suno.com/song/…"
-            value={sunoUrl}
-            onChange={(e) => setSunoUrl(e.target.value)}
-          />
-          <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
-            {busy === "suno" ? "Забираю с Suno…" : `Забрать с Suno · ${NOTE_PRICE.minus} нот`}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setDesk("home")}>
             К студии
@@ -519,6 +545,9 @@ export function BringSong() {
           />
           <Button type="button" variant="secondary" className="rounded-xl" onClick={() => fileRef.current?.click()} disabled={Boolean(busy)}>
             {busy === "file" ? "Читаю файл…" : "Загрузить минус или плюс"}
+          </Button>
+          <Button type="button" variant="secondary" className="rounded-xl" onClick={() => setDesk("suno")}>
+            Сначала забрать с Suno
           </Button>
           <Button type="button" variant="secondary" className="rounded-xl" onClick={() => setDesk("cook")}>
             Сначала сварить трек
