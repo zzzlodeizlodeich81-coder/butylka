@@ -17,6 +17,7 @@ import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
 import { pullMinusBlobs } from "@/lib/suno-flow";
+import { pollSunoGenerate, startSunoCover } from "@/lib/suno-server";
 import { renderMinus } from "@/lib/stems";
 import { useGame } from "@/lib/store";
 import { NOTE_PRICE } from "@/lib/notes";
