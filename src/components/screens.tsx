@@ -10,7 +10,7 @@ import { ChavoButton } from "@/components/chavo";
 import { NotesButton } from "@/components/notes-shop";
 import { PersonAvatar } from "@/components/person-avatar";
 import { TrackTakes } from "@/components/track-takes";
-import { playUiTick, setMixer, unlockAudio } from "@/lib/audio";
+import { playUiTick, setMixer, stopPreview, unlockAudio } from "@/lib/audio";
 import { getSavedTrack, type SavedTrack } from "@/lib/library";
 import { fileToAvatar } from "@/lib/stems";
 import {
@@ -422,7 +422,7 @@ export function Result() {
             duration: song?.audioDuration ?? 0,
             mime: lastTake?.type || "audio/wav",
             addedAt: Date.now(),
-            blob: lastTake ?? new Blob(),
+            blob: take?.blob ?? new Blob(),
           }),
           takeBlob: lastTake ?? take?.takeBlob,
         }
@@ -447,7 +447,11 @@ export function Result() {
           {song.minus ? " · минус" : ""}
         </p>
       ) : null}
-      {downloadTrack ? <TrackTakes track={downloadTrack} className="mt-3" /> : null}
+      {downloadTrack ? (
+        <TrackTakes track={downloadTrack} minusUrl={song?.minusUrl || song?.audioUrl} className="mt-3" />
+      ) : lastHadMic ? (
+        <p className="mt-3 text-sm text-muted">Запись не сохранилась — микрофон не дал файл.</p>
+      ) : null}
 
       <div className="mt-4 rounded-xl border border-border bg-surface p-3">
         <p className="text-xs text-muted">Оценить. Сердце бесплатно, подарки — за ноты.</p>
@@ -538,6 +542,7 @@ export function Result() {
           size="lg"
           className="h-14 rounded-xl"
           onClick={() => {
+            stopPreview();
             playUiTick();
             nextRound();
           }}
