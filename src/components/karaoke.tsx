@@ -187,6 +187,7 @@ export function KaraokeStage() {
         shiftMs: play.takeShiftMs,
         rate: play.takeRate,
         volume: play.takeVolume,
+        minusVol: play.takeMinusVol,
       });
       arm(now(), songDuration(play));
       setHadMic(false);

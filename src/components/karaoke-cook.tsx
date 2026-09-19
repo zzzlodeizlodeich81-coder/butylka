@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TrackTakes } from "@/components/track-takes";
 import {
+  applyTakeMix,
   isFilePlaying,
   previewFile,
   previewTime,
@@ -11,6 +12,7 @@ import {
   startMixedTake,
   startTakePreview,
   stopPreview,
+  TAKE_MINUS_DEFAULT,
   TAKE_RATE_DEFAULT,
   TAKE_SHIFT_DEFAULT,
   TAKE_VOLUME_DEFAULT,
@@ -84,13 +86,15 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
   const [shiftMs, setShiftMs] = useState(track.takeShiftMs ?? TAKE_SHIFT_DEFAULT);
   const [takeRate, setTakeRate] = useState(track.takeRate ?? TAKE_RATE_DEFAULT);
   const [takeVol, setTakeVol] = useState(track.takeVolume ?? TAKE_VOLUME_DEFAULT);
+  const [minusVol, setMinusVol] = useState(track.takeMinusVol ?? TAKE_MINUS_DEFAULT);
   const recRef = useRef<MixedTake | null>(null);
 
   useEffect(() => {
     setShiftMs(track.takeShiftMs ?? TAKE_SHIFT_DEFAULT);
     setTakeRate(track.takeRate ?? TAKE_RATE_DEFAULT);
     setTakeVol(track.takeVolume ?? TAKE_VOLUME_DEFAULT);
-  }, [track.id, track.takeShiftMs, track.takeRate, track.takeVolume]);
+    setMinusVol(track.takeMinusVol ?? TAKE_MINUS_DEFAULT);
+  }, [track.id, track.takeShiftMs, track.takeRate, track.takeVolume, track.takeMinusVol]);
 
   useEffect(() => () => {
     stopPreview();
@@ -102,6 +106,38 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     onSaved(next);
     const saved = await listSavedTracks();
     replaceCustomSongs(saved.map((t) => songFromSaved(t, artist)));
+  }
+
+  function listenMix() {
+    if (!track.minusBlob || !track.takeBlob) return;
+    startTakePreview(objectUrlFor(`${track.id}-minus`, track.minusBlob), objectUrlFor(`${track.id}-take`, track.takeBlob), {
+      shiftMs,
+      rate: takeRate,
+      volume: takeVol,
+      minusVol,
+    });
+  }
+
+  function liveMix(next: { voice?: number; minus?: number; rate?: number }) {
+    if (applyTakeMix(next)) return;
+    if (!track.minusBlob || !track.takeBlob) return;
+    startTakePreview(objectUrlFor(`${track.id}-minus`, track.minusBlob), objectUrlFor(`${track.id}-take`, track.takeBlob), {
+      shiftMs,
+      rate: next.rate ?? takeRate,
+      volume: next.voice ?? takeVol,
+      minusVol: next.minus ?? minusVol,
+    });
+  }
+
+  function saveMix(extra: Partial<SavedTrack> = {}) {
+    void persist({
+      ...track,
+      takeShiftMs: shiftMs,
+      takeRate,
+      takeVolume: takeVol,
+      takeMinusVol: minusVol,
+      ...extra,
+    });
   }
 
   async function saveText() {
@@ -268,6 +304,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
         takeShiftMs: shiftMs,
         takeRate,
         takeVolume: takeVol,
+        takeMinusVol: minusVol,
       });
       toast.success("Запись в колоде. Скачай или свари кавер.");
     } catch {
@@ -450,11 +487,11 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
               <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-3 py-3">
                 <p className="text-xs uppercase tracking-[0.18em] text-subtle">сведение</p>
                 <p className="text-sm leading-relaxed text-muted">
-                  Голос отдельной дорожкой. Подстрой, потом слушай и качай сведение.
+                  Крути на ходу — должно меняться сразу. Две громкости: минус и голос.
                 </p>
                 <label className="flex flex-col gap-1">
                   <span className="text-sm text-muted">
-                    Скорость {takeRate < 1 ? "медленнее" : takeRate > 1 ? "быстрее" : "как пел"} · {takeRate.toFixed(2)}
+                    Скорость голоса {takeRate < 1 ? "медленнее" : takeRate > 1 ? "быстрее" : "как пел"} · {takeRate.toFixed(2)}
                   </span>
                   <input
                     type="range"
@@ -463,11 +500,15 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
                     step={0.01}
                     value={takeRate}
                     className="h-11 w-full accent-accent"
-                    onChange={(e) => setTakeRate(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setTakeRate(v);
+                      liveMix({ rate: v });
+                    }}
                     onPointerUp={(e) => {
                       const v = Number((e.currentTarget as HTMLInputElement).value);
                       setTakeRate(v);
-                      void persist({ ...track, takeShiftMs: shiftMs, takeRate: v, takeVolume: takeVol });
+                      saveMix({ takeRate: v });
                     }}
                   />
                 </label>
@@ -475,16 +516,41 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
                   <span className="text-sm text-muted">Громкость голоса {Math.round(takeVol * 100)}%</span>
                   <input
                     type="range"
-                    min={0.5}
+                    min={0}
                     max={8}
-                    step={0.1}
+                    step={0.05}
                     value={takeVol}
                     className="h-11 w-full accent-accent"
-                    onChange={(e) => setTakeVol(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setTakeVol(v);
+                      liveMix({ voice: v });
+                    }}
                     onPointerUp={(e) => {
                       const v = Number((e.currentTarget as HTMLInputElement).value);
                       setTakeVol(v);
-                      void persist({ ...track, takeShiftMs: shiftMs, takeRate, takeVolume: v });
+                      saveMix({ takeVolume: v });
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-muted">Громкость минуса {Math.round(minusVol * 100)}%</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={minusVol}
+                    className="h-11 w-full accent-accent"
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setMinusVol(v);
+                      liveMix({ minus: v });
+                    }}
+                    onPointerUp={(e) => {
+                      const v = Number((e.currentTarget as HTMLInputElement).value);
+                      setMinusVol(v);
+                      saveMix({ takeMinusVol: v });
                     }}
                   />
                 </label>
@@ -503,23 +569,12 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
                     onPointerUp={(e) => {
                       const v = Number((e.currentTarget as HTMLInputElement).value);
                       setShiftMs(v);
-                      void persist({ ...track, takeShiftMs: v, takeRate, takeVolume: takeVol });
+                      saveMix({ takeShiftMs: v });
+                      listenMix();
                     }}
                   />
                 </label>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="rounded-xl"
-                  onClick={() => {
-                    if (!track.minusBlob || !track.takeBlob) return;
-                    startTakePreview(
-                      objectUrlFor(`${track.id}-minus`, track.minusBlob),
-                      objectUrlFor(`${track.id}-take`, track.takeBlob),
-                      { shiftMs, rate: takeRate, volume: takeVol },
-                    );
-                  }}
-                >
+                <Button type="button" variant="secondary" className="rounded-xl" onClick={listenMix}>
                   Слушать сведение
                 </Button>
                 <Button
@@ -535,6 +590,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
                           shiftMs,
                           rate: takeRate,
                           volume: takeVol,
+                          minusVol,
                         });
                         downloadBlob(mix, fileNameFor(track.title, "mix", "audio/wav"));
                         toast.success("Сведение скачалось — wav после мастера.");
