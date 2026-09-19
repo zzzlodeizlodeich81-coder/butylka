@@ -300,14 +300,27 @@ export const pollSunoStems = createServerFn({ method: "GET" })
     );
     const n = Number(flag);
     const failed = n === 2 || /FAIL|ERROR/i.test(flag);
+    const originData = (info.originData ?? response.originData ?? outer.originData) as
+      | { audio_url?: string; audioUrl?: string; stem_type_group_name?: string; stemType?: string }[]
+      | undefined;
+    const fromList = Array.isArray(originData)
+      ? originData.find((row) => /instrument|accompan|minus|karaoke/i.test(`${row.stem_type_group_name ?? ""} ${row.stemType ?? ""}`))
+      : undefined;
     const instrumentalUrl =
       pick<string>(info, "instrumentalUrl", "instrumental_url") ??
       pick<string>(response, "instrumentalUrl", "instrumental_url") ??
       pick<string>(outer, "instrumentalUrl", "instrumental_url") ??
+      fromList?.audio_url ??
+      fromList?.audioUrl ??
       null;
+    const vocalHit = Array.isArray(originData)
+      ? originData.find((row) => /vocal/i.test(`${row.stem_type_group_name ?? ""} ${row.stemType ?? ""}`))
+      : undefined;
     const vocalUrl =
       pick<string>(info, "vocalUrl", "vocal_url") ??
       pick<string>(response, "vocalUrl", "vocal_url") ??
+      vocalHit?.audio_url ??
+      vocalHit?.audioUrl ??
       null;
     const ready = n === 1 || /SUCCESS|COMPLETE/i.test(flag) || Boolean(instrumentalUrl);
     return {
