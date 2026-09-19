@@ -407,6 +407,7 @@ function needsCors(url: string) {
 }
 
 let previewEl: HTMLAudioElement | null = null;
+let previewVoice: HTMLAudioElement | null = null;
 let fileEl: HTMLAudioElement | null = null;
 
 export function trackTime(): number | null {
@@ -422,16 +423,22 @@ export function isFilePlaying() {
   return Boolean((fileEl && !fileEl.paused) || (previewEl && !previewEl.paused));
 }
 
-export function stopPreview() {
-  if (!previewEl) return;
+function killAudio(el: HTMLAudioElement | null) {
+  if (!el) return;
   try {
-    previewEl.pause();
-    previewEl.removeAttribute("src");
-    previewEl.load();
+    el.pause();
+    el.removeAttribute("src");
+    el.load();
   } catch {
     /* ignore */
   }
+}
+
+export function stopPreview() {
+  killAudio(previewEl);
+  killAudio(previewVoice);
   previewEl = null;
+  previewVoice = null;
 }
 
 export function previewFile(url: string) {
@@ -546,8 +553,8 @@ function applyKaraokeRate(el: HTMLAudioElement | null = fileEl) {
 
 function applyKaraokeVoice() {
   const t = buses?.ctx.currentTime ?? 0;
-  if (voiceGain) voiceGain.gain.setTargetAtTime(karaokeVoice ? 0.85 : 0, t, 0.04);
-  if (echoMix) echoMix.gain.setTargetAtTime(karaokeEcho && karaokeVoice ? 0.3 : 0, t, 0.04);
+  if (voiceGain) voiceGain.gain.setTargetAtTime(karaokeVoice ? 0.9 : 0, t, 0.04);
+  if (echoMix) echoMix.gain.setTargetAtTime(karaokeEcho && karaokeVoice ? 0.14 : 0, t, 0.04);
 }
 
 export function setKaraokeKey(semitones: number) {
@@ -578,12 +585,12 @@ export function getKaraokeVoice() {
 }
 
 function attachEcho(ctx: AudioContext, from: AudioNode, to: AudioNode) {
-  const delay = ctx.createDelay(0.6);
-  delay.delayTime.value = 0.2;
+  const delay = ctx.createDelay(0.5);
+  delay.delayTime.value = 0.12;
   const mix = ctx.createGain();
-  mix.gain.value = karaokeEcho && karaokeVoice ? 0.3 : 0;
+  mix.gain.value = karaokeEcho && karaokeVoice ? 0.14 : 0;
   const fb = ctx.createGain();
-  fb.gain.value = 0.2;
+  fb.gain.value = 0.08;
   from.connect(delay);
   delay.connect(mix);
   mix.connect(to);
@@ -755,32 +762,27 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
     hearSrc = null;
   }
 
-  if (backingUrl) {
-    if (backingUrl === hearUrl) {
-      mix.connect(dest);
-    } else {
-      recEl = new Audio();
-      if (needsCors(backingUrl)) recEl.crossOrigin = "anonymous";
-      recEl.preload = "auto";
-      recEl.src = backingUrl;
-      applyKaraokeRate(recEl);
-      try {
-        recSrc = ctx.createMediaElementSource(recEl);
-        recSrc.connect(dest);
-      } catch {
-        recSrc = null;
-      }
+  if (backingUrl && backingUrl !== hearUrl) {
+    recEl = new Audio();
+    if (needsCors(backingUrl)) recEl.crossOrigin = "anonymous";
+    recEl.preload = "auto";
+    recEl.src = backingUrl;
+    applyKaraokeRate(recEl);
+    try {
+      recSrc = ctx.createMediaElementSource(recEl);
+      recSrc.connect(mix);
+    } catch {
+      recSrc = null;
     }
   }
 
   const micSrc = ctx.createMediaStreamSource(stream);
   const micGain = ctx.createGain();
-  micGain.gain.value = karaokeVoice ? 1.05 : 0;
+  micGain.gain.value = karaokeVoice ? 1 : 0;
   micSrc.connect(micGain);
   micGain.connect(dest);
   micGain.connect(b.sfx);
-  attachEcho(ctx, micGain, dest);
-  echoMix?.connect(b.sfx);
+  attachEcho(ctx, micGain, b.sfx);
   voiceGain = micGain;
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
@@ -872,4 +874,46 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
     stop,
   };
 }
+
+export const TAKE_SHIFT_DEFAULT = -180;
+export const TAKE_RATE_DEFAULT = 1;
+
+export function startTakePreview(
+  minusUrl: string,
+  voiceUrl: string,
+  opts: { shiftMs?: number; rate?: number } = {},
+) {
+  unlockAudio();
+  stopPreview();
+  stopTrack();
+  const minus = new Audio();
+  minus.preload = "auto";
+  minus.src = minusUrl;
+  const voice = new Audio();
+  voice.preload = "auto";
+  voice.src = voiceUrl;
+  const rate = Math.max(0.85, Math.min(1.2, opts.rate ?? TAKE_RATE_DEFAULT));
+  voice.playbackRate = rate;
+  voice.preservesPitch = true;
+  const anyV = voice as HTMLAudioElement & { mozPreservesPitch?: boolean; webkitPreservesPitch?: boolean };
+  anyV.mozPreservesPitch = true;
+  anyV.webkitPreservesPitch = true;
+  const shiftSec = (opts.shiftMs ?? TAKE_SHIFT_DEFAULT) / 1000;
+  previewEl = minus;
+  previewVoice = voice;
+  const startVoice = () => {
+    if (shiftSec < 0 && Number.isFinite(voice.duration) && voice.duration > 0) {
+      voice.currentTime = Math.min(voice.duration * 0.3, -shiftSec);
+    }
+    void voice.play().catch(() => undefined);
+  };
+  void minus.play().catch(() => undefined);
+  const kick = () => {
+    if (shiftSec > 0) window.setTimeout(startVoice, shiftSec * 1000);
+    else startVoice();
+  };
+  if (voice.readyState >= 1) kick();
+  else voice.addEventListener("loadedmetadata", kick, { once: true });
+}
+
 

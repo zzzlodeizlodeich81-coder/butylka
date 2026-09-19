@@ -6,8 +6,12 @@ import {
   isFilePlaying,
   previewFile,
   previewTime,
+  setKaraokeEcho,
   startMixedTake,
+  startTakePreview,
   stopPreview,
+  TAKE_RATE_DEFAULT,
+  TAKE_SHIFT_DEFAULT,
   trackTime,
   unlockAudio,
   type MixedTake,
@@ -75,7 +79,14 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
   const [stamps, setStamps] = useState<number[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [tapClock, setTapClock] = useState(0);
+  const [shiftMs, setShiftMs] = useState(track.takeShiftMs ?? TAKE_SHIFT_DEFAULT);
+  const [takeRate, setTakeRate] = useState(track.takeRate ?? TAKE_RATE_DEFAULT);
   const recRef = useRef<MixedTake | null>(null);
+
+  useEffect(() => {
+    setShiftMs(track.takeShiftMs ?? TAKE_SHIFT_DEFAULT);
+    setTakeRate(track.takeRate ?? TAKE_RATE_DEFAULT);
+  }, [track.id, track.takeShiftMs, track.takeRate]);
 
   useEffect(() => () => {
     stopPreview();
@@ -214,6 +225,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
 
   async function startRecord() {
     unlockAudio();
+    setKaraokeEcho(false);
     let current = track;
     if (!current.minusBlob) {
       toast.message("Сначала сниму минус через Suno — иначе голос ляжет на голос.");
@@ -232,7 +244,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     }
     recRef.current = handle;
     setRecording(true);
-    toast.message("Минус в ушах — пой. Файл будет wav.");
+    toast.message("Минус в ушах, в файл только сухой голос — без эха.");
   }
 
   async function finishRecord() {
@@ -246,7 +258,12 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
         toast.error("Пустая запись. Ещё раз — ближе к микрофону.");
         return;
       }
-      await persist({ ...track, takeBlob: blob });
+      await persist({
+        ...track,
+        takeBlob: blob,
+        takeShiftMs: shiftMs,
+        takeRate,
+      });
       toast.success("Запись в колоде. Скачай или свари кавер.");
     } catch {
       toast.error("Запись оборвалась.");
@@ -424,6 +441,68 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
             <Button onClick={() => void startRecord()} disabled={Boolean(busy)}>
               {track.takeBlob ? "Перезаписать голос" : "Спеть и записать"}
             </Button>
+            {track.takeBlob ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-subtle">голос на записи</p>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-muted">
+                    Сдвиг {shiftMs > 0 ? `+${shiftMs}` : shiftMs} мс
+                  </span>
+                  <input
+                    type="range"
+                    min={-400}
+                    max={200}
+                    step={10}
+                    value={shiftMs}
+                    className="h-11 w-full accent-accent"
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setShiftMs(v);
+                    }}
+                    onPointerUp={(e) => {
+                      const v = Number((e.currentTarget as HTMLInputElement).value);
+                      setShiftMs(v);
+                      void persist({ ...track, takeShiftMs: v, takeRate });
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-muted">Скорость голоса {takeRate.toFixed(2)}</span>
+                  <input
+                    type="range"
+                    min={0.85}
+                    max={1.2}
+                    step={0.01}
+                    value={takeRate}
+                    className="h-11 w-full accent-accent"
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setTakeRate(v);
+                    }}
+                    onPointerUp={(e) => {
+                      const v = Number((e.currentTarget as HTMLInputElement).value);
+                      setTakeRate(v);
+                      void persist({ ...track, takeShiftMs: shiftMs, takeRate: v });
+                    }}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-xl"
+                  onClick={() => {
+                    if (!track.minusBlob || !track.takeBlob) return;
+                    startTakePreview(
+                      objectUrlFor(`${track.id}-minus`, track.minusBlob),
+                      objectUrlFor(`${track.id}-take`, track.takeBlob),
+                      { shiftMs, rate: takeRate },
+                    );
+                  }}
+                >
+                  Слушать запись
+                </Button>
+              </div>
+            ) : null}
             <Button variant="secondary" onClick={() => void cookCover()} disabled={Boolean(busy) || !track.takeBlob}>
               {busy?.startsWith("Варю") ? busy : track.coverBlob ? `Переварить кавер · ${NOTE_PRICE.cover}` : `Кавер · ${NOTE_PRICE.cover} нот`}
             </Button>

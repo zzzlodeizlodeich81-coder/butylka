@@ -9,6 +9,7 @@ import {
   previewFile,
   startMic,
   startMixedTake,
+  startTakePreview,
   startTrack,
   stopTrack,
   trackTime,
@@ -181,6 +182,13 @@ export function KaraokeStage() {
           setHadMic(Boolean(mic));
         });
       });
+    } else if (play.takeUrl && play.minusUrl && play.audioUrl === play.takeUrl) {
+      startTakePreview(play.minusUrl, play.takeUrl, {
+        shiftMs: play.takeShiftMs,
+        rate: play.takeRate,
+      });
+      arm(now(), songDuration(play));
+      setHadMic(false);
     } else {
       const handle = startTrack(play);
       if (!handle) {

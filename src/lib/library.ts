@@ -19,6 +19,8 @@ export type SavedTrack = {
   minusBlob?: Blob;
   vocalBlob?: Blob;
   takeBlob?: Blob;
+  takeShiftMs?: number;
+  takeRate?: number;
   coverBlob?: Blob;
   sourceUrl?: string;
 };
@@ -199,6 +201,8 @@ export function songFromSaved(track: SavedTrack, artist: string): Song {
     hasTake: Boolean(track.takeBlob),
     hasCover: Boolean(track.coverBlob),
     takeUrl: track.takeBlob ? objectUrlFor(`${track.id}-take`, track.takeBlob) : undefined,
+    takeShiftMs: track.takeShiftMs,
+    takeRate: track.takeRate,
     coverUrl: track.coverBlob ? objectUrlFor(`${track.id}-cover`, track.coverBlob) : undefined,
     minusUrl: track.minusBlob ? url : undefined,
     guideUrl: track.minusBlob
