@@ -30,9 +30,9 @@ export const Route = createFileRoute("/api/host-audio")({
         if (!(file instanceof Blob) || file.size < 800) {
           return Response.json({ ok: false, error: "Нет файла." }, { status: 400 });
         }
-        if (file.size > 4.2 * 1024 * 1024) {
+        if (file.size > 20 * 1024 * 1024) {
           return Response.json(
-            { ok: false, error: "Файл больше 4 МБ — сожми или спой короче." },
+            { ok: false, error: "Файл больше 20 МБ — сожми или обрежь." },
             { status: 413 },
           );
         }

@@ -7,6 +7,8 @@ const HOSTS = [
   "suno.com",
   "removeai.ai",
   "cloudfront.net",
+  "catbox.moe",
+  "tmpfiles.org",
 ];
 
 function allowed(raw: string) {
@@ -43,6 +45,7 @@ export const Route = createFileRoute("/api/suno-audio")({
           headers: {
             "content-type": up.headers.get("content-type") || "audio/mpeg",
             "cache-control": "public, max-age=3600",
+            "access-control-allow-origin": "*",
           },
         });
       },

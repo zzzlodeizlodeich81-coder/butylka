@@ -395,6 +395,17 @@ function wireKaraoke(source: AudioNode, dest: AudioNode, minus: boolean) {
   merge.connect(dest);
 }
 
+function needsCors(url: string) {
+  if (!url || url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("/")) return false;
+  try {
+    const abs = new URL(url, typeof location !== "undefined" ? location.href : "https://local");
+    if (typeof location !== "undefined" && abs.origin === location.origin) return false;
+    return abs.protocol === "https:" || abs.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 let previewEl: HTMLAudioElement | null = null;
 let fileEl: HTMLAudioElement | null = null;
 
@@ -457,33 +468,26 @@ export function startTrack(song: Song): { startedAt: number; duration: number } 
   let element: HTMLAudioElement | null = null;
   let elementSrc: MediaElementAudioSourceNode | null = null;
 
-  if (song.audioUrl && !song.minus) {
+  if (song.audioUrl) {
     element = new Audio();
     element.preload = "auto";
+    if (needsCors(song.audioUrl)) element.crossOrigin = "anonymous";
     element.src = song.audioUrl;
     fileEl = element;
     applyGains();
     applyKaraokeRate(element);
     element.addEventListener("ended", () => stop(), { once: true });
+    const invert = Boolean(song.minus && !song.minusUrl);
+    if (invert) {
+      try {
+        elementSrc = ctx.createMediaElementSource(element);
+        wireKaraoke(elementSrc, duck, true);
+      } catch {
+        elementSrc = null;
+      }
+    }
     void element.play().catch(() => {
       /* karaoke overlay asks for a tap */
-    });
-  } else if (song.audioUrl) {
-    element = new Audio();
-    element.crossOrigin = "anonymous";
-    element.preload = "auto";
-    element.src = song.audioUrl;
-    try {
-      elementSrc = ctx.createMediaElementSource(element);
-      wireKaraoke(elementSrc, duck, true);
-    } catch {
-      elementSrc = null;
-    }
-    fileEl = element;
-    applyKaraokeRate(element);
-    element.addEventListener("ended", () => stop(), { once: true });
-    void element.play().catch(() => {
-      /* karaoke overlay */
     });
   } else {
     scheduleSong(ctx, duck, song, startedAt);
@@ -733,7 +737,7 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
   mix.connect(b.music);
 
   const hear = new Audio();
-  hear.crossOrigin = "anonymous";
+  if (needsCors(hearUrl)) hear.crossOrigin = "anonymous";
   hear.preload = "auto";
   hear.src = hearUrl;
   fileEl = hear;
@@ -756,7 +760,7 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
       mix.connect(dest);
     } else {
       recEl = new Audio();
-      recEl.crossOrigin = "anonymous";
+      if (needsCors(backingUrl)) recEl.crossOrigin = "anonymous";
       recEl.preload = "auto";
       recEl.src = backingUrl;
       applyKaraokeRate(recEl);

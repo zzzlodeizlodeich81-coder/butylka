@@ -45,6 +45,10 @@ async function hostFile(blob: Blob, name = "track.mp3") {
   return json.url;
 }
 
+function isPublicHttp(url?: string) {
+  return Boolean(url && /^https:\/\//i.test(url));
+}
+
 function lineAt(track: SavedTrack, t: number, rows: string[]) {
   const timed = track.lines;
   if (timed?.length) {
@@ -120,8 +124,12 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     }
   }
 
+  function tapRows() {
+    return looksLikeLrc(text) ? parseLrc(text).map((l) => l.text) : splitText(text);
+  }
+
   function startTap() {
-    const rows = looksLikeLrc(text) ? parseLrc(text).map((l) => l.text) : splitText(text);
+    const rows = tapRows();
     if (rows.length < 2) {
       toast.error("Сначала текст — хотя бы две строки.");
       return;
@@ -137,25 +145,29 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(14);
   }
 
+  async function finishTap(times: number[]) {
+    const rows = tapRows();
+    const lines = stampLines(rows, times, track.duration);
+    stopPreview();
+    setTapping(false);
+    const nextTrack = { ...track, lines, lyrics: rows.join("\n") };
+    await persist(nextTrack);
+    toast.success("Такт записан.");
+    if (!nextTrack.minusBlob) {
+      toast.message("Снимаю минус…");
+      await cookMinus(nextTrack);
+    }
+  }
+
   function tapLine() {
     unlockAudio();
-    if (!isFilePlaying()) {
-      previewFile(objectUrlFor(track.id, track.blob));
-      return;
-    }
+    const rows = tapRows();
+    if (!isFilePlaying()) previewFile(objectUrlFor(track.id, track.blob));
     const t = Math.max(0, previewTime() - 0.08);
     const next = [...stamps, t];
     setStamps(next);
     bump();
-    const rows = looksLikeLrc(text) ? parseLrc(text).map((l) => l.text) : splitText(text);
-    if (next.length >= rows.length) {
-      const lines = stampLines(rows, next, track.duration);
-      stopPreview();
-      setTapping(false);
-      const nextTrack = { ...track, lines, lyrics: rows.join("\n") };
-      void persist(nextTrack);
-      toast.success("Такт записан. Строки поедут с песней.");
-    }
+    if (next.length >= rows.length) void finishTap(next);
   }
 
   function undoTap() {
@@ -174,19 +186,20 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [tapping]);
 
-  async function cookMinus(): Promise<SavedTrack | null> {
+  async function cookMinus(from: SavedTrack = track): Promise<SavedTrack | null> {
     setBusy("Снимаю минус… минута-две");
     try {
-      const audioUrl = track.sourceUrl || (await hostFile(track.blob));
+      const audioUrl = isPublicHttp(from.sourceUrl) ? from.sourceUrl! : await hostFile(from.blob, fileNameFor(from.title, "plus", from.mime));
       const pulled = await pullMinusBlobs({ audioUrl });
       if (!pulled) throw new Error("Минус не успел. Попробуй ещё раз.");
       const next = {
-        ...track,
+        ...from,
+        sourceUrl: audioUrl,
         minusBlob: pulled.minusBlob,
-        vocalBlob: pulled.vocalBlob ?? track.vocalBlob,
+        vocalBlob: pulled.vocalBlob ?? from.vocalBlob,
       };
       await persist(next);
-      downloadBlob(next.minusBlob, fileNameFor(track.title, "minus", next.minusBlob.type || "audio/mpeg"));
+      downloadBlob(next.minusBlob, fileNameFor(from.title, "minus", next.minusBlob.type || "audio/mpeg"));
       void refreshWallet();
       toast.success(pulled.vocalBlob ? "Минус и вокал скачались." : "Минус скачался.");
       return next;
@@ -375,6 +388,14 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
               Сброс
             </Button>
           </div>
+          <Button
+            className="mt-2 h-12 rounded-xl"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => void finishTap(stamps.length ? stamps : [0])}
+            disabled={!stamps.length}
+          >
+            Готово — снять минус
+          </Button>
         </div>
       ) : (
         <>

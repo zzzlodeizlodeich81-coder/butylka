@@ -70,6 +70,7 @@ async function hostFile(blob: Blob, name = "track.mp3") {
 
 async function blobFromFile(file: File): Promise<SavedTrack> {
   const prepared = await prepareKaraokeTrack(file, false);
+  URL.revokeObjectURL(prepared.url);
   const id = uid("file");
   return {
     id,
@@ -79,7 +80,6 @@ async function blobFromFile(file: File): Promise<SavedTrack> {
     mime: file.type || "audio/mpeg",
     addedAt: Date.now(),
     blob: file,
-    sourceUrl: prepared.url,
   };
 }
 

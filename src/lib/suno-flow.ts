@@ -27,7 +27,11 @@ export async function pullSunoMinus(
   for (const payload of tries) {
     if (!live()) return null;
     const started = await startSunoStems({ data: payload });
-    if (!started.ok) continue;
+    if (!started.ok) {
+      const err = new Error(started.error || "Не вышло снять минус.");
+      (err as Error & { needNotes?: number }).needNotes = (started as { needNotes?: number }).needNotes;
+      throw err;
+    }
     for (let i = 0; i < 28 && live(); i++) {
       await sleep(4000, live);
       if (!live()) return null;
