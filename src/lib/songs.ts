@@ -38,6 +38,7 @@ export type Song = {
   takeUrl?: string;
   takeShiftMs?: number;
   takeRate?: number;
+  takeVolume?: number;
   coverUrl?: string;
   guideUrl?: string;
   minusUrl?: string;
@@ -121,6 +122,7 @@ export function buildSong(input: {
   takeUrl?: string;
   takeShiftMs?: number;
   takeRate?: number;
+  takeVolume?: number;
   coverUrl?: string;
   guideUrl?: string;
   minusUrl?: string;
@@ -150,6 +152,7 @@ export function buildSong(input: {
     takeUrl: input.takeUrl,
     takeShiftMs: input.takeShiftMs,
     takeRate: input.takeRate,
+    takeVolume: input.takeVolume,
     coverUrl: input.coverUrl,
     guideUrl: input.guideUrl,
     minusUrl: input.minusUrl,

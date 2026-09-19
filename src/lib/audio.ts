@@ -716,6 +716,73 @@ export async function blobToWav(blob: Blob): Promise<Blob> {
   }
 }
 
+function encodeWavMono(samples: Float32Array, rate: number) {
+  const len = samples.length;
+  const dataLen = len * 2;
+  const out = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(out);
+  const ascii = (o: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+  };
+  ascii(0, "RIFF");
+  v.setUint32(4, 36 + dataLen, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  ascii(36, "data");
+  v.setUint32(40, dataLen, true);
+  let o = 44;
+  for (let i = 0; i < len; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i] ?? 0));
+    v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    o += 2;
+  }
+  return new Blob([out], { type: "audio/wav" });
+}
+
+function wireMaster(ctx: BaseAudioContext, from: AudioNode) {
+  const hpf = ctx.createBiquadFilter();
+  hpf.type = "highpass";
+  hpf.frequency.value = 80;
+  hpf.Q.value = 0.7;
+  const air = ctx.createBiquadFilter();
+  air.type = "highshelf";
+  air.frequency.value = 6500;
+  air.gain.value = 1.8;
+  const body = ctx.createBiquadFilter();
+  body.type = "peaking";
+  body.frequency.value = 2800;
+  body.Q.value = 0.9;
+  body.gain.value = 1.4;
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -18;
+  comp.knee.value = 10;
+  comp.ratio.value = 3.2;
+  comp.attack.value = 0.01;
+  comp.release.value = 0.14;
+  const limit = ctx.createDynamicsCompressor();
+  limit.threshold.value = -1.1;
+  limit.knee.value = 0.2;
+  limit.ratio.value = 20;
+  limit.attack.value = 0.002;
+  limit.release.value = 0.08;
+  const out = ctx.createGain();
+  out.gain.value = 1.12;
+  from.connect(hpf);
+  hpf.connect(body);
+  body.connect(air);
+  air.connect(comp);
+  comp.connect(limit);
+  limit.connect(out);
+  return out;
+}
+
 export type MixedTake = {
   time: () => number;
   duration: () => number;
@@ -723,7 +790,7 @@ export type MixedTake = {
   stop: () => Promise<Blob>;
 };
 
-export async function startMixedTake(hearUrl: string, recUrl?: string | null): Promise<MixedTake | null> {
+export async function startMixedTake(hearUrl: string, _recUrl?: string | null): Promise<MixedTake | null> {
   const ctx = unlockAudio();
   const b = buses;
   if (!ctx || !b || typeof navigator === "undefined" || !navigator.mediaDevices) return null;
@@ -731,14 +798,21 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        channelCount: 1,
+      },
     });
   } catch {
-    return null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      return null;
+    }
   }
 
-  const backingUrl = recUrl || null;
-  const dest = ctx.createMediaStreamDestination();
   const mix = ctx.createGain();
   mix.gain.value = 1;
   mix.connect(b.music);
@@ -751,10 +825,7 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
   applyGains();
   applyKaraokeRate(hear);
 
-  let recEl: HTMLAudioElement | null = null;
   let hearSrc: MediaElementAudioSourceNode | null = null;
-  let recSrc: MediaElementAudioSourceNode | null = null;
-
   try {
     hearSrc = ctx.createMediaElementSource(hear);
     hearSrc.connect(mix);
@@ -762,101 +833,59 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
     hearSrc = null;
   }
 
-  if (backingUrl && backingUrl !== hearUrl) {
-    recEl = new Audio();
-    if (needsCors(backingUrl)) recEl.crossOrigin = "anonymous";
-    recEl.preload = "auto";
-    recEl.src = backingUrl;
-    applyKaraokeRate(recEl);
-    try {
-      recSrc = ctx.createMediaElementSource(recEl);
-      recSrc.connect(mix);
-    } catch {
-      recSrc = null;
-    }
-  }
-
   const micSrc = ctx.createMediaStreamSource(stream);
-  const micGain = ctx.createGain();
-  micGain.gain.value = karaokeVoice ? 1 : 0;
-  micSrc.connect(micGain);
-  micGain.connect(dest);
-  micGain.connect(b.sfx);
-  attachEcho(ctx, micGain, b.sfx);
-  voiceGain = micGain;
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
   analyser.smoothingTimeConstant = 0.65;
   micSrc.connect(analyser);
   const data = new Uint8Array(analyser.fftSize);
 
-  const mime = takeMime();
-  const rec = mime
-    ? new MediaRecorder(dest.stream, { mimeType: mime, audioBitsPerSecond: 128_000 })
-    : new MediaRecorder(dest.stream);
-  const chunks: BlobPart[] = [];
-  rec.ondataavailable = (e) => {
-    if (e.data.size) chunks.push(e.data);
+  const chunks: Float32Array[] = [];
+  let recLen = 0;
+  const proc = ctx.createScriptProcessor(4096, 1, 1);
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  micSrc.connect(proc);
+  proc.connect(silent);
+  silent.connect(ctx.destination);
+  proc.onaudioprocess = (ev) => {
+    const input = ev.inputBuffer.getChannelData(0);
+    chunks.push(new Float32Array(input));
+    recLen += input.length;
   };
-  rec.start(800);
+
   void hear.play().catch(() => {
     /* overlay tap */
   });
-  void recEl?.play().catch(() => {
-    /* rec bed */
-  });
-
-  let finished: ((blob: Blob) => void) | null = null;
-  rec.onstop = () => {
-    const raw = new Blob(chunks, { type: rec.mimeType.split(";")[0] || "audio/webm" });
-    void blobToWav(raw).then((wav) => finished?.(wav));
-  };
-
-  const killEl = (el: HTMLAudioElement) => {
-    try {
-      el.pause();
-      el.removeAttribute("src");
-      el.load();
-    } catch {
-      /* ignore */
-    }
-  };
 
   const stop = () =>
     new Promise<Blob>((resolve) => {
-      finished = resolve;
       try {
-        if (rec.state !== "inactive") rec.stop();
-        else {
-          const raw = new Blob(chunks, { type: rec.mimeType.split(";")[0] || "audio/webm" });
-          void blobToWav(raw).then(resolve);
-        }
+        proc.onaudioprocess = null;
+        proc.disconnect();
+        silent.disconnect();
       } catch {
-        resolve(new Blob(chunks, { type: "audio/wav" }));
+        /* ignore */
       }
-      killEl(hear);
-      if (recEl) killEl(recEl);
+      killAudio(hear);
       if (fileEl === hear) fileEl = null;
-      if (voiceGain === micGain) voiceGain = null;
-      if (echoMix) {
-        try {
-          echoMix.disconnect();
-        } catch {
-          /* ignore */
-        }
-        echoMix = null;
-      }
       stream.getTracks().forEach((t) => t.stop());
       window.setTimeout(() => {
         try {
           mix.disconnect();
           micSrc.disconnect();
           hearSrc?.disconnect();
-          recSrc?.disconnect();
         } catch {
           /* ignore */
         }
-      }, 120);
+      }, 80);
+      const samples = new Float32Array(recLen);
+      let o = 0;
+      for (const c of chunks) {
+        samples.set(c, o);
+        o += c.length;
+      }
+      resolve(encodeWavMono(samples, ctx.sampleRate));
     });
 
   return {
@@ -877,13 +906,15 @@ export async function startMixedTake(hearUrl: string, recUrl?: string | null): P
 
 export const TAKE_SHIFT_DEFAULT = -180;
 export const TAKE_RATE_DEFAULT = 1;
+export const TAKE_VOLUME_DEFAULT = 1;
 
 export function startTakePreview(
   minusUrl: string,
   voiceUrl: string,
-  opts: { shiftMs?: number; rate?: number } = {},
+  opts: { shiftMs?: number; rate?: number; volume?: number } = {},
 ) {
-  unlockAudio();
+  const ctx = unlockAudio();
+  const b = buses;
   stopPreview();
   stopTrack();
   const minus = new Audio();
@@ -899,8 +930,26 @@ export function startTakePreview(
   anyV.mozPreservesPitch = true;
   anyV.webkitPreservesPitch = true;
   const shiftSec = (opts.shiftMs ?? TAKE_SHIFT_DEFAULT) / 1000;
+  const vol = Math.max(0.2, Math.min(2.4, opts.volume ?? TAKE_VOLUME_DEFAULT));
   previewEl = minus;
   previewVoice = voice;
+  if (ctx && b) {
+    try {
+      const minusSrc = ctx.createMediaElementSource(minus);
+      const voiceSrc = ctx.createMediaElementSource(voice);
+      const vg = ctx.createGain();
+      vg.gain.value = vol;
+      const sum = ctx.createGain();
+      minusSrc.connect(sum);
+      voiceSrc.connect(vg);
+      vg.connect(sum);
+      wireMaster(ctx, sum).connect(b.music);
+    } catch {
+      voice.volume = Math.min(1, vol);
+    }
+  } else {
+    voice.volume = Math.min(1, vol);
+  }
   const startVoice = () => {
     if (shiftSec < 0 && Number.isFinite(voice.duration) && voice.duration > 0) {
       voice.currentTime = Math.min(voice.duration * 0.3, -shiftSec);
@@ -915,5 +964,41 @@ export function startTakePreview(
   if (voice.readyState >= 1) kick();
   else voice.addEventListener("loadedmetadata", kick, { once: true });
 }
+
+export async function renderMasteredMix(
+  minusBlob: Blob,
+  voiceBlob: Blob,
+  opts: { shiftMs?: number; rate?: number; volume?: number } = {},
+) {
+  const live = unlockAudio() ?? new AudioContext();
+  const minusBuf = await live.decodeAudioData((await minusBlob.arrayBuffer()).slice(0));
+  const voiceBuf = await live.decodeAudioData((await voiceBlob.arrayBuffer()).slice(0));
+  const rate = Math.max(0.85, Math.min(1.2, opts.rate ?? TAKE_RATE_DEFAULT));
+  const shift = (opts.shiftMs ?? TAKE_SHIFT_DEFAULT) / 1000;
+  const vol = Math.max(0.2, Math.min(2.4, opts.volume ?? TAKE_VOLUME_DEFAULT));
+  const sr = minusBuf.sampleRate;
+  const voiceDur = voiceBuf.duration / rate;
+  const startVoice = Math.max(0, shift);
+  const skipVoice = Math.max(0, -shift);
+  const total = Math.max(minusBuf.duration, startVoice + Math.max(0.2, voiceDur - skipVoice)) + 0.08;
+  const offline = new OfflineAudioContext(2, Math.max(1, Math.ceil(total * sr)), sr);
+  const minusSrc = offline.createBufferSource();
+  minusSrc.buffer = minusBuf;
+  const voiceSrc = offline.createBufferSource();
+  voiceSrc.buffer = voiceBuf;
+  voiceSrc.playbackRate.value = rate;
+  const vg = offline.createGain();
+  vg.gain.value = vol;
+  const sum = offline.createGain();
+  minusSrc.connect(sum);
+  voiceSrc.connect(vg);
+  vg.connect(sum);
+  wireMaster(offline, sum).connect(offline.destination);
+  minusSrc.start(0);
+  voiceSrc.start(startVoice, skipVoice);
+  const rendered = await offline.startRendering();
+  return encodeWav(rendered);
+}
+
 
 
