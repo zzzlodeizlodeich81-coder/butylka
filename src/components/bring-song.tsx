@@ -246,56 +246,60 @@ export function BringSong() {
         },
       });
       if (!started.ok) throw started;
-      let audio: string | null = null;
-      let duration = 80;
-      let audioId = "";
+      const duration = 80;
       for (let i = 0; i < 48; i++) {
         await new Promise((r) => window.setTimeout(r, 4000));
         const st = await pollSunoGenerate({ data: { taskId: started.taskId } });
         if (st.failed) throw new Error("Suno не принял текст.");
         const ready = st.clips.filter((c) => c.audioUrl);
         if (ready.length && (st.status === "SUCCESS" || ready[0].duration > 8)) {
-          audio = ready[0].audioUrl;
-          duration = ready[0].duration || duration;
-          audioId = ready[0].audioId;
-          if (st.status === "SUCCESS") break;
+          if (st.status === "SUCCESS") {
+            const clips = ready.slice(0, 2);
+            let kept: SavedTrack | null = null;
+            for (let n = 0; n < clips.length; n++) {
+              const clip = clips[n];
+              const res = await fetch(proxyAudio(clip.audioUrl));
+              if (!res.ok) continue;
+              const blob = await res.blob();
+              if (blob.size < 8000) continue;
+              const words = n === 0 && clip.audioId ? await pullSunoAligned(started.taskId, clip.audioId) : [];
+              const rowsForTime = lyricsText
+                .split(/\n/)
+                .map((l) => l.replace(/^\[[^\]]+]\s*/, "").trim())
+                .filter((l) => l && !/^\[/.test(l));
+              const aligned = words.length ? linesFromAligned(words, rowsForTime) : timedLines(lyricsText, clip.duration || duration) ?? [];
+              let pulled: Awaited<ReturnType<typeof pullMinusBlobs>> = null;
+              if (n === 0) {
+                toast.message("Снимаю минус с первого…");
+                pulled = await pullMinusBlobs({ taskId: started.taskId, audioId: clip.audioId, audioUrl: clip.audioUrl });
+              }
+              const saved: SavedTrack = {
+                id: uid("suno"),
+                title: clips.length > 1 ? `${trackTitle} ${n + 1}` : trackTitle,
+                lyrics: lyricsText,
+                duration: clip.duration || duration,
+                mime: blob.type || "audio/mpeg",
+                addedAt: Date.now(),
+                blob,
+                lines: aligned.length ? aligned : undefined,
+                sourceUrl: pulled?.instrumentalUrl ?? clip.audioUrl,
+                minusBlob: pulled?.minusBlob,
+                vocalBlob: pulled?.vocalBlob,
+              };
+              kept = await persist(saved);
+            }
+            if (!kept) throw new Error("Не скачался новый трек.");
+            setTitle("");
+            setLyrics("");
+            toast.success(clips.length > 1 ? "Оба трека скачались. Минус — у первого." : "Трек скачался.");
+            playUiTick();
+            setDesk("home");
+            if (desk === "voice" && kept) setStudio(kept);
+            return;
+          }
         }
       }
-      if (!audio) throw new Error("Suno не успел. Попробуй ещё раз.");
-      const res = await fetch(proxyAudio(audio));
-      if (!res.ok) throw new Error("Не скачался новый трек.");
-      const blob = await res.blob();
-      if (blob.size < 8000) throw new Error("Не скачался новый трек.");
-      const words = audioId ? await pullSunoAligned(started.taskId, audioId) : [];
-      const rowsForTime = lyricsText
-        .split(/\n/)
-        .map((l) => l.replace(/^\[[^\]]+]\s*/, "").trim())
-        .filter((l) => l && !/^\[/.test(l));
-      const aligned = words.length
-        ? linesFromAligned(words, rowsForTime)
-        : timedLines(lyricsText, duration) ?? [];
-      toast.message("Снимаю минус…");
-      const pulled = await pullMinusBlobs({ taskId: started.taskId, audioId, audioUrl: audio });
-      const saved: SavedTrack = {
-        id: uid("suno"),
-        title: trackTitle,
-        lyrics: lyricsText,
-        duration,
-        mime: blob.type || "audio/mpeg",
-        addedAt: Date.now(),
-        blob,
-        lines: aligned.length ? aligned : undefined,
-        sourceUrl: pulled?.instrumentalUrl ?? audio,
-        minusBlob: pulled?.minusBlob,
-        vocalBlob: pulled?.vocalBlob,
-      };
-      const next = await persist(saved);
-      setTitle("");
-      setLyrics("");
-      toast.success("Трек скачался.");
-      playUiTick();
-      setDesk("home");
-      if (desk === "voice") setStudio(next);
+      throw new Error("Suno не успел. Попробуй ещё раз.");
     } catch (err) {
       paidFail(err);
     } finally {

@@ -65,7 +65,10 @@ export function NotesShop() {
           <li>
             {NOTE_LABEL.cover} — {NOTE_PRICE.cover} нот
           </li>
-          <li>Стихи + трек + минус — {cookCost()} нот</li>
+          <li>
+            {NOTE_LABEL.stems} — {NOTE_PRICE.stems} нот
+          </li>
+          <li>Стихи + два трека + минус — {cookCost()} нот</li>
         </ul>
         <div className="mt-4 grid grid-cols-2 gap-2">
           {NOTE_PACKS.map((pack) => (
