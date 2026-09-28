@@ -1,4 +1,4 @@
-import { packById, type PaidKind } from "@/lib/notes";
+import { packById } from "@/lib/notes";
 import type { VkUser } from "@/lib/vk/session.server";
 
 type SheetOk = { ok: true; notes: number; duplicate?: boolean };
@@ -48,14 +48,14 @@ export async function sheetRead(user: VkUser): Promise<{ notes: number; name: st
 
 export async function sheetSpend(
   user: VkUser,
-  kind: PaidKind,
+  kind: string,
   cost: number,
 ): Promise<SheetOk | SheetFail | null> {
   if (!sheetEnabled()) return null;
   return callSheet({ op: "spend", vkId: user.vkId, name: user.name, kind, cost });
 }
 
-export async function sheetRefund(user: VkUser, kind: PaidKind, cost: number): Promise<number | null> {
+export async function sheetRefund(user: VkUser, kind: string, cost: number): Promise<number | null> {
   if (!sheetEnabled()) return null;
   const hit = await callSheet({ op: "refund", vkId: user.vkId, name: user.name, kind, cost });
   if (!hit.ok) throw new Error(hit.error || "sheet refund");

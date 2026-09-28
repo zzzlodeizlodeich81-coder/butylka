@@ -151,6 +151,40 @@ export async function spendNotes(user: VkUser, kind: PaidKind): Promise<{ ok: tr
   return { ok: true, notes: Number(rows[0].notes) };
 }
 
+export async function spendAmount(
+  user: VkUser,
+  kind: string,
+  cost: number,
+): Promise<{ ok: true; notes: number } | { ok: false; error: string; notes: number }> {
+  if (sheetEnabled()) {
+    const hit = await sheetSpend(user, kind as PaidKind, cost);
+    if (!hit) return { ok: false, error: "Таблица нот не ответила.", notes: 0 };
+    if (!hit.ok) return { ok: false, error: `Нужно ${cost} нот.`, notes: Number(hit.notes ?? 0) };
+    return { ok: true, notes: Number(hit.notes ?? 0) };
+  }
+  const sql = await getSql();
+  if (!sql) {
+    const row = memWallet(user.vkId, user.name);
+    if (row.notes < cost) return { ok: false, error: `Нужно ${cost} нот.`, notes: row.notes };
+    row.notes -= cost;
+    return { ok: true, notes: row.notes };
+  }
+  await ensure(sql);
+  await readWallet(user);
+  const rows = await sql.query<WalletRow>(
+    `update vk_wallets set notes = notes - $2
+     where vk_id = $1 and notes >= $2
+     returning vk_id, name, notes`,
+    [user.vkId, cost],
+  );
+  if (!rows[0]) {
+    const cur = await readWallet(user);
+    return { ok: false, error: `Нужно ${cost} нот.`, notes: cur.notes };
+  }
+  await sql.query(`insert into vk_spends (vk_id, kind, notes) values ($1, $2, $3)`, [user.vkId, kind, cost]);
+  return { ok: true, notes: Number(rows[0].notes) };
+}
+
 export async function refundNotes(user: VkUser, kind: PaidKind): Promise<number> {
   const cost = NOTE_PRICE[kind];
   if (sheetEnabled()) {

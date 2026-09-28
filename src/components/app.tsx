@@ -11,11 +11,13 @@ import { listSavedTracks, songFromSaved } from "@/lib/library";
 import { useGame } from "@/lib/store";
 import { armAudioGestures, setMixer, unlockAudio } from "@/lib/audio";
 import { bootVk } from "@/lib/vk/boot";
+import { Yard } from "@/components/yard";
 
 function Shell() {
   const phase = useGame((s) => s.phase);
 
   if (phase === "gate") return <GateScreen />;
+  if (phase === "yard") return <Yard />;
   if (phase === "profile") return <ProfileScreen />;
   if (phase === "lobby") return <Lobby />;
 

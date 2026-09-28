@@ -42,7 +42,7 @@ export function Wordmark({ large = false }: { large?: boolean }) {
         <circle cx="16" cy="19.4" r="1.4" className="fill-accent" />
       </svg>
       <p className={cn("font-display tracking-wide text-fg", large ? "text-4xl" : "text-base")}>
-        БАЛАЛАЕЧКА
+        ДВОР
       </p>
     </div>
   );
@@ -56,7 +56,7 @@ export function GateScreen() {
       <div className="flex flex-col items-center text-center">
         <Wordmark large />
         <p className="mt-5 max-w-xs text-base leading-relaxed text-muted">
-          Ссылка с твоего Suno — плюс и минус. Кавер голосом. Балалаечка — если захотите за столом.
+          Двор. Слева сцена, сверху дом записи и фабрика звука, справа рама, мастерская и киностудия, внизу торговые ряды.
         </p>
         <div className="mt-5">
           <ChavoButton />
@@ -71,7 +71,7 @@ export function GateScreen() {
           enter();
         }}
       >
-        Войти
+        Войти во двор
       </Button>
     </div>
   );
@@ -591,10 +591,14 @@ export function Chrome({ children }: { children: ReactNode }) {
   const omen = useGame((s) => s.omen);
   const cookStatus = useGame((s) => s.cookStatus);
 
+  const toYard = useGame((s) => s.toYard);
+
   return (
     <div className="relative mx-auto flex h-dvh w-full max-w-lg flex-col overflow-y-auto overflow-x-clip bg-bg">
       <header className="flex items-center justify-between gap-3 px-5 pt-[max(0.85rem,env(safe-area-inset-top))] pb-2">
-        <Wordmark />
+        <button type="button" onClick={() => toYard()} aria-label="На двор">
+          <Wordmark />
+        </button>
         <div className="flex items-center gap-1">
           {you ? (
             <span className="mr-1 flex items-center gap-1.5 text-sm text-muted">

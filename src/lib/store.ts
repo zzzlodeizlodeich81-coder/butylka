@@ -13,7 +13,8 @@ export type Phase =
   | "reveal"
   | "song"
   | "karaoke"
-  | "result";
+  | "result"
+  | "yard";
 
 export type Player = {
   id: string;
@@ -164,6 +165,7 @@ type GameState = {
   omenSong: Song | null;
   sunoPrompt: string;
   enter: () => void;
+  toYard: () => void;
   toStudio: () => void;
   setPlayerName: (id: string, name: string) => void;
   setAvatar: (id: string, url: string | null) => void;
@@ -276,7 +278,9 @@ export const useGame = create<GameState>((set, get) => ({
   omenSong: null,
   sunoPrompt: "",
 
-  enter: () => set({ phase: "studio" }),
+  enter: () => set({ phase: "yard" }),
+
+  toYard: () => set({ phase: "yard", spinning: false }),
 
   toStudio: () =>
     set({
