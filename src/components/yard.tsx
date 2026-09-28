@@ -23,6 +23,7 @@ import {
 } from "@/lib/yard";
 
 type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" | "market" | "gate";
+type SpotId = "yard" | "sferoom" | "needle" | "yourtunes" | "kadr";
 
 const ZONES: { id: HouseId; label: string; left: string; top: string; width: string; height: string; sign: "top" | "bottom" }[] = [
   { id: "record", label: "Дом записи", left: "8%", top: "6%", width: "24%", height: "26%", sign: "bottom" },
@@ -64,6 +65,8 @@ export function Yard() {
   const localNotes = useGame((s) => s.players.find((p) => p.id === s.youId)?.notes ?? 0);
   const shownNotes = vkId ? notes : localNotes;
   const [house, setHouse] = useState<HouseId | null>(null);
+  const [city, setCity] = useState(false);
+  const [spot, setSpot] = useState<SpotId | null>(null);
   const [roles, setRoles] = useState<RoleId[]>([]);
   const [frames, setFrames] = useState(0);
   const [houseTake, setHouseTake] = useState(0);
@@ -83,6 +86,19 @@ export function Yard() {
       return;
     }
     setHouse(id);
+  }
+
+  if (city) {
+    return (
+      <District
+        spot={spot}
+        onSpot={setSpot}
+        onYard={() => {
+          setSpot(null);
+          setCity(false);
+        }}
+      />
+    );
   }
 
   return (
@@ -109,7 +125,13 @@ export function Yard() {
         </div>
       </div>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <p className="pointer-events-auto rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white">Двор</p>
+        <button
+          type="button"
+          className="pointer-events-auto rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
+          onClick={() => setCity(true)}
+        >
+          В город
+        </button>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
           <span className="text-white/70">·</span>
@@ -152,6 +174,124 @@ export function Yard() {
         />
       ) : null}
     </div>
+  );
+}
+
+const CITY: { id: SpotId; label: string; left: string; top: string; width: string; height: string }[] = [
+  { id: "yard", label: "Наш двор", left: "3%", top: "54%", width: "27%", height: "38%" },
+  { id: "sferoom", label: "Sferoom", left: "30%", top: "2%", width: "15%", height: "42%" },
+  { id: "needle", label: "needle music", left: "46%", top: "6%", width: "14%", height: "42%" },
+  { id: "yourtunes", label: "Yourtunes", left: "60%", top: "16%", width: "16%", height: "40%" },
+  { id: "kadr", label: "XXV Kadr", left: "76%", top: "0%", width: "22%", height: "32%" },
+];
+
+function District({
+  spot,
+  onSpot,
+  onYard,
+}: {
+  spot: SpotId | null;
+  onSpot: (id: SpotId | null) => void;
+  onYard: () => void;
+}) {
+  return (
+    <div className="relative h-dvh w-full overflow-hidden bg-[#1c2430]">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative h-full max-h-full w-full" style={{ aspectRatio: "16 / 9" }}>
+          <img src="/district.jpg" alt="Город" className="h-full w-full object-contain" />
+          {CITY.map((zone) => (
+            <button
+              key={zone.id}
+              type="button"
+              aria-label={zone.label}
+              className="absolute rounded-xl hover:bg-white/10"
+              style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
+              onClick={() => (zone.id === "yard" ? onYard() : onSpot(zone.id))}
+            >
+              <span className="pointer-events-none absolute bottom-0.5 left-1/2 max-w-[96%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium text-[#f4e4c4] shadow">
+                {zone.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
+        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onYard}>
+          Во двор
+        </button>
+      </div>
+      {spot ? <PromoSheet spot={spot} onClose={() => onSpot(null)} /> : null}
+    </div>
+  );
+}
+
+function PromoSheet({ spot, onClose }: { spot: SpotId; onClose: () => void }) {
+  const title = CITY.find((z) => z.id === spot)?.label ?? "";
+  return (
+    <div className="absolute inset-0 z-10 flex items-end bg-black/35">
+      <div className="max-h-[70%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="font-display text-2xl text-fg">{title}</h2>
+          <Button variant="ghost" onClick={onClose}>
+            На карту
+          </Button>
+        </div>
+        {spot === "sferoom" ? (
+          <div className="flex flex-col gap-2 text-sm text-muted">
+            <p>Публикация через Sferoom. Пока только промокоды, форма придёт позже.</p>
+            <a className="text-fg underline" href="https://sferoom.space/" target="_blank" rel="noreferrer">
+              sferoom.space
+            </a>
+            <CodeRow code="DJAngelA17" hint="DJ Angel A" />
+            <CodeRow code="Sunrise17" hint="Лучик Солнца" />
+            <CodeRow code="Severyanka17" hint="Снежинка Северянка" />
+          </div>
+        ) : null}
+        {spot === "needle" ? (
+          <div className="flex flex-col gap-2 text-sm text-muted">
+            <p>Реферальная ссылка, 10% с публикации.</p>
+            <a className="text-fg underline" href="https://lk.needlmusic.ru/referrals" target="_blank" rel="noreferrer">
+              lk.needlmusic.ru/referrals
+            </a>
+            <CodeRow code="REF-9126-D78F6A" hint="твой код" />
+          </div>
+        ) : null}
+        {spot === "yourtunes" ? (
+          <div className="flex flex-col gap-2 text-sm text-muted">
+            <p>Пока просто дверь на сайт. Промокод сюда ещё не клали.</p>
+            <a className="text-fg underline" href="https://yourtunes.net/" target="_blank" rel="noreferrer">
+              yourtunes.net
+            </a>
+          </div>
+        ) : null}
+        {spot === "kadr" ? (
+          <p className="text-sm leading-relaxed text-muted">
+            Особняк лейбла XXV Kadr. Чужая дверь сюда не ведёт — это твой дом на холме.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CodeRow({ code, hint }: { code: string; hint: string }) {
+  return (
+    <button
+      type="button"
+      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-3 py-2 text-left"
+      onClick={() => {
+        void navigator.clipboard.writeText(code).then(
+          () => toast.success("Код скопирован"),
+          () => toast.message(code),
+        );
+      }}
+    >
+      <span>
+        <span className="block font-medium text-fg">{code}</span>
+        <span className="text-xs text-muted">{hint}</span>
+      </span>
+      <span className="text-xs text-muted">копировать</span>
+    </button>
   );
 }
 
