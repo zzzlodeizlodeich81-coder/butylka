@@ -249,7 +249,15 @@ function yardDispatch(d) {
     const cur = songs.getRange(found, 7, 1, 5).getValues()[0];
     songs.getRange(found, 7, 1, 5).setValues([[Number(cur[0]) + hook, Number(cur[1]) + lyric, Number(cur[2]) + music, Number(cur[3]) + orig, Number(cur[4]) + 1]]);
     rates.appendRow([id, vkId, hook, lyric, music, orig]);
+    var authorVk = String(songs.getRange(found, 5).getValue() || "");
+    var authorName = String(songs.getRange(found, 4).getValue() || "");
+    writeHero(authorVk, authorName, null);
     return json(pack());
+  }
+
+  if (action === "glory") {
+    writeHero(vkId, name, Math.max(0, Math.round(Number(d.frames || 0))));
+    return json({ ok: true, shared: true, heroes: heroList() });
   }
 
   if (action === "hear") {
@@ -275,6 +283,72 @@ function yardDispatch(d) {
   if (!text) return json({ ok: false, error: "Пусто." });
   chat.appendRow([Utilities.getUuid(), Date.now(), vkId, name, text]);
   return json(pack());
+}
+
+function heroSheet() {
+  return yardSheet("heroes", ["vk", "name", "notes", "frames", "tracks", "hook", "lyric", "music", "orig", "votes", "fame", "updated"]);
+}
+
+function writeHero(vkId, name, frames) {
+  if (!vkId) return;
+  const songs = yardSheet("songs", ["id", "kind", "url", "author", "vk", "at", "hook", "lyric", "music", "orig", "n"]);
+  const heroes = heroSheet();
+  var hook = 0;
+  var lyric = 0;
+  var music = 0;
+  var orig = 0;
+  var votes = 0;
+  var tracks = 0;
+  var songName = name || "";
+  const rows = yardRows(songs);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][4]) !== String(vkId) || rows[i][1] === "release") continue;
+    tracks += 1;
+    hook += Number(rows[i][6] || 0);
+    lyric += Number(rows[i][7] || 0);
+    music += Number(rows[i][8] || 0);
+    orig += Number(rows[i][9] || 0);
+    votes += Number(rows[i][10] || 0);
+    if (!songName) songName = String(rows[i][3] || "");
+  }
+  const books = book();
+  const notes = readNotes(books.wallets, vkId, songName);
+  var keptFrames = frames;
+  var row = 0;
+  const have = yardRows(heroes);
+  for (var h = 0; h < have.length; h++) {
+    if (String(have[h][0]) === String(vkId)) row = h + 2;
+  }
+  if (keptFrames === null && row) keptFrames = Number(heroes.getRange(row, 4).getValue() || 0);
+  if (keptFrames === null) keptFrames = 0;
+  const fame = votes ? Math.round(((hook + lyric + music + orig) / (4 * votes)) * 10) / 10 : 0;
+  const line = [vkId, songName, notes, keptFrames, tracks, hook, lyric, music, orig, votes, fame, new Date()];
+  if (row) heroes.getRange(row, 1, 1, 12).setValues([line]);
+  else heroes.appendRow(line);
+}
+
+function heroList() {
+  const rows = yardRows(heroSheet());
+  return rows
+    .map(function (r) {
+      return {
+        vk: String(r[0]),
+        name: String(r[1] || "Гость"),
+        notes: Number(r[2] || 0),
+        frames: Number(r[3] || 0),
+        tracks: Number(r[4] || 0),
+        hook: Number(r[5] || 0),
+        lyric: Number(r[6] || 0),
+        music: Number(r[7] || 0),
+        orig: Number(r[8] || 0),
+        votes: Number(r[9] || 0),
+        fame: Number(r[10] || 0),
+      };
+    })
+    .sort(function (a, b) {
+      return b.fame - a.fame || b.votes - a.votes;
+    })
+    .slice(0, 20);
 }
 
 function doGet() {

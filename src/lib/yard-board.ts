@@ -17,6 +17,20 @@ export type YardSong = {
 
 export type YardLine = { id: string; name: string; text: string; at: number };
 
+export type Hero = {
+  vk: string;
+  name: string;
+  notes: number;
+  frames: number;
+  tracks: number;
+  hook: number;
+  lyric: number;
+  music: number;
+  orig: number;
+  votes: number;
+  fame: number;
+};
+
 type Mem = {
   songs: YardSong[];
   rates: Set<string>;
@@ -25,6 +39,7 @@ type Mem = {
 };
 
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
+const heroes = new Map<string, Hero>();
 
 function cleanUrl(raw: string) {
   const url = raw.trim().slice(0, 300);
@@ -61,6 +76,7 @@ async function sheetCall(body: Record<string, unknown>) {
       shared?: boolean;
       songs?: YardSong[];
       chat?: YardLine[];
+      heroes?: Hero[];
       notes?: number;
       credit?: number;
     };
@@ -78,12 +94,44 @@ function listMem() {
   };
 }
 
+function recount(vkId: string, name: string, frames: number | null) {
+  if (!vkId) return;
+  const drafts = mem.songs.filter((s) => s.vk === vkId && s.kind === "draft");
+  const totals = drafts.reduce(
+    (sum, song) => ({
+      hook: sum.hook + song.hook,
+      lyric: sum.lyric + song.lyric,
+      music: sum.music + song.music,
+      orig: sum.orig + song.orig,
+      votes: sum.votes + song.n,
+    }),
+    { hook: 0, lyric: 0, music: 0, orig: 0, votes: 0 },
+  );
+  const prev = heroes.get(vkId);
+  const votes = totals.votes;
+  const fame = votes ? Math.round(((totals.hook + totals.lyric + totals.music + totals.orig) / (4 * votes)) * 10) / 10 : 0;
+  heroes.set(vkId, {
+    vk: vkId,
+    name: name || prev?.name || "Гость",
+    notes: prev?.notes || 0,
+    frames: frames === null ? prev?.frames || 0 : frames,
+    tracks: drafts.length,
+    ...totals,
+    fame,
+  });
+}
+
+function heroRows() {
+  return [...heroes.values()].sort((a, b) => b.fame - a.fame || b.votes - a.votes).slice(0, 20);
+}
+
 type BoardRes = {
   ok: boolean;
   error?: string;
   shared?: boolean;
   songs?: YardSong[];
   chat?: YardLine[];
+  heroes?: Hero[];
   notes?: number;
   credit?: number;
   local?: boolean;
@@ -93,7 +141,7 @@ export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "say";
+      action: "list" | "add" | "rate" | "hear" | "say" | "glory";
       kind?: "draft" | "release";
       url?: string;
       songId?: string;
@@ -103,11 +151,13 @@ export const yardBoard = createServerFn({ method: "POST" })
       music?: number;
       orig?: number;
       author?: string;
+      heroId?: string;
+      frames?: number;
     }) => input,
   )
   .handler(async ({ data, context }): Promise<BoardRes> => {
     const vk = context.vk;
-    const vkId = vk?.vkId || "guest";
+    const vkId = vk?.vkId || String(data.heroId || "guest").slice(0, 48);
     const name = (data.author || vk?.name || "Гость").slice(0, 32);
     const remote = await sheetCall({ ...data, vkId, name });
     if (remote?.ok) {
@@ -163,7 +213,13 @@ export const yardBoard = createServerFn({ method: "POST" })
       song.music += music;
       song.orig += orig;
       song.n += 1;
+      recount(song.vk, song.author, null);
       return listMem();
+    }
+
+    if (data.action === "glory") {
+      recount(vkId, name, Math.max(0, Math.round(Number(data.frames || 0))));
+      return { ok: true, shared: false, heroes: heroRows() };
     }
 
     if (data.action === "hear") {

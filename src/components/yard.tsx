@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesButton } from "@/components/notes-shop";
-import { OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
+import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -73,6 +73,7 @@ export function Yard() {
   const [frames, setFrames] = useState(0);
   const [houseTake, setHouseTake] = useState(0);
   const [chat, setChat] = useState(false);
+  const [fame, setFame] = useState(false);
 
   useEffect(() => {
     const saved = readRoles();
@@ -128,20 +129,21 @@ export function Yard() {
         </div>
       </div>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          className="pointer-events-auto rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
-          onClick={() => setCity(true)}
-        >
-          В город
-        </button>
-        <button
-          type="button"
-          className="pointer-events-auto rounded-full bg-black/45 px-3 py-1 text-sm text-white"
-          onClick={() => setChat(true)}
-        >
-          Чат
-        </button>
+        <div className="pointer-events-auto flex gap-2">
+          <button
+            type="button"
+            className="rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
+            onClick={() => setCity(true)}
+          >
+            В город
+          </button>
+          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setChat(true)}>
+            Чат
+          </button>
+          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
+            Слава
+          </button>
+        </div>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
           <span className="text-white/70">·</span>
@@ -149,6 +151,7 @@ export function Yard() {
         </div>
       </div>
       {chat ? <YardChat onClose={() => setChat(false)} /> : null}
+      {fame ? <FameCard onClose={() => setFame(false)} /> : null}
       {house && DOORS[house] ? (
         <div className="absolute inset-0 z-20 flex flex-col bg-black">
           <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1">

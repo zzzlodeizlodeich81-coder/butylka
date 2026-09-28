@@ -5,7 +5,23 @@ import { Input } from "@/components/ui/input";
 import { useGame } from "@/lib/store";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
-import { yardBoard, type YardLine, type YardSong } from "@/lib/yard-board";
+import { yardBoard, type Hero, type YardLine, type YardSong } from "@/lib/yard-board";
+import { readFrames } from "@/lib/yard";
+
+function caller() {
+  let heroId = "guest";
+  try {
+    heroId = localStorage.getItem("yard-hero") || "";
+    if (!heroId) {
+      heroId = crypto.randomUUID();
+      localStorage.setItem("yard-hero", heroId);
+    }
+  } catch {
+    /* двор без хранилища */
+  }
+  const name = useGame.getState().players.find((p) => p.id === useGame.getState().youId)?.name || "Гость";
+  return { heroId, author: name };
+}
 
 function avg(sum: number, n: number) {
   if (!n) return "—";
@@ -44,7 +60,7 @@ export function OrganCard() {
             void (async () => {
               setBusy(true);
               try {
-                const res = await yardBoard({ data: { action: "add", kind: "draft", url, author: name } });
+                const res = await yardBoard({ data: { action: "add", kind: "draft", url, ...caller() } });
                 if (!res.ok) {
                   toast.error(res.error || "Не кинулось.");
                   return;
@@ -107,7 +123,7 @@ function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]
         className="mt-2 rounded-xl"
         onClick={() => {
           void (async () => {
-            const res = await yardBoard({ data: { action: "rate", songId: song.id, ...score } });
+            const res = await yardBoard({ data: { action: "rate", songId: song.id, ...score, ...caller() } });
             if (!res.ok) {
               toast.error(res.error || "Не зачлось.");
               return;
@@ -160,7 +176,7 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
                     return;
                   }
                 } else await refreshWallet();
-                const res = await yardBoard({ data: { action: "add", kind: "release", url, author: name } });
+                const res = await yardBoard({ data: { action: "add", kind: "release", url, ...caller() } });
                 if (!res.ok) {
                   toast.error(res.error || "Ссылка не встала.");
                   return;
@@ -187,7 +203,7 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
               className="mt-2 rounded-xl"
               onClick={() => {
                 void (async () => {
-                  const res = await yardBoard({ data: { action: "hear", songId: song.id, author: name } });
+                  const res = await yardBoard({ data: { action: "hear", songId: song.id, ...caller() } });
                   if (!res.ok) {
                     toast.error(res.error || "Не зачлось.");
                     return;
@@ -254,7 +270,7 @@ export function YardChat({ onClose }: { onClose: () => void }) {
           <Button
             onClick={() => {
               void (async () => {
-                const res = await yardBoard({ data: { action: "say", text, author: name } });
+                const res = await yardBoard({ data: { action: "say", text, ...caller() } });
                 if (!res.ok) {
                   toast.error(res.error || "Не ушло.");
                   return;
@@ -267,6 +283,63 @@ export function YardChat({ onClose }: { onClose: () => void }) {
           >
             Сказать
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function axis(sum: number, votes: number) {
+  if (!votes) return "—";
+  return (sum / votes).toFixed(1);
+}
+
+export function FameCard({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<Hero[]>([]);
+  const [shared, setShared] = useState(true);
+  const me = useWallet((s) => s.vkId) || caller().heroId;
+
+  useEffect(() => {
+    void (async () => {
+      const res = await yardBoard({ data: { action: "glory", frames: readFrames(), ...caller() } });
+      if (!res.ok) return;
+      setRows(res.heroes || []);
+      setShared(Boolean(res.shared));
+    })();
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-end bg-black/35">
+      <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-2xl text-fg">Слава</h2>
+          <Button variant="ghost" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+        <p className="text-sm text-muted">
+          Ноты и кадры — кошель. Слава — как двор оценил черновики у шарманщика. Деньги славу не покупают.
+        </p>
+        {!shared ? (
+          <p className="mt-2 text-sm text-muted">Общая таблица включится, когда обновишь скрипт. Пока лестница этого захода.</p>
+        ) : null}
+        <div className="mt-3 flex flex-col gap-2">
+          {rows.map((hero, index) => (
+            <div key={hero.vk} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm">
+              <p className="font-medium text-fg">
+                {index + 1}. {hero.name}
+                {hero.vk === me ? " · ты" : ""}
+              </p>
+              <p className="text-muted">
+                слава {hero.fame || "—"} · ноты {hero.notes} · кадры {hero.frames} · треков {hero.tracks}
+              </p>
+              <p className="text-xs text-muted">
+                хук {axis(hero.hook, hero.votes)} · текст {axis(hero.lyric, hero.votes)} · музыка {axis(hero.music, hero.votes)} · ориг.{" "}
+                {axis(hero.orig, hero.votes)} · оценок {hero.votes}
+              </p>
+            </div>
+          ))}
+          {!rows.length ? <p className="text-sm text-muted">Пока пусто. Кинь черновик шарманщику.</p> : null}
         </div>
       </div>
     </div>
