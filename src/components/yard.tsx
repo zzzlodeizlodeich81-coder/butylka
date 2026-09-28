@@ -24,15 +24,15 @@ import {
 
 type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" | "market" | "gate";
 
-const ZONES: { id: HouseId; label: string; left: string; top: string; width: string; height: string }[] = [
-  { id: "record", label: "Дом записи", left: "8%", top: "6%", width: "24%", height: "26%" },
-  { id: "factory", label: "Фабрика звука", left: "33%", top: "2%", width: "24%", height: "28%" },
-  { id: "frame", label: "Рама", left: "60%", top: "8%", width: "26%", height: "24%" },
-  { id: "atelier", label: "Мастерская художника", left: "74%", top: "30%", width: "24%", height: "22%" },
-  { id: "stage", label: "Сцена", left: "4%", top: "46%", width: "26%", height: "28%" },
-  { id: "cinema", label: "Киностудия", left: "68%", top: "54%", width: "28%", height: "28%" },
-  { id: "market", label: "Торговые ряды", left: "28%", top: "60%", width: "40%", height: "18%" },
-  { id: "gate", label: "Ворота", left: "38%", top: "78%", width: "24%", height: "18%" },
+const ZONES: { id: HouseId; label: string; left: string; top: string; width: string; height: string; sign: "top" | "bottom" }[] = [
+  { id: "record", label: "Дом записи", left: "8%", top: "6%", width: "24%", height: "26%", sign: "bottom" },
+  { id: "factory", label: "Фабрика звука", left: "33%", top: "2%", width: "24%", height: "28%", sign: "bottom" },
+  { id: "frame", label: "Рама", left: "60%", top: "8%", width: "26%", height: "24%", sign: "bottom" },
+  { id: "atelier", label: "Мастерская", left: "74%", top: "30%", width: "24%", height: "22%", sign: "bottom" },
+  { id: "stage", label: "Сцена", left: "4%", top: "46%", width: "26%", height: "28%", sign: "bottom" },
+  { id: "cinema", label: "Киностудия", left: "68%", top: "54%", width: "28%", height: "28%", sign: "top" },
+  { id: "market", label: "Торговые ряды", left: "28%", top: "60%", width: "40%", height: "18%", sign: "top" },
+  { id: "gate", label: "Ворота", left: "38%", top: "78%", width: "24%", height: "18%", sign: "top" },
 ];
 
 const DOORS: Partial<Record<HouseId, string>> = {
@@ -95,10 +95,16 @@ export function Yard() {
               key={zone.id}
               type="button"
               aria-label={zone.label}
-              className="absolute rounded-xl border border-transparent bg-transparent hover:border-white/70 hover:bg-white/10"
+              className="absolute rounded-xl border border-transparent hover:border-white/70 hover:bg-white/10"
               style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
               onClick={() => open(zone.id)}
-            />
+            >
+              <span
+                className={`pointer-events-none absolute left-1/2 max-w-[92%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium text-[#f4e4c4] shadow ${zone.sign === "top" ? "top-0.5" : "bottom-0.5"}`}
+              >
+                {zone.label}
+              </span>
+            </button>
           ))}
         </div>
       </div>
