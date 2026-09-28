@@ -3,17 +3,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesButton } from "@/components/notes-shop";
-import { renderMasteredMix } from "@/lib/audio";
-import { downloadBlob, fileNameFor, listSavedTracks, type SavedTrack } from "@/lib/library";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
 import { settleYard } from "@/lib/yard-server";
 import {
-  NOTES_PER_FRAME,
   ROLES,
-  addFrames,
   addHouseTake,
   readBoard,
   readFrames,
@@ -38,6 +34,13 @@ const ZONES: { id: HouseId; label: string; left: string; top: string; width: str
   { id: "market", label: "Торговые ряды", left: "28%", top: "60%", width: "40%", height: "18%" },
   { id: "gate", label: "Ворота", left: "38%", top: "78%", width: "24%", height: "18%" },
 ];
+
+const DOORS: Partial<Record<HouseId, string>> = {
+  factory: "https://zzzlodeizlodeich81-coder.github.io/audio-mastering/",
+  frame: "https://zzzlodeizlodeich81-coder.github.io/image-converter/",
+  atelier: "https://zzzlodeizlodeich81-coder.github.io/passport-photo-app/",
+  cinema: "https://zzzlodeizlodeich81-coder.github.io/web-editor/",
+};
 
 async function pay(notes: number, kind: "deal" | "frame") {
   const res = await settleYard({ data: { notes, kind } });
@@ -107,7 +110,20 @@ export function Yard() {
           <NotesButton />
         </div>
       </div>
-      {house ? (
+      {house && DOORS[house] ? (
+        <div className="absolute inset-0 z-20 flex flex-col bg-black">
+          <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1">
+            <button type="button" className="text-sm text-white" onClick={() => setHouse(null)}>
+              На двор
+            </button>
+            <a className="text-sm text-white/80" href={DOORS[house]} target="_blank" rel="noreferrer">
+              Открыть отдельно
+            </a>
+          </div>
+          <iframe title={ZONES.find((z) => z.id === house)?.label} src={DOORS[house]} className="min-h-0 w-full flex-1 border-0 bg-white" />
+        </div>
+      ) : null}
+      {house && !DOORS[house] ? (
         <HouseSheet
           house={house}
           roles={roles}
@@ -120,7 +136,6 @@ export function Yard() {
             writeRoles(next);
             setHouse(null);
           }}
-          onFrames={setFrames}
           onHouseTake={setHouseTake}
           onStage={() => {
             toLobby();
@@ -142,7 +157,6 @@ function HouseSheet(props: {
   notes: number;
   onClose: () => void;
   onRoles: (ids: RoleId[]) => void;
-  onFrames: (n: number) => void;
   onHouseTake: (n: number) => void;
   onStage: () => void;
   onStudio: () => void;
@@ -174,14 +188,6 @@ function HouseSheet(props: {
             <Button className="mt-3 w-full rounded-xl" onClick={props.onStudio}>
               В дом записи
             </Button>
-          </p>
-        ) : null}
-        {props.house === "factory" ? <FactoryCard /> : null}
-        {props.house === "frame" ? <FrameCard /> : null}
-        {props.house === "atelier" ? <AtelierCard frames={props.frames} notes={props.notes} onFrames={props.onFrames} /> : null}
-        {props.house === "cinema" ? (
-          <p className="text-sm leading-relaxed text-muted">
-            Киностудия ещё без станка: монтаж привезём следующим двором. Дверь уже стоит, чтобы клип из мастерской было куда нести.
           </p>
         ) : null}
         {props.house === "market" ? (
@@ -227,134 +233,6 @@ function GateCard({ roles, onSave }: { roles: RoleId[]; onSave: (ids: RoleId[]) 
         onClick={() => onSave(picked)}
       >
         Записать в книгу у ворот
-      </Button>
-    </div>
-  );
-}
-
-function FactoryCard() {
-  const [tracks, setTracks] = useState<SavedTrack[]>([]);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    void listSavedTracks().then(setTracks).catch(() => setTracks([]));
-  }, []);
-  const ready = tracks.filter((t) => t.minusBlob && t.takeBlob);
-  return (
-    <div className="text-sm leading-relaxed text-muted">
-      Мастеринг того, что уже спето: минус и голос сводятся в один файл.
-      {ready.length ? (
-        <div className="mt-3 flex flex-col gap-2">
-          {ready.map((track) => (
-            <Button
-              key={track.id}
-              variant="secondary"
-              className="rounded-xl"
-              disabled={busy}
-              onClick={() => {
-                void (async () => {
-                  if (!track.minusBlob || !track.takeBlob) return;
-                  setBusy(true);
-                  try {
-                    const mix = await renderMasteredMix(track.minusBlob, track.takeBlob, {
-                      shiftMs: track.takeShiftMs,
-                      rate: track.takeRate,
-                      volume: track.takeVolume,
-                      minusVol: track.takeMinusVol,
-                    });
-                    downloadBlob(mix, fileNameFor(track.title, "master", "audio/wav"));
-                    toast.success("Мастер скачался.");
-                  } catch {
-                    toast.error("Не свелось.");
-                  } finally {
-                    setBusy(false);
-                  }
-                })();
-              }}
-            >
-              Свести «{track.title}»
-            </Button>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-2">Пока нечего сводить. Сначала спой в доме записи.</p>
-      )}
-    </div>
-  );
-}
-
-function FrameCard() {
-  const [width, setWidth] = useState(1080);
-  const [height, setHeight] = useState(1080);
-  const [dpi, setDpi] = useState(72);
-  const [busy, setBusy] = useState(false);
-
-  async function onFile(file: File | undefined) {
-    if (!file) return;
-    setBusy(true);
-    try {
-      const bmp = await createImageBitmap(file);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(width));
-      canvas.height = Math.max(1, Math.round(height));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("canvas");
-      ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-      if (!blob) throw new Error("png");
-      const stamped = await stampPngDpi(blob, dpi);
-      downloadBlob(stamped, `rama-${canvas.width}x${canvas.height}-${dpi}dpi.png`);
-      toast.success("Лист скачался.");
-    } catch {
-      toast.error("Этот файл рама не взяла.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-2 text-sm text-muted">
-      <p>Меняет размер листа и плотность точек. Картинка остаётся у тебя.</p>
-      <div className="grid grid-cols-3 gap-2">
-        <Input type="number" value={width} onChange={(e) => setWidth(Number(e.target.value))} aria-label="Ширина" />
-        <Input type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} aria-label="Высота" />
-        <Input type="number" value={dpi} onChange={(e) => setDpi(Number(e.target.value))} aria-label="DPI" />
-      </div>
-      <label className="rounded-xl bg-accent px-3 py-3 text-center text-accent-fg">
-        {busy ? "Режу…" : "Открыть картинку"}
-        <input type="file" accept="image/*" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
-      </label>
-    </div>
-  );
-}
-
-function AtelierCard({ frames, notes, onFrames }: { frames: number; notes: number; onFrames: (n: number) => void }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="text-sm leading-relaxed text-muted">
-      Картинка и видео будут вариться здесь. Пока станок не подключён, но цена уже в кадрах: 1 кадр = {NOTES_PER_FRAME} нот.
-      У тебя {frames} кадров, на кошельке {notes} нот.
-      <Button
-        className="mt-3 w-full rounded-xl"
-        disabled={busy}
-        onClick={() => {
-          void (async () => {
-            setBusy(true);
-            try {
-              const paid = await pay(NOTES_PER_FRAME, "frame");
-              if (!paid.ok) {
-                toast.error(paid.error);
-                useWallet.getState().setShop(true);
-                return;
-              }
-              onFrames(addFrames(1));
-              toast.success("Кадр лежит у тебя. Генератор подключим следующим шагом.");
-            } finally {
-              setBusy(false);
-            }
-          })();
-        }}
-      >
-        Купить 1 кадр · {NOTES_PER_FRAME} нот
       </Button>
     </div>
   );
@@ -468,34 +346,3 @@ function MarketCard({
   );
 }
 
-async function stampPngDpi(blob: Blob, dpi: number) {
-  const ppm = Math.round((dpi / 0.0254));
-  const buf = new Uint8Array(await blob.arrayBuffer());
-  if (buf.length < 8 || buf[0] !== 137) return blob;
-  const chunk = new Uint8Array(21);
-  const view = new DataView(chunk.buffer);
-  view.setUint32(0, 9);
-  chunk[4] = 112;
-  chunk[5] = 72;
-  chunk[6] = 89;
-  chunk[7] = 115;
-  view.setUint32(8, ppm);
-  view.setUint32(12, ppm);
-  chunk[16] = 1;
-  const crc = crc32(chunk.subarray(4, 17));
-  view.setUint32(17, crc);
-  const out = new Uint8Array(buf.length + chunk.length);
-  out.set(buf.subarray(0, 8), 0);
-  out.set(chunk, 8);
-  out.set(buf.subarray(8), 8 + chunk.length);
-  return new Blob([out], { type: "image/png" });
-}
-
-function crc32(data: Uint8Array) {
-  let c = ~0;
-  for (let i = 0; i < data.length; i++) {
-    c ^= data[i] ?? 0;
-    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
-  }
-  return ~c >>> 0;
-}
