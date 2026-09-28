@@ -108,6 +108,7 @@ function doPost(e) {
   lock.waitLock(20000);
   try {
     const sheets = book();
+    if (d.op === "yard") return yardDispatch(d);
     const vkId = String(d.vkId || "");
     const name = String(d.name || "");
     if (!vkId) return json({ ok: false, error: "no vk" });
@@ -158,6 +159,122 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function yardSheet(name, header) {
+  const ss = SpreadsheetApp.getActive();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(header);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function yardRows(sheet) {
+  const last = sheet.getLastRow();
+  if (last < 2) return [];
+  return sheet.getRange(2, 1, last - 1, Math.max(sheet.getLastColumn(), 1)).getValues();
+}
+
+function yardDispatch(d) {
+  const songs = yardSheet("songs", ["id", "kind", "url", "author", "vk", "at", "hook", "lyric", "music", "orig", "n"]);
+  const rates = yardSheet("rates", ["song", "vk", "hook", "lyric", "music", "orig"]);
+  const hears = yardSheet("hears", ["song", "vk"]);
+  const chat = yardSheet("chat", ["id", "time", "vk", "name", "text"]);
+  const vkId = String(d.vkId || "guest");
+  const name = String(d.name || "Гость").slice(0, 32);
+  const action = String(d.action || "list");
+
+  function pack() {
+    const songRows = yardRows(songs);
+    const chatRows = yardRows(chat);
+    return {
+      ok: true,
+      shared: true,
+      songs: songRows.slice(-40).reverse().map(function (r) {
+        return {
+          id: String(r[0]),
+          kind: r[1] === "release" ? "release" : "draft",
+          url: String(r[2]),
+          author: String(r[3]),
+          vk: String(r[4]),
+          at: Number(r[5] || 0),
+          hook: Number(r[6] || 0),
+          lyric: Number(r[7] || 0),
+          music: Number(r[8] || 0),
+          orig: Number(r[9] || 0),
+          n: Number(r[10] || 0),
+        };
+      }),
+      chat: chatRows.slice(-30).map(function (r) {
+        return { id: String(r[0]), at: Number(r[1] || 0), name: String(r[3]), text: String(r[4]) };
+      }),
+    };
+  }
+
+  if (action === "list") return json(pack());
+
+  if (action === "add") {
+    const url = String(d.url || "").trim().slice(0, 300);
+    if (!/^https:\/\/\S+$/i.test(url)) return json({ ok: false, error: "Нужна ссылка https://…" });
+    const kind = d.kind === "release" ? "release" : "draft";
+    const id = Utilities.getUuid();
+    songs.appendRow([id, kind, url, name, vkId, Date.now(), 0, 0, 0, 0, 0]);
+    return json(pack());
+  }
+
+  if (action === "rate") {
+    const id = String(d.songId || "");
+    const hook = Math.round(Number(d.hook));
+    const lyric = Math.round(Number(d.lyric));
+    const music = Math.round(Number(d.music));
+    const orig = Math.round(Number(d.orig));
+    if (!id || [hook, lyric, music, orig].some(function (n) { return n < 1 || n > 5; })) {
+      return json({ ok: false, error: "Оценка от 1 до 5." });
+    }
+    const rateRows = yardRows(rates);
+    for (var i = 0; i < rateRows.length; i++) {
+      if (String(rateRows[i][0]) === id && String(rateRows[i][1]) === vkId) {
+        return json({ ok: false, error: "Ты уже оценил." });
+      }
+    }
+    const songRows = yardRows(songs);
+    var found = 0;
+    for (var s = 0; s < songRows.length; s++) {
+      if (String(songRows[s][0]) === id && songRows[s][1] !== "release") found = s + 2;
+    }
+    if (!found) return json({ ok: false, error: "Черновика нет." });
+    const cur = songs.getRange(found, 7, 1, 5).getValues()[0];
+    songs.getRange(found, 7, 1, 5).setValues([[Number(cur[0]) + hook, Number(cur[1]) + lyric, Number(cur[2]) + music, Number(cur[3]) + orig, Number(cur[4]) + 1]]);
+    rates.appendRow([id, vkId, hook, lyric, music, orig]);
+    return json(pack());
+  }
+
+  if (action === "hear") {
+    const id = String(d.songId || "");
+    const songRows = yardRows(songs);
+    var release = null;
+    for (var h = 0; h < songRows.length; h++) {
+      if (String(songRows[h][0]) === id && songRows[h][1] === "release") release = songRows[h];
+    }
+    if (!release) return json({ ok: false, error: "Песни нет." });
+    if (String(release[4]) === vkId) return json({ ok: false, error: "Своя песня нот не даёт." });
+    const hearRows = yardRows(hears);
+    for (var j = 0; j < hearRows.length; j++) {
+      if (String(hearRows[j][0]) === id && String(hearRows[j][1]) === vkId) {
+        return json({ ok: false, error: "Уже засчитано." });
+      }
+    }
+    hears.appendRow([id, vkId]);
+    return json({ ok: true, shared: true, credit: 0.5 });
+  }
+
+  const text = String(d.text || "").trim().slice(0, 200);
+  if (!text) return json({ ok: false, error: "Пусто." });
+  chat.appendRow([Utilities.getUuid(), Date.now(), vkId, name, text]);
+  return json(pack());
 }
 
 function doGet() {

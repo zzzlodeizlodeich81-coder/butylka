@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesButton } from "@/components/notes-shop";
+import { OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -22,7 +23,7 @@ import {
   type RoleId,
 } from "@/lib/yard";
 
-type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" | "market" | "gate";
+type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" | "market" | "gate" | "organ";
 type SpotId = "yard" | "sferoom" | "needle" | "yourtunes" | "kadr";
 
 const ZONES: { id: HouseId; label: string; left: string; top: string; width: string; height: string; sign: "top" | "bottom" }[] = [
@@ -32,6 +33,7 @@ const ZONES: { id: HouseId; label: string; left: string; top: string; width: str
   { id: "atelier", label: "Мастерская", left: "74%", top: "30%", width: "24%", height: "22%", sign: "bottom" },
   { id: "stage", label: "Сцена", left: "4%", top: "46%", width: "26%", height: "28%", sign: "bottom" },
   { id: "cinema", label: "Киностудия", left: "68%", top: "54%", width: "28%", height: "28%", sign: "top" },
+  { id: "organ", label: "Шарманщик", left: "50%", top: "34%", width: "16%", height: "22%", sign: "bottom" },
   { id: "market", label: "Торговые ряды", left: "28%", top: "60%", width: "40%", height: "18%", sign: "top" },
   { id: "gate", label: "Ворота", left: "38%", top: "78%", width: "24%", height: "18%", sign: "top" },
 ];
@@ -70,6 +72,7 @@ export function Yard() {
   const [roles, setRoles] = useState<RoleId[]>([]);
   const [frames, setFrames] = useState(0);
   const [houseTake, setHouseTake] = useState(0);
+  const [chat, setChat] = useState(false);
 
   useEffect(() => {
     const saved = readRoles();
@@ -132,12 +135,20 @@ export function Yard() {
         >
           В город
         </button>
+        <button
+          type="button"
+          className="pointer-events-auto rounded-full bg-black/45 px-3 py-1 text-sm text-white"
+          onClick={() => setChat(true)}
+        >
+          Чат
+        </button>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
           <span className="text-white/70">·</span>
           <NotesButton />
         </div>
       </div>
+      {chat ? <YardChat onClose={() => setChat(false)} /> : null}
       {house && DOORS[house] ? (
         <div className="absolute inset-0 z-20 flex flex-col bg-black">
           <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1">
@@ -348,14 +359,8 @@ function HouseSheet(props: {
           ) : null}
         </div>
         {props.house === "gate" ? <GateCard roles={props.roles} onSave={props.onRoles} /> : null}
-        {props.house === "stage" ? (
-          <p className="text-sm leading-relaxed text-muted">
-            Стол и сцена. Балалайка выбирает, кто поёт. Песня из строк идёт плюсом — подпеваешь как дуэт.
-            <Button className="mt-3 w-full rounded-xl" onClick={props.onStage}>
-              Войти на сцену
-            </Button>
-          </p>
-        ) : null}
+        {props.house === "stage" ? <ReleaseCard onStage={props.onStage} /> : null}
+        {props.house === "organ" ? <OrganCard /> : null}
         {props.house === "record" ? (
           <p className="text-sm leading-relaxed text-muted">
             Suno, минус, стемы, кавер своим голосом. Файлы сразу на телефон.
