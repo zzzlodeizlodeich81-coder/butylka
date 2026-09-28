@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useGame } from "@/lib/store";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
-import { yardBoard, type YardLine, type YardSong } from "@/lib/yard-board.server";
+import { yardBoard, type YardLine, type YardSong } from "@/lib/yard-board";
 
 function avg(sum: number, n: number) {
   if (!n) return "—";
