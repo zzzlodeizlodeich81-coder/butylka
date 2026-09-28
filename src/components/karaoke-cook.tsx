@@ -24,7 +24,7 @@ import { objectUrlFor, listSavedTracks, saveTrack, songFromSaved, downloadBlob, 
 import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
-import { pullMinusBlobs } from "@/lib/suno-flow";
+import { pullMinusBlobs, pullSunoStemPack, zipSunoStems } from "@/lib/suno-flow";
 import { pollSunoGenerate, startSunoCover } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 import { NOTE_PRICE } from "@/lib/notes";
@@ -263,6 +263,34 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     }
   }
 
+  async function cookStems(from: SavedTrack = track) {
+    setBusy("Suno снимает стемы… пара минут");
+    try {
+      const audioUrl = isPublicHttp(from.sourceUrl)
+        ? from.sourceUrl!
+        : await hostFile(from.blob, fileNameFor(from.title, "plus", from.mime || "audio/mpeg"));
+      const stems = await pullSunoStemPack({ audioUrl });
+      if (!stems) throw new Error("Стемы не успели. Попробуй ещё раз.");
+      const packed = await zipSunoStems(from.title, stems);
+      const next = {
+        ...from,
+        sourceUrl: isPublicHttp(from.sourceUrl) ? from.sourceUrl : audioUrl,
+        minusBlob: packed.minusBlob ?? from.minusBlob,
+        vocalBlob: packed.vocalBlob ?? from.vocalBlob,
+      };
+      await persist(next);
+      void refreshWallet();
+      toast.success(`Стемы скачались архивом: ${packed.count}.`);
+    } catch (err) {
+      const rec = err && typeof err === "object" ? (err as { error?: string; needNotes?: number; message?: string }) : {};
+      toast.error(rec.error || rec.message || "Стемы не снялись.");
+      if (rec.needNotes) useWallet.getState().setShop(true);
+      void refreshWallet();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function startRecord() {
     unlockAudio();
     setKaraokeEcho(false);
@@ -479,6 +507,11 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
                 : track.minusBlob
                   ? `Переснять минус · ${NOTE_PRICE.minus}`
                   : `Снять минус через Suno · ${NOTE_PRICE.minus} нот`}
+            </Button>
+            <Button variant="secondary" onClick={() => void cookStems()} disabled={Boolean(busy)}>
+              {busy?.startsWith("Suno снимает стемы")
+                ? busy
+                : `Снять стемы · ${NOTE_PRICE.stems} нот`}
             </Button>
             <Button onClick={() => void startRecord()} disabled={Boolean(busy)}>
               {track.takeBlob ? "Перезаписать голос" : "Спеть и записать"}

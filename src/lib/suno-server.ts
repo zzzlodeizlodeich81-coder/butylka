@@ -210,21 +210,14 @@ export const pollSunoGenerate = createServerFn({ method: "GET" })
 
 export const startSunoStems = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
-  .validator((input: { taskId?: string; audioId?: string; audioUrl?: string }) => input)
+  .validator((input: { taskId?: string; audioId?: string; audioUrl?: string; kind?: "minus" | "stems" }) => input)
   .handler(async ({ data, context }) => {
-    return withNotes(context.vk, "minus", async () => {
+    const kind = data.kind === "stems" ? "stems" : "minus";
+    return withNotes(context.vk, kind, async () => {
+    const type = kind === "stems" ? "split_stem" : "separate_vocal";
     const payload = data.audioUrl
-      ? {
-          audioUrl: data.audioUrl,
-          type: "separate_vocal",
-          callBackUrl: CALLBACK,
-        }
-      : {
-          taskId: data.taskId,
-          audioId: data.audioId,
-          type: "separate_vocal",
-          callBackUrl: CALLBACK,
-        };
+      ? { audioUrl: data.audioUrl, type, callBackUrl: CALLBACK }
+      : { taskId: data.taskId, audioId: data.audioId, type, callBackUrl: CALLBACK };
     const { body, res } = await sunoFetch("/api/v1/vocal-removal/generate", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -232,7 +225,7 @@ export const startSunoStems = createServerFn({ method: "POST" })
     const code = Number(body.code ?? res.status);
     const stemTaskId = pick<string>(body.data as Record<string, unknown>, "taskId", "task_id");
     if (code !== 200 || !stemTaskId) {
-      return { ok: false as const, error: String(body.msg ?? `Suno минус: ${code}`) };
+      return { ok: false as const, error: String(body.msg ?? `Suno стемы: ${code}`) };
     }
     return { ok: true as const, taskId: stemTaskId };
     });
@@ -319,7 +312,26 @@ export const pollSunoStems = createServerFn({ method: "GET" })
       vocalHit?.audio_url ??
       vocalHit?.audioUrl ??
       null;
-    const ready = n === 1 || /SUCCESS|COMPLETE/i.test(flag) || Boolean(instrumentalUrl);
+    const stemFields: [string, string, string][] = [
+      ["instrumentalUrl", "instrumental_url", "минус"],
+      ["vocalUrl", "vocal_url", "вокал"],
+      ["backingVocalsUrl", "backing_vocals_url", "бэк"],
+      ["drumsUrl", "drums_url", "барабаны"],
+      ["bassUrl", "bass_url", "бас"],
+      ["guitarUrl", "guitar_url", "гитара"],
+      ["keyboardUrl", "keyboard_url", "клавиши"],
+      ["percussionUrl", "percussion_url", "перкуссия"],
+      ["stringsUrl", "strings_url", "струнные"],
+      ["synthUrl", "synth_url", "синт"],
+      ["fxUrl", "fx_url", "эффекты"],
+      ["brassUrl", "brass_url", "медь"],
+      ["woodwindsUrl", "woodwinds_url", "дерево"],
+    ];
+    const stems = stemFields.flatMap(([camel, snake, label]) => {
+      const url = pick<string>(response, camel, snake) ?? pick<string>(info, camel, snake) ?? pick<string>(outer, camel, snake);
+      return url ? [{ id: snake.replace(/_url$/, ""), label, url }] : [];
+    });
+    const ready = n === 1 || /SUCCESS|COMPLETE/i.test(flag) || stems.length > 0;
     const errorMessage = String(
       pick(outer, "errorMessage", "error_message") ?? pick(response, "errorMessage") ?? "",
     );
@@ -330,6 +342,7 @@ export const pollSunoStems = createServerFn({ method: "GET" })
       ready,
       instrumentalUrl,
       vocalUrl,
+      stems,
       errorMessage,
     };
   });

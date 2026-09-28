@@ -8,6 +8,7 @@
  *   SunoAPI V5_5 generate  ~ $0.15  (2 clips, ~80s)
  *   lyrics                 ~ $0.03
  *   minus (separate_vocal) ~ $0.10
+ *   stems (split_stem)     ~ $0.50  (50 credits, ~5× minus)
  *   cover                  ~ $0.15
  *   timestamps             bundled with generate
  *
@@ -17,12 +18,13 @@
  */
 export const NOTES_PER_VOTE = 10;
 
-export type PaidKind = "lyrics" | "generate" | "minus" | "cover";
+export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover";
 
 export const NOTE_PRICE: Record<PaidKind, number> = {
   lyrics: 10,
   generate: 50,
   minus: 30,
+  stems: 140,
   cover: 50,
 };
 
@@ -30,6 +32,7 @@ export const NOTE_LABEL: Record<PaidKind, string> = {
   lyrics: "Стихи Suno",
   generate: "Сварить трек",
   minus: "Снять минус",
+  stems: "Стемы",
   cover: "Кавер",
 };
 
@@ -44,7 +47,7 @@ export type NotePack = {
 export const NOTE_PACKS: NotePack[] = [
   { id: "pack_30", notes: 30, votes: 3, title: "30 нот", hint: "минус или стихи" },
   { id: "pack_80", notes: 80, votes: 8, title: "80 нот", hint: "трек + минус" },
-  { id: "pack_160", notes: 160, votes: 16, title: "160 нот", hint: "два трека" },
+  { id: "pack_160", notes: 160, votes: 16, title: "160 нот", hint: "стемы или два трека" },
   { id: "pack_400", notes: 400, votes: 40, title: "400 нот", hint: "стол на вечер" },
 ];
 

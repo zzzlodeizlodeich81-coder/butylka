@@ -19,7 +19,7 @@ import {
 import { linesFromPlain, looksLikeLrc, parseLrc } from "@/lib/lyrics-sync";
 import { cookCost, NOTE_PRICE } from "@/lib/notes";
 import { linesFromAligned, proxyAudio } from "@/lib/suno";
-import { pullMinusBlobs, pullSunoAligned } from "@/lib/suno-flow";
+import { pullMinusBlobs, pullSunoAligned, pullSunoStemPack, zipSunoStems } from "@/lib/suno-flow";
 import { prepareKaraokeTrack, takeAudioFile } from "@/lib/stems";
 import { useGame } from "@/lib/store";
 import {
@@ -125,7 +125,7 @@ export function BringSong() {
     return next.find((t) => t.id === saved.id) ?? saved;
   }
 
-  async function addFromSuno() {
+  async function addFromSuno(withStems = false) {
     if (tracks.length >= LIBRARY_MAX) {
       toast.error(`Уже ${LIBRARY_MAX} треков. Убери один.`);
       return;
@@ -163,16 +163,24 @@ export function BringSong() {
         lines: timedLines(lyrics.trim() || hit.lyrics, duration || hit.duration),
         sourceUrl: hit.audioUrl,
       };
-      toast.message("Снимаю минус…");
-      const pulled = await pullMinusBlobs({ audioUrl: hit.audioUrl });
-      if (pulled) {
-        saved.minusBlob = pulled.minusBlob;
-        saved.vocalBlob = pulled.vocalBlob ?? saved.vocalBlob;
-        saved.sourceUrl = pulled.instrumentalUrl;
+      toast.message(withStems ? "Снимаю стемы… пара минут" : "Снимаю минус…");
+      if (withStems) {
+        const stems = await pullSunoStemPack({ audioUrl: hit.audioUrl });
+        if (!stems) throw new Error("Стемы не успели. Попробуй ещё раз.");
+        const packed = await zipSunoStems(saved.title, stems);
+        saved.minusBlob = packed.minusBlob ?? saved.minusBlob;
+        saved.vocalBlob = packed.vocalBlob ?? saved.vocalBlob;
+      } else {
+        const pulled = await pullMinusBlobs({ audioUrl: hit.audioUrl });
+        if (pulled) {
+          saved.minusBlob = pulled.minusBlob;
+          saved.vocalBlob = pulled.vocalBlob ?? saved.vocalBlob;
+          saved.sourceUrl = pulled.instrumentalUrl;
+        }
       }
       const next = await persist(saved);
       setSunoUrl("");
-      toast.success(pulled ? "Плюс и минус скачались. Можно петь." : "С Suno в студии. Минус можно снять ещё раз.");
+      toast.success(withStems ? "Плюс и стемы скачались архивом." : saved.minusBlob ? "Плюс и минус скачались. Можно петь." : "С Suno в студии. Минус можно снять ещё раз.");
       playUiTick();
       setDesk("home");
       setStudio(next);
@@ -444,7 +452,7 @@ export function BringSong() {
             <span>
               <span className="block font-medium text-fg">Забрать с Suno</span>
               <span className="mt-1 block text-sm text-muted">
-                Ссылка suno.com/song/… Скачается файл, снимем минус, можно петь. {NOTE_PRICE.minus} нот.
+                Ссылка suno.com/song/… Плюс, минус или полный набор стемов.
               </span>
             </span>
           </button>
@@ -501,8 +509,11 @@ export function BringSong() {
             onChange={(e) => setSunoUrl(e.target.value)}
           />
           <Input placeholder="Название, если хочешь своё" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Button type="button" className="rounded-xl" onClick={() => void addFromSuno()} disabled={Boolean(busy)}>
-            {busy === "suno" ? "Забираю с Suno… минус следом" : `Забрать плюс и минус · ${NOTE_PRICE.minus} нот`}
+          <Button type="button" className="rounded-xl" onClick={() => void addFromSuno(false)} disabled={Boolean(busy)}>
+            {busy === "suno" ? "Забираю с Suno…" : `Забрать плюс и минус · ${NOTE_PRICE.minus} нот`}
+          </Button>
+          <Button type="button" variant="secondary" className="rounded-xl" onClick={() => void addFromSuno(true)} disabled={Boolean(busy)}>
+            {busy === "suno" ? "Забираю стемы…" : `Забрать плюс и стемы · ${NOTE_PRICE.stems} нот`}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setDesk("home")}>
             К студии

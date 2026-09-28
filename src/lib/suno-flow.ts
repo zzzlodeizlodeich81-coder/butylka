@@ -1,4 +1,6 @@
 import { proxyAudio, type AlignedWord } from "@/lib/suno";
+import { downloadBlob } from "@/lib/library";
+import { zipStore } from "@/lib/zip";
 import { getSunoTimestamps, pollSunoStems, startSunoStems } from "@/lib/suno-server";
 
 function sleep(ms: number, live?: () => boolean) {
@@ -45,6 +47,48 @@ export async function pullSunoMinus(
     }
   }
   return null;
+}
+
+export type SunoStem = { id: string; label: string; url: string };
+
+export async function pullSunoStemPack(
+  input: { taskId?: string; audioId?: string; audioUrl?: string },
+  live: () => boolean = () => true,
+): Promise<SunoStem[] | null> {
+  const started = await startSunoStems({ data: { ...input, kind: "stems" } });
+  if (!started.ok) {
+    const err = new Error(started.error || "Не вышло снять стемы.");
+    (err as Error & { needNotes?: number }).needNotes = (started as { needNotes?: number }).needNotes;
+    throw err;
+  }
+  for (let i = 0; i < 40 && live(); i++) {
+    await sleep(4000, live);
+    if (!live()) return null;
+    const st = await pollSunoStems({ data: { taskId: started.taskId } });
+    if (st.failed) throw new Error(st.errorMessage || "Suno не снял стемы.");
+    if (st.stems.length && /SUCCESS|COMPLETE/i.test(st.status)) return st.stems;
+  }
+  return null;
+}
+
+export async function zipSunoStems(title: string, stems: SunoStem[]) {
+  const files: { name: string; data: Uint8Array }[] = [];
+  let minusBlob: Blob | undefined;
+  let vocalBlob: Blob | undefined;
+  for (const stem of stems) {
+    const res = await fetch(proxyAudio(stem.url));
+    if (!res.ok) continue;
+    const raw = new Uint8Array(await res.arrayBuffer());
+    if (raw.byteLength < 1000) continue;
+    files.push({ name: `${stem.label}.mp3`, data: raw });
+    const blob = new Blob([raw], { type: "audio/mpeg" });
+    if (stem.id === "instrumental") minusBlob = blob;
+    if (stem.id === "vocal") vocalBlob = blob;
+  }
+  if (!files.length) throw new Error("Suno не отдал ни одного стема.");
+  const slug = title.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 42) || "track";
+  downloadBlob(zipStore(files), `${slug}-stems.zip`);
+  return { count: files.length, minusBlob, vocalBlob };
 }
 
 export async function pullMinusBlobs(
