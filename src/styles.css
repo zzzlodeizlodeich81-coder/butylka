@@ -67,4 +67,24 @@
   html {
     scroll-behavior: auto;
   }
+  .manor-ghost {
+    animation: none;
+    opacity: 0.2;
+  }
+}
+
+@keyframes manor-ghost {
+  0%,
+  100% {
+    opacity: 0.04;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.manor-ghost {
+  mix-blend-mode: screen;
+  animation: manor-ghost 6.5s ease-in-out infinite;
+  mask-image: linear-gradient(90deg, #000 0%, #000 42%, transparent 58%);
 }

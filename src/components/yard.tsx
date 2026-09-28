@@ -220,7 +220,8 @@ function District({
           Во двор
         </button>
       </div>
-      {spot ? <PromoSheet spot={spot} onClose={() => onSpot(null)} /> : null}
+      {spot === "kadr" ? <Manor onClose={() => onSpot(null)} /> : null}
+      {spot && spot !== "kadr" ? <PromoSheet spot={spot} onClose={() => onSpot(null)} /> : null}
     </div>
   );
 }
@@ -264,12 +265,39 @@ function PromoSheet({ spot, onClose }: { spot: SpotId; onClose: () => void }) {
             </a>
           </div>
         ) : null}
-        {spot === "kadr" ? (
-          <p className="text-sm leading-relaxed text-muted">
-            Особняк лейбла XXV Kadr. Чужая дверь сюда не ведёт — это твой дом на холме.
-          </p>
-        ) : null}
       </div>
+    </div>
+  );
+}
+
+function Manor({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="absolute inset-0 z-20 bg-black">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative h-full max-h-full w-full" style={{ aspectRatio: "16 / 9" }}>
+          <img src="/manor.jpg" alt="" className="h-full w-full object-contain" />
+          <img src="/manor.jpg" alt="" className="manor-ghost pointer-events-none absolute inset-0 h-full w-full object-contain" />
+          <a
+            href="https://vk.ru/club236941413"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Стол, группа XXV Kadr"
+            className="absolute rounded-xl hover:bg-white/10"
+            style={{ left: "50%", top: "46%", width: "46%", height: "40%" }}
+          >
+            <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-[11px] font-medium text-[#f4e4c4]">
+              Стол
+            </span>
+          </a>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))] text-sm text-white"
+        onClick={onClose}
+      >
+        <span className="rounded-full bg-black/45 px-3 py-1">На карту</span>
+      </button>
     </div>
   );
 }
