@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,33 @@ import {
 
 type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" | "market" | "gate" | "organ";
 type SpotId = "yard" | "sferoom" | "needle" | "yourtunes" | "kadr";
+
+function MapStage({
+  src,
+  alt,
+  top,
+  children,
+}: {
+  src: string;
+  alt: string;
+  top: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="absolute inset-x-0 bottom-0 flex items-center justify-center [container-type:size]"
+      style={{ top }}
+    >
+      <div
+        className="relative"
+        style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}
+      >
+        <img src={src} alt={alt} className="absolute inset-0 h-full w-full object-fill" />
+        {children}
+      </div>
+    </div>
+  );
+}
 
 const ZONES: { id: HouseId; label: string; left: string; top: string; width: string; height: string; sign: "top" | "bottom" }[] = [
   { id: "record", label: "Дом записи", left: "8%", top: "6%", width: "24%", height: "26%", sign: "bottom" },
@@ -74,6 +101,7 @@ export function Yard() {
   const [houseTake, setHouseTake] = useState(0);
   const [chat, setChat] = useState(false);
   const [fame, setFame] = useState(false);
+  const [splash, setSplash] = useState(true);
 
   useEffect(() => {
     const saved = readRoles();
@@ -107,9 +135,7 @@ export function Yard() {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#24301c]">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative h-full max-h-full w-full" style={{ aspectRatio: "16 / 9" }}>
-          <img src="/yard.jpg" alt="Двор" className="h-full w-full object-contain" />
+      <MapStage src="/yard.jpg" alt="Двор" top="max(3.2rem, calc(env(safe-area-inset-top) + 2.6rem))">
           {ZONES.map((zone) => (
             <button
               key={zone.id}
@@ -126,8 +152,7 @@ export function Yard() {
               </span>
             </button>
           ))}
-        </div>
-      </div>
+      </MapStage>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex gap-2">
           <button
@@ -152,6 +177,11 @@ export function Yard() {
       </div>
       {chat ? <YardChat onClose={() => setChat(false)} /> : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
+      {splash ? (
+        <button type="button" className="absolute inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
+          <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
+        </button>
+      ) : null}
       {house && DOORS[house] ? (
         <div className="absolute inset-0 z-20 flex flex-col bg-black">
           <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1">
@@ -210,9 +240,7 @@ function District({
 }) {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#1c2430]">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative h-full max-h-full w-full" style={{ aspectRatio: "16 / 9" }}>
-          <img src="/district.jpg" alt="Город" className="h-full w-full object-contain" />
+      <MapStage src="/district.jpg" alt="Город" top="max(2.8rem, calc(env(safe-area-inset-top) + 2.2rem))">
           {CITY.map((zone) => (
             <button
               key={zone.id}
@@ -227,8 +255,7 @@ function District({
               </span>
             </button>
           ))}
-        </div>
-      </div>
+      </MapStage>
       <div className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onYard}>
           Во двор

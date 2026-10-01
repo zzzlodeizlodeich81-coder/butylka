@@ -4,7 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Балалаечка";
+const APP_NAME = "XXV Kadr";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -12,14 +12,14 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "theme-color", content: "#f4efe6" },
+      { name: "theme-color", content: "#0c0708" },
       {
         name: "description",
-        content: "Караоке за столом: свои треки, балалайка выбирает кто поёт.",
+        content: "XXV Kadr: двор, где варят треки, поют и торгуют нотами.",
       },
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/jpeg", href: "/xxv-kadr.jpg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
