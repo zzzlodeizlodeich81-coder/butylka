@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getRequest } from "@tanstack/react-start/server";
 
-type Row = { id: string; name: string; notes: number };
+type Row = { id: string; name: string; notes: number; photo?: string };
 type Book = { rows: Row[] };
 
 const DOOR = "kadr_door";
@@ -79,6 +79,23 @@ async function writeBook(book: Book) {
 export async function listPurse() {
   const book = await readBook();
   return book.rows.map((row) => ({ id: row.id, name: row.name, notes: row.notes }));
+}
+
+export async function peoplePurse() {
+  const book = await readBook();
+  return book.rows.map((row) => ({ id: row.id, name: row.name, photo: row.photo || "" }));
+}
+
+export async function setFace(id: string, photo: string) {
+  if (!photo.startsWith("data:image/jpeg;base64,") || photo.length > 120000) return null;
+  return locked(async () => {
+    const book = await readBook();
+    const row = book.rows.find((item) => item.id === id);
+    if (!row) return null;
+    row.photo = photo;
+    await writeBook(book);
+    return { id: row.id, photo: row.photo };
+  });
 }
 
 export async function readPurse(id: string) {

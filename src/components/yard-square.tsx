@@ -311,11 +311,183 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
   );
 }
 
+type Face = { id: string; name: string; photo: string };
+type WhisperLine = { id: string; from: string; to: string; text: string; at: number };
+
+async function postDoor(body: Record<string, unknown>) {
+  const res = await fetch("/api/door", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body),
+  });
+  return (await res.json()) as {
+    ok?: boolean;
+    error?: string;
+    me?: string;
+    people?: Face[];
+    lines?: WhisperLine[];
+  };
+}
+
+function shrinkFace(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const size = 256;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error("canvas"));
+        return;
+      }
+      const side = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      let quality = 0.72;
+      let data = canvas.toDataURL("image/jpeg", quality);
+      while (data.length > 90000 && quality > 0.4) {
+        quality -= 0.08;
+        data = canvas.toDataURL("image/jpeg", quality);
+      }
+      resolve(data);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("image"));
+    };
+    img.src = url;
+  });
+}
+
+function PrivatePane() {
+  const [people, setPeople] = useState<Face[]>([]);
+  const [me, setMe] = useState("");
+  const [withId, setWithId] = useState("");
+  const [lines, setLines] = useState<WhisperLine[]>([]);
+  const [text, setText] = useState("");
+  const mine = people.find((person) => person.id === me);
+
+  async function loadPeople() {
+    const row = await postDoor({ action: "people" });
+    if (!row.ok) {
+      toast.error(row.error || "Люди не открылись.");
+      return;
+    }
+    setMe(row.me || "");
+    setPeople(row.people || []);
+  }
+
+  async function loadThread(id: string) {
+    const row = await postDoor({ action: "thread", with: id });
+    if (row.ok) setLines(row.lines || []);
+  }
+
+  useEffect(() => {
+    void loadPeople();
+  }, []);
+
+  useEffect(() => {
+    if (!withId) return;
+    void loadThread(withId);
+    const timer = window.setInterval(() => void loadThread(withId), 5000);
+    return () => window.clearInterval(timer);
+  }, [withId]);
+
+  const others = people.filter((person) => person.id !== me);
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-3">
+        {mine?.photo ? (
+          <img src={mine.photo} alt="" className="size-12 rounded-full object-cover" />
+        ) : (
+          <span className="inline-flex size-12 items-center justify-center rounded-full bg-surface-2 text-xs text-muted">лицо</span>
+        )}
+        <label className="cursor-pointer rounded-xl bg-surface px-3 py-2 text-sm text-fg">
+          Поставить своё лицо
+          <input
+            className="hidden"
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              void (async () => {
+                try {
+                  const photo = await shrinkFace(file);
+                  const row = await postDoor({ action: "face", photo });
+                  if (!row.ok) {
+                    toast.error(row.error || "Не встало.");
+                    return;
+                  }
+                  await loadPeople();
+                } catch {
+                  toast.error("Это фото не читается.");
+                }
+              })();
+            }}
+          />
+        </label>
+      </div>
+      <div className="mb-3 flex gap-2 overflow-x-auto">
+        {others.map((person) => (
+          <button
+            key={person.id}
+            type="button"
+            className={`flex shrink-0 items-center gap-2 rounded-full border px-2 py-1 text-sm ${withId === person.id ? "border-accent bg-accent text-accent-fg" : "border-border"}`}
+            onClick={() => setWithId(person.id)}
+          >
+            {person.photo ? <img src={person.photo} alt="" className="size-7 rounded-full object-cover" /> : null}
+            {person.name}
+          </button>
+        ))}
+        {others.length === 0 ? <p className="text-sm text-muted">Пока ты тут один. Личный разговор появится, когда зайдёт второй.</p> : null}
+      </div>
+      {withId ? (
+        <>
+          <div className="flex max-h-52 flex-col gap-1 overflow-auto text-sm">
+            {lines.map((line) => (
+              <p key={line.id} className={line.from === me ? "text-right" : ""}>
+                <span className="text-muted">{line.text}</span>
+              </p>
+            ))}
+            {lines.length === 0 ? <p className="text-sm text-muted">Это видите только вы двое.</p> : null}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Input value={text} placeholder="Только ему" onChange={(e) => setText(e.target.value)} />
+            <Button
+              onClick={() => {
+                void (async () => {
+                  const row = await postDoor({ action: "whisper", to: withId, text });
+                  if (!row.ok) {
+                    toast.error(row.error || "Не ушло.");
+                    return;
+                  }
+                  setText("");
+                  setLines(row.lines || []);
+                })();
+              }}
+            >
+              Сказать
+            </Button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function YardChat({ onClose }: { onClose: () => void }) {
-  const name = useGame((s) => s.players.find((p) => p.id === s.youId)?.name || "Гость");
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
   const [shared, setShared] = useState(true);
+  const [tab, setTab] = useState<"yard" | "private">("yard");
 
   async function pull() {
     const row = await loadBoard();
@@ -331,11 +503,22 @@ export function YardChat({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
       <div className="max-h-[70%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-2xl text-fg">Чат двора</h2>
+          <h2 className="font-display text-2xl text-fg">Чат</h2>
           <Button variant="ghost" onClick={onClose}>
             Закрыть
           </Button>
         </div>
+        <div className="mb-3 flex gap-2">
+          <Button variant={tab === "yard" ? "default" : "secondary"} className="rounded-xl" onClick={() => setTab("yard")}>
+            Двор
+          </Button>
+          <Button variant={tab === "private" ? "default" : "secondary"} className="rounded-xl" onClick={() => setTab("private")}>
+            Лично
+          </Button>
+        </div>
+        {tab === "private" ? <PrivatePane /> : null}
+        {tab === "yard" ? (
+          <>
         {!shared ? <p className="mb-2 text-sm text-muted">Общий чат включится, когда обновишь скрипт таблицы. Пока реплики только на этом заходе.</p> : null}
         <div className="flex max-h-64 flex-col gap-1 overflow-auto text-sm">
           {lines.map((line) => (
@@ -364,6 +547,8 @@ export function YardChat({ onClose }: { onClose: () => void }) {
             Сказать
           </Button>
         </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesButton } from "@/components/notes-shop";
 import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
+import { Guide } from "@/components/guide";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -103,6 +104,7 @@ export function Yard() {
   const [chat, setChat] = useState(false);
   const [fame, setFame] = useState(false);
   const [splash, setSplash] = useState(true);
+  const [guide, setGuide] = useState(false);
 
   useEffect(() => {
     const saved = readRoles();
@@ -110,6 +112,11 @@ export function Yard() {
     setFrames(readFrames());
     setHouseTake(readHouseTake());
     if (!saved.length) setHouse("gate");
+    try {
+      if (!localStorage.getItem("kadr-guide")) setGuide(true);
+    } catch {
+      /* без памяти проводник просто молчит */
+    }
   }, []);
 
   function open(id: HouseId) {
@@ -182,6 +189,18 @@ export function Yard() {
         <button type="button" className="absolute inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
           <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
         </button>
+      ) : null}
+      {!splash && guide ? (
+        <Guide
+          onDone={() => {
+            try {
+              localStorage.setItem("kadr-guide", "1");
+            } catch {
+              /* и так закроется */
+            }
+            setGuide(false);
+          }}
+        />
       ) : null}
       {house && DOORS[house] ? (
         <div className="absolute inset-0 z-20 flex flex-col bg-black">

@@ -12,15 +12,28 @@ import {
   guestToken,
   joinPurse,
   listPurse,
+  peoplePurse,
   readPurse,
   setCookie,
+  setFace,
 } from "@/lib/purse.server";
+import { postWhisper, threadFor } from "@/lib/mail.server";
 
 export const Route = createFileRoute("/api/door")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { action?: string; password?: string; name?: string; id?: string; amount?: number } = {};
+        let body: {
+          action?: string;
+          password?: string;
+          name?: string;
+          id?: string;
+          amount?: number;
+          photo?: string;
+          to?: string;
+          text?: string;
+          with?: string;
+        } = {};
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -67,6 +80,32 @@ export const Route = createFileRoute("/api/door")({
           }
           const players = await listPurse();
           return Response.json({ ok: true, players });
+        }
+
+        if (body.action === "people" || body.action === "face" || body.action === "whisper" || body.action === "thread") {
+          if (!doorFromRequest(request)) {
+            return Response.json({ ok: false, error: "Сначала зайди во двор." }, { status: 401 });
+          }
+          const guest = guestFromRequest(request);
+          if (!guest) return Response.json({ ok: false, error: "Сначала назовись." }, { status: 401 });
+          if (body.action === "people") {
+            return Response.json({ ok: true, me: guest.id, people: await peoplePurse() });
+          }
+          if (body.action === "face") {
+            const saved = await setFace(guest.id, body.photo || "");
+            if (!saved) return Response.json({ ok: false, error: "Лицо не встало. Возьми фото поменьше." }, { status: 400 });
+            return Response.json({ ok: true });
+          }
+          const other = body.action === "whisper" ? body.to || "" : body.with || "";
+          const people = await peoplePurse();
+          if (!people.some((person) => person.id === other)) {
+            return Response.json({ ok: false, error: "Такого человека нет." }, { status: 400 });
+          }
+          if (body.action === "whisper") {
+            const sent = await postWhisper(guest.id, other, body.text || "");
+            if (!sent) return Response.json({ ok: false, error: "Пусто." }, { status: 400 });
+          }
+          return Response.json({ ok: true, lines: await threadFor(guest.id, other) });
         }
 
         return Response.json({ ok: false, error: "Не понял." }, { status: 400 });
