@@ -16,6 +16,9 @@ export const Route = createFileRoute("/api/vk-session")({
         let vkId = launch?.vkId ?? "";
         let name = (body.name ?? launch?.name ?? "").slice(0, 40);
         if (!vkId) {
+          if (process.env.DOOR_PASSWORD?.trim()) {
+            return Response.json({ ok: false, error: "Вход через калитку." }, { status: 401 });
+          }
           if (process.env.VERCEL || vkConfigured() || process.env.DATABASE_URL?.trim()) {
             return Response.json({ ok: false, error: "Нужен вход через VK." }, { status: 401 });
           }

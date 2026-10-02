@@ -12,6 +12,7 @@ import { useGame } from "@/lib/store";
 import { armAudioGestures, setMixer, unlockAudio } from "@/lib/audio";
 import { bootVk } from "@/lib/vk/boot";
 import { Yard } from "@/components/yard";
+import { DoorGate } from "@/components/door-gate";
 
 function Shell() {
   const phase = useGame((s) => s.phase);
@@ -74,9 +75,9 @@ export function App() {
   }, []);
 
   return (
-    <>
+    <DoorGate>
       <Shell />
       <NotesShop />
-    </>
+    </DoorGate>
   );
 }

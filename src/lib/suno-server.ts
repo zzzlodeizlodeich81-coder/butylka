@@ -81,7 +81,22 @@ async function withNotes<T extends { ok: boolean }>(
   kind: PaidKind,
   run: () => Promise<T>,
 ): Promise<T | { ok: false; error: string; needNotes: number; notes: number }> {
-  if (!vk) {
+  if (!vk || process.env.DOOR_PASSWORD?.trim()) {
+    if (process.env.DOOR_PASSWORD?.trim()) {
+      const { currentGuest, spendPurse, addPurse } = await import("@/lib/purse.server");
+      const guest = currentGuest();
+      if (!guest) return { ok: false, error: "Сначала войди во двор.", needNotes: NOTE_PRICE[kind], notes: 0 };
+      const paid = await spendPurse(guest.id, NOTE_PRICE[kind]);
+      if (!paid.ok) return { ok: false, error: paid.error, needNotes: NOTE_PRICE[kind], notes: paid.notes };
+      try {
+        const result = await run();
+        if (!result.ok) await addPurse(guest.id, NOTE_PRICE[kind]);
+        return result;
+      } catch (error) {
+        await addPurse(guest.id, NOTE_PRICE[kind]);
+        throw error;
+      }
+    }
     return run();
   }
   const { refundNotes, spendNotes } = await import("@/lib/notes-db.server");

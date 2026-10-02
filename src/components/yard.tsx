@@ -82,7 +82,8 @@ async function pay(notes: number, kind: "deal" | "frame") {
     game.spendNotes(game.youId, notes);
     return { ok: true as const, notes: you.notes - notes };
   }
-  await refreshWallet();
+  if (typeof res.notes === "number") useWallet.getState().apply({ notes: res.notes });
+  else await refreshWallet();
   return res;
 }
 

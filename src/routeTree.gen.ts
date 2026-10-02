@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiDoorRouteImport } from './routes/api/door'
 import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
 import { Route as ApiSunoAudioRouteImport } from './routes/api/suno-audio'
 import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
@@ -19,6 +20,11 @@ import { Route as ApiVkSessionRouteImport } from './routes/api/vk-session'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDoorRoute = ApiDoorRouteImport.update({
+  id: '/api/door',
+  path: '/api/door',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHostAudioRoute = ApiHostAudioRouteImport.update({
@@ -49,6 +55,7 @@ const ApiVkSessionRoute = ApiVkSessionRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/door': typeof ApiDoorRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/door': typeof ApiDoorRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/door': typeof ApiDoorRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
@@ -76,6 +85,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/door'
     | '/api/host-audio'
     | '/api/suno-audio'
     | '/api/suno-hook'
@@ -84,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/door'
     | '/api/host-audio'
     | '/api/suno-audio'
     | '/api/suno-hook'
@@ -92,6 +103,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api/door'
     | '/api/host-audio'
     | '/api/suno-audio'
     | '/api/suno-hook'
@@ -101,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiDoorRoute: typeof ApiDoorRoute
   ApiHostAudioRoute: typeof ApiHostAudioRoute
   ApiSunoAudioRoute: typeof ApiSunoAudioRoute
   ApiSunoHookRoute: typeof ApiSunoHookRoute
@@ -115,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/door': {
+      id: '/api/door'
+      path: '/api/door'
+      fullPath: '/api/door'
+      preLoaderRoute: typeof ApiDoorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/host-audio': {
@@ -157,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiDoorRoute: ApiDoorRoute,
   ApiHostAudioRoute: ApiHostAudioRoute,
   ApiSunoAudioRoute: ApiSunoAudioRoute,
   ApiSunoHookRoute: ApiSunoHookRoute,

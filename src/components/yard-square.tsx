@@ -175,6 +175,8 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
                     toast.error("Нужно 2 ноты.");
                     return;
                   }
+                } else if (typeof paid.notes === "number") {
+                  useWallet.getState().apply({ notes: paid.notes });
                 } else await refreshWallet();
                 const res = await yardBoard({ data: { action: "add", kind: "release", url, ...caller() } });
                 if (!res.ok) {
