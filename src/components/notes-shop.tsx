@@ -69,6 +69,15 @@ export function NotesShop() {
             {NOTE_LABEL.grok} — {NOTE_PRICE.grok} нот
           </li>
           <li>
+            {NOTE_LABEL.video5} — {NOTE_PRICE.video5} нот
+          </li>
+          <li>
+            {NOTE_LABEL.video10} — {NOTE_PRICE.video10} нот
+          </li>
+          <li>
+            {NOTE_LABEL.video15} — {NOTE_PRICE.video15} нот
+          </li>
+          <li>
             {NOTE_LABEL.stems} — {NOTE_PRICE.stems} нот
           </li>
           <li>Стихи + два трека + минус — {cookCost()} нот</li>

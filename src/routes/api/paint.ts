@@ -65,13 +65,13 @@ async function grokImage(prompt: string, aspect: string) {
     Prefer: "wait",
   };
   const input = { prompt, aspect_ratio: aspect === "16:9" || aspect === "9:16" ? aspect : "1:1" };
-  let run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-image-2/predictions", {
+  let run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-image/predictions", {
     method: "POST",
     headers,
     body: JSON.stringify({ input }),
   });
   if (run.status === 422) {
-    run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-image-2/predictions", {
+    run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-image/predictions", {
       method: "POST",
       headers,
       body: JSON.stringify({ input: { prompt } }),

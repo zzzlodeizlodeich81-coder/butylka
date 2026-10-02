@@ -11,12 +11,15 @@
  *   минус     10 кр.   4.8 ₽  → 2 голоса (14 ₽)
  *   кавер     12 кр.   5.7 ₽  → 3 голоса (21 ₽)
  *   стемы     50 кр.  23.8 ₽  → 11 голосов (77 ₽)
- *   grok      ~$0.05   ~5 ₽  → 3 голоса (21 ₽), наценка как у допов
+ *   grok      $0.02    ~2 ₽   → 2 голоса (14 ₽), старая цена картинки
+ *   ролик 5с  $0.05/с  ~24 ₽  → 6 голосов (42 ₽), 480p
+ *   ролик 10с          ~48 ₽  → 11 голосов (77 ₽)
+ *   ролик 15с          ~71 ₽  → 16 голосов (112 ₽)
  * Тайминги (0.5 кр.) в цену генерации не входят отдельно.
  */
 export const NOTES_PER_VOTE = 10;
 
-export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover" | "grok";
+export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover" | "grok" | "video5" | "video10" | "video15";
 
 export const NOTE_PRICE: Record<PaidKind, number> = {
   lyrics: 10,
@@ -24,7 +27,10 @@ export const NOTE_PRICE: Record<PaidKind, number> = {
   minus: 20,
   stems: 110,
   cover: 30,
-  grok: 30,
+  grok: 20,
+  video5: 60,
+  video10: 110,
+  video15: 160,
 };
 
 export const NOTE_LABEL: Record<PaidKind, string> = {
@@ -34,6 +40,9 @@ export const NOTE_LABEL: Record<PaidKind, string> = {
   stems: "Стемы",
   cover: "Кавер",
   grok: "Картинка Grok",
+  video5: "Ролик 5 сек",
+  video10: "Ролик 10 сек",
+  video15: "Ролик 15 сек",
 };
 
 export type NotePack = {
@@ -53,6 +62,12 @@ export const NOTE_PACKS: NotePack[] = [
 
 export function packById(id: string) {
   return NOTE_PACKS.find((p) => p.id === id) ?? null;
+}
+
+export function videoNotes(seconds: number) {
+  if (seconds <= 5) return NOTE_PRICE.video5;
+  if (seconds <= 10) return NOTE_PRICE.video10;
+  return NOTE_PRICE.video15;
 }
 
 export function cookCost() {
