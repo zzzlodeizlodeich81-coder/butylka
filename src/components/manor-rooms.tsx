@@ -66,7 +66,18 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [reels, setReels] = useState(["note", "moon", "skull"]);
   const [spinning, setSpinning] = useState(false);
   const [slotLine, setSlotLine] = useState("2 ноты");
+  const [slot, setSlot] = useState(false);
+  const [egg] = useState(() => {
+    const spots = [
+      { left: "74%", top: "62%", width: "12%", height: "16%" },
+      { left: "36%", top: "78%", width: "12%", height: "12%" },
+      { left: "48%", top: "14%", width: "10%", height: "12%" },
+      { left: "22%", top: "28%", width: "10%", height: "12%" },
+    ];
+    return spots[Math.floor(Math.random() * spots.length)];
+  });
   const done = found.length === round.length;
+  const left = round.filter((item) => !found.includes(item.id));
 
   function tap(id: string, reveal: string) {
     setLine(reveal);
@@ -83,7 +94,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
           <img src="/rooms/hunt.jpg" alt="Кладовая" className="absolute inset-0 h-full w-full object-fill" />
           <div
             className="absolute cursor-default overflow-hidden"
-            style={{ left: "1%", top: "12%", width: "16%", height: "48%" }}
+            style={{ left: "6.5%", top: "18%", width: "13%", height: "32%" }}
             onPointerEnter={() => setFace(true)}
             onPointerLeave={() => setFace(false)}
             onClick={() => setFace((on) => !on)}
@@ -91,22 +102,38 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
             <img
               src="/rooms/face.jpg"
               alt=""
-              className={`h-full w-full object-cover transition-opacity duration-300 ${face ? "opacity-90" : "opacity-0"}`}
+              className={`h-full w-full origin-center object-cover transition-opacity duration-300 ${face ? "scale-[1.9] opacity-80" : "scale-[1.9] opacity-0"}`}
             />
           </div>
-          {round.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-label={item.word}
-              className="absolute cursor-default"
-              style={{ left: item.left, top: item.top, width: item.width, height: item.height }}
-              onClick={() => tap(item.id, item.reveal)}
-            />
-          ))}
+          {round.map((item) =>
+            found.includes(item.id) ? (
+              <span
+                key={item.id}
+                className="pointer-events-none absolute rounded-full bg-[#140e0a] shadow-[0_0_12px_8px_#140e0a]"
+                style={{ left: item.left, top: item.top, width: item.width, height: item.height }}
+              />
+            ) : (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={item.word}
+                className="absolute cursor-default"
+                style={{ left: item.left, top: item.top, width: item.width, height: item.height }}
+                onClick={() => tap(item.id, item.reveal)}
+              />
+            ),
+          )}
+          <button
+            type="button"
+            aria-label="Пустое место"
+            className="absolute cursor-default"
+            style={egg}
+            onClick={() => setSlot(true)}
+          />
+          {slot ? (
           <div
-            className="absolute flex flex-col items-center rounded-md border border-[#8a7044] bg-[#1a120c]/80 px-2 py-2 text-[#f4e4c4] shadow-inner"
-            style={{ left: "70%", top: "24%", width: "26%" }}
+            className="absolute z-10 flex flex-col items-center rounded-md border border-[#8a7044] bg-[#1a120c]/95 px-2 py-2 text-[#f4e4c4] shadow-inner"
+            style={{ left: "28%", top: "34%", width: "44%" }}
           >
             <p className="text-[10px] tracking-widest text-[#c4a574]">СЛОМАН</p>
             <div className="mt-1 flex w-full gap-1">
@@ -152,13 +179,18 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
               {spinning ? "крутится" : `рычаг · ${slotLine}`}
             </button>
           </div>
+          ) : null}
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-black/70 px-3 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] text-[#f4e4c4]">
+      <div className="absolute inset-x-0 bottom-0 bg-[#2a1a0c] px-3 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] text-[#f4e4c4]">
         <p className="text-sm">{line}</p>
-        <p className="mt-1 text-xs text-white/70">
-          {round.map((item) => (found.includes(item.id) ? item.word : "···")).join("  ·  ")}
-        </p>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {left.map((item) => (
+            <span key={item.id} className="rounded-full bg-[#f4e4c4] px-2 py-0.5 text-xs text-[#2a1a0c]">
+              {item.word}
+            </span>
+          ))}
+        </div>
         <div className="mt-2 flex gap-2">
           <Button variant="secondary" className="rounded-xl" onClick={onClose}>
             В особняк
@@ -190,7 +222,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <p className="absolute top-0 left-0 max-w-[70%] px-3 pt-[max(0.6rem,env(safe-area-inset-top))] text-sm text-white">
-        <span className="rounded-full bg-black/45 px-3 py-1">Найди: {round.map((item) => item.word.toLowerCase()).join(", ")}</span>
+        <span className="rounded-full bg-black/45 px-3 py-1">Кладовая</span>
       </p>
     </div>
   );
