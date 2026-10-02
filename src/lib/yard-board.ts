@@ -1,3 +1,5 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { createServerFn } from "@tanstack/react-start";
 import { vkMiddleware } from "@/lib/vk/middleware";
 
@@ -5,6 +7,7 @@ export type YardSong = {
   id: string;
   kind: "draft" | "release";
   url: string;
+  title: string;
   author: string;
   vk: string;
   at: number;
@@ -40,6 +43,32 @@ type Mem = {
 
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
 const heroes = new Map<string, Hero>();
+let boardReady: Promise<void> | null = null;
+
+function boardFile() {
+  return join(process.cwd(), "data", "yard-board.json");
+}
+
+function loadBoardFile() {
+  boardReady ??= (async () => {
+    try {
+      const raw = JSON.parse(await readFile(boardFile(), "utf8")) as { songs?: YardSong[]; chat?: YardLine[] };
+      if (Array.isArray(raw.songs)) {
+        mem.songs = raw.songs.slice(-80).map((song) => ({ ...song, title: song.title || "" }));
+      }
+      if (Array.isArray(raw.chat)) mem.chat = raw.chat.slice(-80);
+    } catch {
+      /* доски ещё нет */
+    }
+  })();
+  return boardReady;
+}
+
+async function saveBoardFile() {
+  const path = boardFile();
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify({ songs: mem.songs, chat: mem.chat }));
+}
 
 function cleanUrl(raw: string) {
   const url = raw.trim().slice(0, 300);
@@ -141,9 +170,10 @@ export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "say" | "glory";
+      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory";
       kind?: "draft" | "release";
       url?: string;
+      title?: string;
       songId?: string;
       text?: string;
       hook?: number;
@@ -159,6 +189,7 @@ export const yardBoard = createServerFn({ method: "POST" })
     const vk = context.vk;
     const vkId = vk?.vkId || String(data.heroId || "guest").slice(0, 48);
     const name = (data.author || vk?.name || "Гость").slice(0, 32);
+    await loadBoardFile();
     const remote = await sheetCall({ ...data, vkId, name });
     if (remote?.ok) {
       if (data.action === "hear" && vk && remote.credit) {
@@ -184,6 +215,7 @@ export const yardBoard = createServerFn({ method: "POST" })
         id: crypto.randomUUID(),
         kind,
         url,
+        title: (data.title || "").replace(/\s+/g, " ").trim().slice(0, 80),
         author: name,
         vk: vkId,
         at: Date.now(),
@@ -195,6 +227,7 @@ export const yardBoard = createServerFn({ method: "POST" })
       };
       mem.songs.push(row);
       if (mem.songs.length > 80) mem.songs.shift();
+      await saveBoardFile();
       return listMem();
     }
 
@@ -214,6 +247,17 @@ export const yardBoard = createServerFn({ method: "POST" })
       song.orig += orig;
       song.n += 1;
       recount(song.vk, song.author, null);
+      await saveBoardFile();
+      return listMem();
+    }
+
+    if (data.action === "drop") {
+      const song = mem.songs.find((item) => item.id === data.songId);
+      if (!song) return { ok: false as const, error: "Ссылки уже нет." };
+      const mine = song.vk === vkId || song.author === name;
+      if (!mine) return { ok: false as const, error: "Чужую ссылку не убрать." };
+      mem.songs = mem.songs.filter((item) => item.id !== song.id);
+      await saveBoardFile();
       return listMem();
     }
 
@@ -228,6 +272,15 @@ export const yardBoard = createServerFn({ method: "POST" })
       if (song.vk === vkId) return { ok: false as const, error: "Своя песня нот не даёт." };
       const key = `${song.id}:${vkId}`;
       if (mem.hears.has(key)) return { ok: false as const, error: "Уже засчитано." };
+      if (process.env.DOOR_PASSWORD?.trim()) {
+        const { currentGuest, addPurse } = await import("@/lib/purse.server");
+        const guest = currentGuest();
+        if (!guest) return { ok: false as const, error: "Сначала войди во двор." };
+        const row = await addPurse(guest.id, 0.5);
+        if (!row) return { ok: false as const, error: "Ноты не легли." };
+        mem.hears.add(key);
+        return { ok: true, shared: false, credit: 0.5, notes: row.notes };
+      }
       mem.hears.add(key);
       if (vk) {
         try {
@@ -245,5 +298,6 @@ export const yardBoard = createServerFn({ method: "POST" })
     if (!text) return { ok: false as const, error: "Пусто." };
     mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now() });
     if (mem.chat.length > 80) mem.chat.shift();
+    await saveBoardFile();
     return listMem();
   });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,12 +138,113 @@ function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]
   );
 }
 
-export function ReleaseCard({ onStage }: { onStage: () => void }) {
-  const name = useGame((s) => s.players.find((p) => p.id === s.youId)?.name || "Гость");
-  const setYouNotes = useGame((s) => s.setYouNotes);
+function yandexFrame(url: string) {
+  try {
+    const page = new URL(url);
+    if (!/music\.yandex\./i.test(page.hostname)) return "";
+    if (page.pathname.includes("/iframe")) return url;
+    const both = page.pathname.match(/\/album\/(\d+)\/track\/(\d+)/);
+    if (both) return `https://music.yandex.ru/iframe/#track/${both[2]}/${both[1]}`;
+    const track = page.pathname.match(/\/track\/(\d+)/);
+    if (track) return `https://music.yandex.ru/iframe/#track/${track[1]}`;
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function fileTrack(url: string) {
+  return /\.(mp3|ogg|wav|m4a|aac|flac)(\?|$)/i.test(url);
+}
+
+function ReleaseRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]) => void }) {
   const youId = useGame((s) => s.youId);
+  const setYouNotes = useGame((s) => s.setYouNotes);
+  const heard = useRef({ last: 0, total: 0, paid: false });
+  const frame = yandexFrame(song.url);
+  const file = fileTrack(song.url);
+  const who = caller();
+  const mine = song.vk === who.heroId || song.author === who.author;
+
+  async function credit() {
+    if (heard.current.paid) return;
+    heard.current.paid = true;
+    const res = await yardBoard({ data: { action: "hear", songId: song.id, ...caller() } });
+    if (!res.ok) {
+      heard.current.paid = res.error === "Уже засчитано.";
+      if (res.error !== "Уже засчитано.") toast.error(res.error || "Не зачлось.");
+      return;
+    }
+    if (typeof res.notes === "number") {
+      useWallet.getState().apply({ notes: res.notes });
+      setYouNotes(res.notes);
+    } else if (res.local) {
+      const you = useGame.getState().players.find((player) => player.id === youId);
+      setYouNotes((you?.notes || 0) + 0.5);
+    }
+    toast.success("+0,5 ноты");
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface px-3 py-2">
+      <p className="font-medium text-fg">{song.author}</p>
+      <p className="text-xs">{song.title || "без названия"}</p>
+      {file ? (
+        <audio
+          className="w-full"
+          controls
+          preload="none"
+          src={song.url}
+          onTimeUpdate={(event) => {
+            const node = event.currentTarget;
+            const now = node.currentTime;
+            const delta = now - heard.current.last;
+            heard.current.last = now;
+            if (delta > 0 && delta < 1.5) heard.current.total += delta;
+            if (node.duration && heard.current.total >= Math.max(20, Math.min(node.duration * 0.7, 90))) void credit();
+          }}
+        />
+      ) : null}
+      {frame ? (
+        <iframe
+          title={song.title || song.author}
+          src={frame}
+          className="h-[180px] w-full rounded-lg border-0"
+          allow="autoplay; encrypted-media"
+        />
+      ) : null}
+      {!file && !frame ? <p className="text-xs">Эта ссылка не файл и не Яндекс. В наш плеер она не встаёт.</p> : null}
+      {frame ? (
+        <p className="text-xs">
+          Играет здесь, только у тебя. Пол-ноты за Яндекс не даём: их плеер не сообщает, дослушал ты или закрыл.
+        </p>
+      ) : null}
+      {mine ? (
+        <Button
+          variant="secondary"
+          className="w-full rounded-xl"
+          onClick={() => {
+            void (async () => {
+              const res = await yardBoard({ data: { action: "drop", songId: song.id, ...caller() } });
+              if (!res.ok) {
+                toast.error(res.error || "Не удалилось.");
+                return;
+              }
+              onDone(res.songs || []);
+            })();
+          }}
+        >
+          Удалить ссылку
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+export function ReleaseCard({ onStage }: { onStage: () => void }) {
   const [songs, setSongs] = useState<YardSong[]>([]);
   const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -152,8 +253,10 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
 
   return (
     <div className="text-sm text-muted">
-      <p>Опубликованный релиз Яндекса или ВК. Поставить — 2 ноты. Дослушать чужую — 0,5 ноты, один раз.</p>
-      <div className="mt-3 flex gap-2">
+      <p>Название и ссылка. Файл играет нашим плеером, и за него дают 0,5 ноты, если правда дослушать. Ссылка Яндекса играет тут же, в карточке, но пол-ноты за неё не приходит.</p>
+      <div className="mt-3 flex flex-col gap-2">
+        <Input placeholder="Название песни" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="flex gap-2">
         <Input placeholder="https:// ссылка на релиз" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Button
           disabled={busy}
@@ -178,12 +281,13 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
                 } else if (typeof paid.notes === "number") {
                   useWallet.getState().apply({ notes: paid.notes });
                 } else await refreshWallet();
-                const res = await yardBoard({ data: { action: "add", kind: "release", url, ...caller() } });
+                const res = await yardBoard({ data: { action: "add", kind: "release", url, title, ...caller() } });
                 if (!res.ok) {
                   toast.error(res.error || "Ссылка не встала.");
                   return;
                 }
                 setUrl("");
+                setTitle("");
                 setSongs((res.songs || []).filter((s) => s.kind === "release"));
               } finally {
                 setBusy(false);
@@ -193,37 +297,11 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
         >
           2 ноты
         </Button>
+        </div>
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {songs.map((song) => (
-          <div key={song.id} className="rounded-xl border border-border bg-surface px-3 py-2">
-            <a className="font-medium text-fg underline" href={song.url} target="_blank" rel="noreferrer">
-              {song.author}
-            </a>
-            <Button
-              variant="secondary"
-              className="mt-2 rounded-xl"
-              onClick={() => {
-                void (async () => {
-                  const res = await yardBoard({ data: { action: "hear", songId: song.id, ...caller() } });
-                  if (!res.ok) {
-                    toast.error(res.error || "Не зачлось.");
-                    return;
-                  }
-                  if (res.local) {
-                    const you = useGame.getState().players.find((p) => p.id === youId);
-                    setYouNotes((you?.notes || 0) + 0.5);
-                  } else if (typeof res.notes === "number") {
-                    useWallet.getState().apply({ notes: res.notes });
-                    setYouNotes(res.notes);
-                  } else await refreshWallet();
-                  toast.success("+0,5 ноты");
-                })();
-              }}
-            >
-              Дослушал · +0,5
-            </Button>
-          </div>
+          <ReleaseRow key={song.id} song={song} onDone={(next) => setSongs(next.filter((item) => item.kind === "release"))} />
         ))}
       </div>
       <Button className="mt-3 w-full rounded-xl" onClick={onStage}>

@@ -99,7 +99,7 @@ export async function joinPurse(name: string) {
 }
 
 export async function addPurse(id: string, amount: number) {
-  const delta = Math.round(amount);
+  const delta = Math.round(Number(amount) * 2) / 2;
   if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > 100000) return null;
   return locked(async () => {
     const book = await readBook();
