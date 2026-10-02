@@ -16,6 +16,7 @@ export type YardSong = {
   music: number;
   orig: number;
   n: number;
+  up?: number;
 };
 
 export type YardLine = { id: string; name: string; text: string; at: number };
@@ -78,6 +79,12 @@ function cleanUrl(raw: string) {
 function score(n: unknown) {
   const v = Math.round(Number(n));
   return v >= 1 && v <= 5 ? v : 0;
+}
+
+function upsOf(song: YardSong) {
+  if (typeof song.up === "number") return song.up;
+  const avg = song.n ? (song.hook + song.lyric + song.music + song.orig) / (4 * song.n) : 0;
+  return avg >= 4 ? song.n : 0;
 }
 
 async function sheetCall(body: Record<string, unknown>) {
@@ -164,17 +171,24 @@ type BoardRes = {
   notes?: number;
   credit?: number;
   local?: boolean;
+  tier?: string;
+  listens?: number;
+  ups?: number;
+  score?: number;
+  published?: boolean;
+  ready?: string[];
 };
 
 export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory";
+      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build";
       kind?: "draft" | "release";
       url?: string;
       title?: string;
       songId?: string;
+      tier?: string;
       text?: string;
       hook?: number;
       lyric?: number;
@@ -241,11 +255,16 @@ export const yardBoard = createServerFn({ method: "POST" })
       const key = `${song.id}:${vkId}`;
       if (mem.rates.has(key)) return { ok: false as const, error: "Ты уже оценил." };
       mem.rates.add(key);
+      if (typeof song.up !== "number") {
+        const prev = song.n ? (song.hook + song.lyric + song.music + song.orig) / (4 * song.n) : 0;
+        song.up = prev >= 4 ? song.n : 0;
+      }
       song.hook += hook;
       song.lyric += lyric;
       song.music += music;
       song.orig += orig;
       song.n += 1;
+      if ((hook + lyric + music + orig) / 4 >= 4) song.up += 1;
       recount(song.vk, song.author, null);
       await saveBoardFile();
       return listMem();
@@ -264,6 +283,42 @@ export const yardBoard = createServerFn({ method: "POST" })
     if (data.action === "glory") {
       recount(vkId, name, Math.max(0, Math.round(Number(data.frames || 0))));
       return { ok: true, shared: false, heroes: heroRows() };
+    }
+
+    if (data.action === "home" || data.action === "build") {
+      const { canRaise, readHome, readyTiers, writeHome } = await import("@/lib/homes.server");
+      const { HOUSES, houseById } = await import("@/lib/homes");
+      const mine = mem.songs.filter((song) => song.vk === vkId || song.author === name);
+      const drafts = mine.filter((song) => song.kind === "draft");
+      const stats = {
+        listens: drafts.reduce((sum, song) => sum + song.n, 0),
+        ups: drafts.reduce((sum, song) => sum + upsOf(song), 0),
+        score: drafts.reduce((sum, song) => sum + song.hook + song.lyric + song.music + song.orig, 0),
+        published: mine.some((song) => song.kind === "release"),
+      };
+      const ready = readyTiers(stats);
+      const current = await readHome(vkId);
+      if (data.action === "build") {
+        const next = HOUSES.find((house) => house.id === data.tier);
+        if (!next || !ready.includes(next.id)) return { ok: false as const, error: "Этот дом ещё не заработан." };
+        if (!canRaise(current, next.id)) return { ok: false as const, error: "Дом ниже того, что уже стоит." };
+        if (next.cost > 0) {
+          const { currentGuest, spendPurse } = await import("@/lib/purse.server");
+          const guest = currentGuest();
+          if (!guest) return { ok: false as const, error: "Сначала зайди во двор.", notes: 0 };
+          const paid = await spendPurse(guest.id, next.cost);
+          if (!paid.ok) return { ok: false as const, error: paid.error, notes: paid.notes };
+          await writeHome(vkId, next.id);
+          return { ok: true, tier: next.id, ...stats, ready, notes: paid.notes };
+        }
+        await writeHome(vkId, next.id);
+      }
+      return {
+        ok: true,
+        tier: (data.action === "build" ? houseById(data.tier).id : current) || undefined,
+        ...stats,
+        ready,
+      };
     }
 
     if (data.action === "hear") {

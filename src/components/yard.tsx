@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { NotesButton } from "@/components/notes-shop";
 import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
 import { Guide } from "@/components/guide";
+import { HouseCard } from "@/components/house-card";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -103,6 +104,7 @@ export function Yard() {
   const [houseTake, setHouseTake] = useState(0);
   const [chat, setChat] = useState(false);
   const [fame, setFame] = useState(false);
+  const [plot, setPlot] = useState(false);
   const [splash, setSplash] = useState(true);
   const [guide, setGuide] = useState(false);
 
@@ -162,7 +164,7 @@ export function Yard() {
           ))}
       </MapStage>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <div className="pointer-events-auto flex gap-2">
+        <div className="pointer-events-auto flex flex-wrap gap-2">
           <button
             type="button"
             className="rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
@@ -176,6 +178,9 @@ export function Yard() {
           <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
             Слава
           </button>
+          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
+            Дом
+          </button>
         </div>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
@@ -185,6 +190,7 @@ export function Yard() {
       </div>
       {chat ? <YardChat onClose={() => setChat(false)} /> : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
+      {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {splash ? (
         <button type="button" className="absolute inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
           <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
