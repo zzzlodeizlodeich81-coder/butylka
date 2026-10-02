@@ -7,36 +7,25 @@ import { useWallet } from "@/lib/wallet";
 type Find = { id: string; word: string; reveal: string; left: string; top: string };
 
 const FINDS: Find[] = [
-  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "31%", top: "80%" },
-  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "33%", top: "64%" },
-  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "52%", top: "73%" },
-  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "54%", top: "33%" },
-  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "40%", top: "65%" },
+  { id: "ship", word: "Корабль", reveal: "Кораблик в банке на левой полке.", left: "27%", top: "22%" },
+  { id: "key", word: "Ключ", reveal: "Ключ у сундука, не гаечный.", left: "33%", top: "64%" },
+  { id: "shoe", word: "Подкова", reveal: "Подкова рядом с ключом.", left: "40%", top: "65%" },
   { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "44%", top: "67%" },
-  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "48%", top: "65%" },
-  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "54%", top: "82%" },
-  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "58%", top: "80%" },
-  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "57%", top: "69%" },
-  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "35%", top: "83%" },
-  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "70%", top: "58%" },
-  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "24%", top: "36%" },
-  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "66%", top: "69%" },
-  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "49%", top: "86%" },
-  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "29%", top: "86%" },
-  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "40%", top: "81%" },
-  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "44%", top: "84%" },
-  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "45%", top: "74%" },
-  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "63%", top: "65%" },
-  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "61%", top: "77%" },
-  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "47%", top: "86%" },
-  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "32%", top: "72%" },
-  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "78%", top: "82%" },
-  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "86%", top: "85%" },
-  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "75%", top: "84%" },
-  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "62%", top: "64%" },
+  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "48%", top: "64%" },
+  { id: "brush", word: "Кисть", reveal: "Кисти в банке, не рука.", left: "52%", top: "73%" },
+  { id: "feather", word: "Перо", reveal: "Белое перо.", left: "57%", top: "69%" },
+  { id: "vulture", word: "Гриф", reveal: "Ворон на шкафу, не гриф гитары.", left: "54%", top: "34%" },
+  { id: "knight", word: "Конь", reveal: "Шахматный конь.", left: "70%", top: "58%" },
+  { id: "bottle", word: "Бутылка", reveal: "Зелёная бутылка.", left: "66%", top: "68%" },
   { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "71%", top: "78%" },
-  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "26%", top: "22%" },
-  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "28%", top: "58%" },
+  { id: "watch", word: "Часы", reveal: "Карманные часы.", left: "54%", top: "81%" },
+  { id: "card", word: "Карта", reveal: "Игральные карты.", left: "40%", top: "80%" },
+  { id: "spider", word: "Паук", reveal: "Паук у карт.", left: "44%", top: "83%" },
+  { id: "moth", word: "Моль", reveal: "Бабочка на полу.", left: "45%", top: "74%" },
+  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток справа внизу.", left: "86%", top: "84%" },
+  { id: "doll", word: "Кукла", reveal: "Кукла на сундуке.", left: "39%", top: "46%" },
+  { id: "nut", word: "Щелкунчик", reveal: "Солдат у автомата.", left: "60%", top: "42%" },
+  { id: "kettle", word: "Чайник", reveal: "Чёрный чайник.", left: "83%", top: "50%" },
 ];
 
 const GLYPH: Record<string, string> = { dust: "·", note: "♪", moon: "☾", skull: "☠", frame: "▣" };
@@ -50,7 +39,7 @@ function pickRound() {
     bag[i] = bag[j];
     bag[j] = swap;
   }
-  return bag.slice(0, 10);
+  return bag.slice(0, 8);
 }
 
 function rollGlyph() {
@@ -60,7 +49,7 @@ function rollGlyph() {
 export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [round] = useState(pickRound);
   const [found, setFound] = useState<string[]>([]);
-  const [line, setLine] = useState("Десять из тридцати. Названия врут.");
+  const [line, setLine] = useState("Восемь вещей. Все они в комнате.");
   const [busy, setBusy] = useState(false);
   const [reels, setReels] = useState(["note", "moon", "skull"]);
   const [spinning, setSpinning] = useState(false);
