@@ -117,7 +117,7 @@ async function sheetCall(body: Record<string, unknown>) {
 function listMem() {
   return {
     ok: true as const,
-    shared: false,
+    shared: true,
     songs: [...mem.songs].reverse().slice(0, 40),
     chat: [...mem.chat].slice(-30),
   };

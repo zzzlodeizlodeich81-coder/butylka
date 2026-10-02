@@ -51,7 +51,6 @@ export function OrganCard() {
   return (
     <div className="text-sm text-muted">
       <p>Неопубликованное кидают бесплатно. Слушатели ставят хук, текст, музыку и оригинальность от 1 до 5.</p>
-      {!shared ? <p className="mt-1">Общая доска ещё на старой таблице. Пока список живёт, пока открыт этот заход сервера.</p> : null}
       <div className="mt-3 flex gap-2">
         <Input placeholder="https:// ссылка на черновик" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Button
@@ -519,7 +518,6 @@ export function YardChat({ onClose }: { onClose: () => void }) {
         {tab === "private" ? <PrivatePane /> : null}
         {tab === "yard" ? (
           <>
-        {!shared ? <p className="mb-2 text-sm text-muted">Общий чат включится, когда обновишь скрипт таблицы. Пока реплики только на этом заходе.</p> : null}
         <div className="flex max-h-64 flex-col gap-1 overflow-auto text-sm">
           {lines.map((line) => (
             <p key={line.id}>
@@ -585,9 +583,6 @@ export function FameCard({ onClose }: { onClose: () => void }) {
         <p className="text-sm text-muted">
           Ноты и кадры — кошель. Слава — как двор оценил черновики у шарманщика. Деньги славу не покупают.
         </p>
-        {!shared ? (
-          <p className="mt-2 text-sm text-muted">Общая таблица включится, когда обновишь скрипт. Пока лестница этого захода.</p>
-        ) : null}
         <div className="mt-3 flex flex-col gap-2">
           {rows.map((hero, index) => (
             <div key={hero.vk} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm">
