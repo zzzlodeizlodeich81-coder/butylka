@@ -11,6 +11,7 @@ const HOSTS = [
   "tmpfiles.org",
   "redpandaai.co",
   "tempfile.redpandaai.co",
+  "api.box",
 ];
 
 function allowed(raw: string) {
