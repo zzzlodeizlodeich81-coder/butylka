@@ -11,11 +11,12 @@
  *   минус     10 кр.   4.8 ₽  → 2 голоса (14 ₽)
  *   кавер     12 кр.   5.7 ₽  → 3 голоса (21 ₽)
  *   стемы     50 кр.  23.8 ₽  → 11 голосов (77 ₽)
+ *   grok      ~$0.05   ~5 ₽  → 3 голоса (21 ₽), наценка как у допов
  * Тайминги (0.5 кр.) в цену генерации не входят отдельно.
  */
 export const NOTES_PER_VOTE = 10;
 
-export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover";
+export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover" | "grok";
 
 export const NOTE_PRICE: Record<PaidKind, number> = {
   lyrics: 10,
@@ -23,6 +24,7 @@ export const NOTE_PRICE: Record<PaidKind, number> = {
   minus: 20,
   stems: 110,
   cover: 30,
+  grok: 30,
 };
 
 export const NOTE_LABEL: Record<PaidKind, string> = {
@@ -31,6 +33,7 @@ export const NOTE_LABEL: Record<PaidKind, string> = {
   minus: "Минус",
   stems: "Стемы",
   cover: "Кавер",
+  grok: "Картинка Grok",
 };
 
 export type NotePack = {

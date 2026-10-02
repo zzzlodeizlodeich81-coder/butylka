@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useWallet } from "@/lib/wallet";
 
 const SIZES = [
   { id: "1:1", label: "Квадрат", w: 768, h: 768 },
@@ -27,6 +28,8 @@ export function Atelier({ onClose }: { onClose: () => void }) {
     void (async () => {
       try {
         const res = await fetch(next);
+        const left = res.headers.get("X-Notes");
+        if (left) useWallet.getState().apply({ notes: Number(left) });
         if (!res.ok) {
           setError((await res.text()) || "Модель не ответила.");
           return;
@@ -52,7 +55,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         <p className="mt-2 text-sm text-[#c4a574]">
-          Flux и Sana бесплатные. Grok рисует с твоего Replicate, ноты не списываются.
+          Flux и Sana бесплатные. Grok стоит 30 нот: если не нарисует, ноты вернутся.
         </p>
         <label className="mt-3 block text-xs tracking-widest text-[#c4a574]">МОДЕЛЬ</label>
         <div className="mt-1 flex flex-wrap gap-2">
@@ -60,7 +63,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
             ["flux", "Flux", "бесплатно"],
             ["sana", "Sana", "бесплатно"],
             ["kandinsky", "Кандинский", "бесплатно"],
-            ["grok", "Grok", "Replicate"],
+            ["grok", "Grok", "30 нот"],
           ].map(([id, label, price]) => (
             <button
               key={id}

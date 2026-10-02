@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { NOTE_PRICE } from "@/lib/notes";
+import { addPurse, guestFromRequest, spendPurse } from "@/lib/purse.server";
 
 const MODELS = new Set(["flux", "sana", "kandinsky", "grok"]);
 const FUSION = "https://api-key.fusionbrain.ai/key/api/v1";
@@ -104,7 +106,30 @@ export const Route = createFileRoute("/api/paint")({
         const h = Math.min(1024, Math.max(256, Math.round(Number(q.get("h")) || 768)));
         const aspect = q.get("aspect") || "1:1";
         if (model === "kandinsky") return kandinsky(prompt, w, h);
-        if (model === "grok") return grokImage(prompt, aspect);
+        if (model === "grok") {
+          const guest = guestFromRequest(request);
+          if (!guest) return new Response("Сначала зайди во двор.", { status: 401 });
+          const paid = await spendPurse(guest.id, NOTE_PRICE.grok);
+          if (!paid.ok) {
+            return new Response(paid.error, { status: 402, headers: { "X-Notes": String(paid.notes) } });
+          }
+          const shot = await grokImage(prompt, aspect);
+          if (!shot.ok) {
+            const back = await addPurse(guest.id, NOTE_PRICE.grok);
+            const text = await shot.text();
+            return new Response(text, {
+              status: shot.status,
+              headers: { "X-Notes": String(back?.notes ?? paid.notes + NOTE_PRICE.grok) },
+            });
+          }
+          return new Response(shot.body, {
+            headers: {
+              "Content-Type": shot.headers.get("content-type") || "image/jpeg",
+              "Cache-Control": "no-store",
+              "X-Notes": String(paid.notes),
+            },
+          });
+        }
         const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${w}&height=${h}&nologo=true&model=${model}`;
         const up = await fetch(url, {
           headers: { "User-Agent": "XXVKadr/1.0", Accept: "image/jpeg,image/png" },
