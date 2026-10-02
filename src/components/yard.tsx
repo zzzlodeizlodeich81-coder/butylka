@@ -7,6 +7,7 @@ import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-sq
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HuntRoom } from "@/components/manor-rooms";
+import { Matreshka } from "@/components/matreshka";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -106,6 +107,8 @@ export function Yard() {
   const [chat, setChat] = useState(false);
   const [fame, setFame] = useState(false);
   const [plot, setPlot] = useState(false);
+  const [radioOn, setRadioOn] = useState(false);
+  const [radioOpen, setRadioOpen] = useState(false);
   const [splash, setSplash] = useState(true);
   const [guide, setGuide] = useState(false);
 
@@ -182,6 +185,16 @@ export function Yard() {
           <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
             Дом
           </button>
+          <button
+            type="button"
+            className="rounded-full bg-black/45 px-3 py-1 text-sm text-white"
+            onClick={() => {
+              setRadioOn(true);
+              setRadioOpen(true);
+            }}
+          >
+            Радио
+          </button>
         </div>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
@@ -192,6 +205,7 @@ export function Yard() {
       {chat ? <YardChat onClose={() => setChat(false)} /> : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
+      {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
       {splash ? (
         <button type="button" className="absolute inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
           <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
