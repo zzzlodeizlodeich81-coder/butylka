@@ -40,7 +40,7 @@ function payout(reels: SymbolId[]) {
 }
 
 export const playRoom = createServerFn({ method: "POST" })
-  .validator((input: { action: "claim" | "spin" }) => input)
+  .validator((input: { action: "claim" | "spin"; hints?: number }) => input)
   .handler(async ({ data }) => {
     const guest = currentGuest();
     if (!guest) return { ok: false as const, error: "Сначала зайди во двор.", notes: 0 };
@@ -51,10 +51,16 @@ export const playRoom = createServerFn({ method: "POST" })
         const row = await readPurse(guest.id);
         return { ok: false as const, error: "Кладовая уже отдала ноты сегодня.", notes: row?.notes ?? 0 };
       }
+      const hints = Math.max(0, Math.min(10, Math.round(Number(data.hints) || 0)));
+      const pay = Math.max(0, HUNT_PAY - hints * 0.5);
       hunts[guest.id] = today();
       await writeHunts(hunts);
-      const row = await addPurse(guest.id, HUNT_PAY);
-      return { ok: true as const, notes: row?.notes ?? HUNT_PAY, pay: HUNT_PAY };
+      if (pay <= 0) {
+        const row = await readPurse(guest.id);
+        return { ok: true as const, notes: row?.notes ?? 0, pay: 0 };
+      }
+      const row = await addPurse(guest.id, pay);
+      return { ok: true as const, notes: row?.notes ?? pay, pay };
     }
 
     const paid = await spendPurse(guest.id, STAKE);

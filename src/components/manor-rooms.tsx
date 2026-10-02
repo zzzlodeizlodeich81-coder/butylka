@@ -7,36 +7,36 @@ import { useWallet } from "@/lib/wallet";
 type Find = { id: string; word: string; reveal: string; left: string; top: string };
 
 const FINDS: Find[] = [
-  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "46%", top: "66%" },
-  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "54%", top: "60%" },
-  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "38%", top: "48%" },
-  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "70%", top: "24%" },
-  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "78%", top: "32%" },
-  { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "62%", top: "70%" },
-  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "74%", top: "46%" },
-  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "86%", top: "58%" },
-  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "80%", top: "72%" },
-  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "68%", top: "76%" },
-  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "50%", top: "74%" },
-  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "42%", top: "72%" },
-  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "34%", top: "36%" },
-  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "30%", top: "52%" },
-  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "36%", top: "68%" },
-  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "90%", top: "70%" },
-  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "58%", top: "46%" },
-  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "88%", top: "18%" },
-  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "76%", top: "16%" },
-  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "48%", top: "40%" },
-  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "40%", top: "30%" },
-  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "32%", top: "44%" },
-  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "56%", top: "32%" },
-  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "64%", top: "20%" },
-  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "72%", top: "36%" },
-  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "84%", top: "44%" },
-  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "28%", top: "28%" },
-  { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "52%", top: "52%" },
-  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "82%", top: "22%" },
-  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "88%", top: "50%" },
+  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "31%", top: "80%" },
+  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "33%", top: "64%" },
+  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "52%", top: "73%" },
+  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "54%", top: "33%" },
+  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "40%", top: "65%" },
+  { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "44%", top: "67%" },
+  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "48%", top: "65%" },
+  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "54%", top: "82%" },
+  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "58%", top: "80%" },
+  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "57%", top: "69%" },
+  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "35%", top: "83%" },
+  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "70%", top: "58%" },
+  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "24%", top: "36%" },
+  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "66%", top: "69%" },
+  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "49%", top: "86%" },
+  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "29%", top: "86%" },
+  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "40%", top: "81%" },
+  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "44%", top: "84%" },
+  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "45%", top: "74%" },
+  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "63%", top: "65%" },
+  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "61%", top: "77%" },
+  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "47%", top: "86%" },
+  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "32%", top: "72%" },
+  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "78%", top: "82%" },
+  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "86%", top: "85%" },
+  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "75%", top: "84%" },
+  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "62%", top: "64%" },
+  { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "71%", top: "78%" },
+  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "26%", top: "22%" },
+  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "28%", top: "58%" },
 ];
 
 const GLYPH: Record<string, string> = { dust: "·", note: "♪", moon: "☾", skull: "☠", frame: "▣" };
@@ -67,12 +67,34 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [slotLine, setSlotLine] = useState("2 ноты");
   const [slot, setSlot] = useState(false);
   const [ghost, setGhost] = useState(false);
+  const [hints, setHints] = useState(0);
+  const [glow, setGlow] = useState<string | null>(null);
   const done = found.length === round.length;
   const left = round.filter((item) => !found.includes(item.id));
+  const pay = Math.max(0, 5 - hints * 0.5);
+  const glowItem = round.find((item) => item.id === glow && !found.includes(item.id)) ?? null;
+
+  function prizeText(value: number) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
 
   function tap(id: string, reveal: string) {
     setLine(reveal);
     setFound((cur) => (cur.includes(id) ? cur : [...cur, id]));
+    if (glow === id) setGlow(null);
+  }
+
+  function lupa() {
+    const pool = round.filter((item) => !found.includes(item.id));
+    if (!pool.length) return;
+    const at = pool.findIndex((item) => item.id === glow);
+    const pick = pool[(at + 1) % pool.length];
+    setGlow(pick.id);
+    setHints((count) => {
+      const next = count + 1;
+      setLine(`Подсказка: ${pick.word}. Награда ${prizeText(Math.max(0, 5 - next * 0.5))} нот.`);
+      return next;
+    });
   }
 
   function aim(event: MouseEvent<HTMLDivElement>) {
@@ -82,7 +104,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
     const x = ((event.clientX - box.left) / box.width) * 100;
     const y = ((event.clientY - box.top) / box.height) * 100;
     let best: Find | null = null;
-    let bestD = 8;
+    let bestD = 9;
     for (const item of round) {
       if (found.includes(item.id)) continue;
       const d = Math.hypot(x - parseFloat(item.left), y - parseFloat(item.top));
@@ -171,6 +193,12 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
           >
             <img src="/rooms/cowboy.jpg" alt="" className="h-full w-full object-cover" />
           </button>
+          {glowItem ? (
+            <span
+              className="pointer-events-none absolute z-[5] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border-2 border-[#f6e7a8] shadow-[0_0_18px_6px_rgba(246,231,168,0.9)]"
+              style={{ left: glowItem.left, top: glowItem.top, width: "9%", height: "16%" }}
+            />
+          ) : null}
           {slot ? (
             <>
               <button
@@ -221,7 +249,10 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
         <p className="text-sm">{line}</p>
         <div className="mt-2 flex flex-wrap gap-1">
           {left.map((item) => (
-            <span key={item.id} className="rounded-full bg-[#f4e4c4] px-2 py-0.5 text-xs text-[#2a1a0c]">
+            <span
+              key={item.id}
+              className={`rounded-full px-2 py-0.5 text-xs text-[#2a1a0c] ${item.id === glowItem?.id ? "bg-white ring-2 ring-[#f6e7a8]" : "bg-[#f4e4c4]"}`}
+            >
               {item.word}
             </span>
           ))}
@@ -229,6 +260,9 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
         <div className="mt-2 flex gap-2">
           <Button variant="secondary" className="rounded-xl" onClick={onClose}>
             В особняк
+          </Button>
+          <Button variant="secondary" className="rounded-xl" disabled={!left.length} onClick={lupa}>
+            Лупа · −0.5
           </Button>
           {done ? (
             <Button
@@ -238,20 +272,20 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
                 void (async () => {
                   setBusy(true);
                   try {
-                    const res = await playRoom({ data: { action: "claim" } });
+                    const res = await playRoom({ data: { action: "claim", hints } });
                     if (!res.ok) {
                       toast.error(res.error);
                       return;
                     }
                     useWallet.getState().apply({ notes: res.notes });
-                    toast.success("Кладовая отдала 5 нот.");
+                    toast.success(`Кладовая отдала ${prizeText(res.pay ?? pay)} нот.`);
                   } finally {
                     setBusy(false);
                   }
                 })();
               }}
             >
-              Забрать 5 нот
+              Забрать {prizeText(pay)} нот
             </Button>
           ) : null}
         </div>
