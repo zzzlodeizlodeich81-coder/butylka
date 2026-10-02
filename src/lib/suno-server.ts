@@ -201,19 +201,22 @@ export const pollSunoGenerate = createServerFn({ method: "GET" })
     const response = (outer.response ?? outer) as Record<string, unknown>;
     const status = String(pick(response, "status") ?? pick(outer, "status") ?? "PENDING");
     const failed = /FAIL|ERROR|SENSITIVE/i.test(status);
-    const raw = (pick<unknown[]>(response, "sunoData", "suno_data") ?? []) as Record<
-      string,
-      unknown
-    >[];
+    const raw = (pick<unknown[]>(response, "sunoData", "suno_data") ?? []) as Record<string, unknown>[];
+    const ready = /SUCCESS|COMPLETE|FIRST/i.test(status);
     const clips: SunoClip[] = raw
       .map((c) => {
-        const audioUrl = String(pick(c, "audioUrl", "audio_url", "sourceAudioUrl") ?? "");
+        const source = String(pick(c, "sourceAudioUrl", "source_audio_url") ?? "");
+        const sourceStream = String(pick(c, "sourceStreamAudioUrl", "source_stream_audio_url") ?? "");
+        const audioUrl = String(pick(c, "audioUrl", "audio_url") ?? "");
         const streamUrl = String(pick(c, "streamAudioUrl", "stream_audio_url") ?? "");
+        const file = audioUrl && audioUrl !== source ? audioUrl : "";
+        const stream = streamUrl && streamUrl !== source && streamUrl !== sourceStream ? streamUrl : "";
+        const chosen = file || (ready ? stream : "");
         const audioId = String(pick(c, "id", "audioId") ?? "");
         return {
           audioId,
-          audioUrl: audioUrl || streamUrl,
-          streamUrl: streamUrl || undefined,
+          audioUrl: chosen,
+          streamUrl: stream || undefined,
           duration: Number(pick(c, "duration") ?? 0),
           title: String(pick(c, "title") ?? ""),
           lyrics: String(pick(c, "prompt") ?? ""),
@@ -254,8 +257,11 @@ export const startSunoCover = createServerFn({ method: "POST" })
     const lines = data.lyrics
       .split(/\n/)
       .map((l) => l.trim())
-      .filter((l) => l && !/^\[[^\]]+]$/.test(l));
-    const prompt = lines.length ? lyricsForSuno(lines) : data.lyrics.slice(0, 800);
+      .filter((l) => l && !/^\[[^\]]+]$/.test(l) && !/karaoke cover, keep the melody/i.test(l));
+    const sung = lines.length ? lyricsForSuno(lines) : "";
+    const lyrics =
+      sung ||
+      "[Verse]\nSing the melody of the uploaded song with a human voice\n[Chorus]\nSing it again, keep the tune, this is not an instrumental";
     const duration = Math.min(360, Math.max(20, Math.round(data.duration) || 80));
     const { res, body } = await sunoFetch("/api/v1/generate/upload-cover", {
       method: "POST",
@@ -265,14 +271,15 @@ export const startSunoCover = createServerFn({ method: "POST" })
         instrumental: false,
         model: "V5_5",
         callBackUrl: CALLBACK,
-        prompt: prompt || "karaoke cover, keep the singer",
-        style: "karaoke cover, keep original melody and the singer's voice, studio mix",
+        lyrics,
+        prompt: lyrics,
+        style: "sung vocal cover, human voice, keep the original melody, studio mix, not instrumental",
         title: data.title.slice(0, 80) || "Cover",
         audioWeight: 0.8,
         styleWeight: 0.45,
         weirdnessConstraint: 0.35,
         duration,
-        negativeTags: "podcast, spoken word, audiobook",
+        negativeTags: "instrumental, karaoke backing, podcast, spoken word",
       }),
     });
     const code = Number(body.code ?? res.status);

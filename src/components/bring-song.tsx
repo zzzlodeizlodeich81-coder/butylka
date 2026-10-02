@@ -597,7 +597,7 @@ export function BringSong() {
       {desk === "file" ? (
         <div className="mt-5 flex flex-col gap-3">
           <p className="text-sm leading-relaxed text-muted">
-            Кинь свой трек. По желанию допиши слова — кавер выйдет ближе к тексту.
+            Кинь свой трек. Если есть слова, впиши их: кавер споёт их. Без текста тоже будет голос, не минус. Минус снимается потом, в карточке трека.
           </p>
           <Input placeholder="Название кавера" value={title} onChange={(e) => setTitle(e.target.value)} />
           <textarea
