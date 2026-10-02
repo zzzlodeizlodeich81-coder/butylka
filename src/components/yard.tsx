@@ -6,7 +6,7 @@ import { NotesButton } from "@/components/notes-shop";
 import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
-import { HuntRoom, SlotRoom } from "@/components/manor-rooms";
+import { HuntRoom } from "@/components/manor-rooms";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -339,9 +339,8 @@ function PromoSheet({ spot, onClose }: { spot: SpotId; onClose: () => void }) {
 }
 
 function Manor({ onClose }: { onClose: () => void }) {
-  const [room, setRoom] = useState<"hunt" | "slot" | null>(null);
+  const [room, setRoom] = useState<"hunt" | null>(null);
   if (room === "hunt") return <HuntRoom onClose={() => setRoom(null)} />;
-  if (room === "slot") return <SlotRoom onClose={() => setRoom(null)} />;
   return (
     <div className="absolute inset-0 z-20 bg-black">
       <div className="absolute inset-0 flex items-center justify-center">
@@ -367,14 +366,6 @@ function Manor({ onClose }: { onClose: () => void }) {
             onClick={() => setRoom("hunt")}
           >
             Кладовая
-          </button>
-          <button
-            type="button"
-            className="absolute rounded-full bg-black/55 px-3 py-1 text-[11px] text-[#f4e4c4]"
-            style={{ left: "78%", top: "18%" }}
-            onClick={() => setRoom("slot")}
-          >
-            Автомат
           </button>
         </div>
       </div>
