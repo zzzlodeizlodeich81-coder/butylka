@@ -2,10 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NotesButton } from "@/components/notes-shop";
+import { NotesButton, PriceSheet } from "@/components/notes-shop";
 import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
+import { HostChat } from "@/components/host-chat";
 import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
@@ -109,6 +110,7 @@ export function Yard() {
   const [plot, setPlot] = useState(false);
   const [radioOn, setRadioOn] = useState(false);
   const [radioOpen, setRadioOpen] = useState(false);
+  const [price, setPrice] = useState(false);
   const [splash, setSplash] = useState(true);
   const [guide, setGuide] = useState(false);
 
@@ -185,6 +187,9 @@ export function Yard() {
           <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
             Дом
           </button>
+          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPrice(true)}>
+            Прайс
+          </button>
           <button
             type="button"
             className="rounded-full bg-black/45 px-3 py-1 text-sm text-white"
@@ -205,6 +210,7 @@ export function Yard() {
       {chat ? <YardChat onClose={() => setChat(false)} /> : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
+      {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
       {splash ? (
         <button type="button" className="absolute inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
@@ -354,7 +360,8 @@ function PromoSheet({ spot, onClose }: { spot: SpotId; onClose: () => void }) {
 }
 
 function Manor({ onClose }: { onClose: () => void }) {
-  const [room, setRoom] = useState<"hunt" | null>(null);
+  const [room, setRoom] = useState<"hunt" | "host" | null>(null);
+  const [price, setPrice] = useState(false);
   if (room === "hunt") return <HuntRoom onClose={() => setRoom(null)} />;
   return (
     <div className="absolute inset-0 z-20 bg-black">
@@ -362,6 +369,14 @@ function Manor({ onClose }: { onClose: () => void }) {
         <div className="relative h-full max-h-full w-full" style={{ aspectRatio: "16 / 9" }}>
           <img src="/manor.jpg" alt="" className="h-full w-full object-contain" />
           <img src="/manor.jpg" alt="" className="manor-ghost pointer-events-none absolute inset-0 h-full w-full object-contain" />
+          <button
+            type="button"
+            className="absolute rounded-full bg-black/55 px-3 py-1 text-[11px] text-[#f4e4c4]"
+            style={{ left: "18%", top: "58%" }}
+            onClick={() => setRoom("host")}
+          >
+            Хозяин
+          </button>
           <a
             href="https://vk.ru/club236941413"
             target="_blank"
@@ -384,13 +399,16 @@ function Manor({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
-      <button
-        type="button"
-        className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))] text-sm text-white"
-        onClick={onClose}
-      >
-        <span className="rounded-full bg-black/45 px-3 py-1">На карту</span>
-      </button>
+      <div className="absolute top-0 left-0 flex gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))] text-sm text-white">
+        <button type="button" onClick={onClose}>
+          <span className="rounded-full bg-black/45 px-3 py-1">На карту</span>
+        </button>
+        <button type="button" onClick={() => setPrice(true)}>
+          <span className="rounded-full bg-black/45 px-3 py-1">Прайс</span>
+        </button>
+      </div>
+      {room === "host" ? <HostChat onClose={() => setRoom(null)} /> : null}
+      {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
     </div>
   );
 }
