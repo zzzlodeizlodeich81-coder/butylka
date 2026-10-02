@@ -7,6 +7,7 @@ import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-sq
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HuntRoom } from "@/components/manor-rooms";
+import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
@@ -70,10 +71,9 @@ const ZONES: { id: HouseId; label: string; left: string; top: string; width: str
 ];
 
 const DOORS: Partial<Record<HouseId, string>> = {
-  factory: "https://zzzlodeizlodeich81-coder.github.io/audio-mastering/",
-  frame: "https://zzzlodeizlodeich81-coder.github.io/image-converter/",
-  atelier: "https://zzzlodeizlodeich81-coder.github.io/passport-photo-app/",
-  cinema: "https://zzzlodeizlodeich81-coder.github.io/web-editor/",
+  factory: "/doors/master.html",
+  frame: "/doors/frame.html",
+  cinema: "/doors/cinema.html",
 };
 
 async function pay(notes: number, kind: "deal" | "frame") {
@@ -223,6 +223,7 @@ export function Yard() {
           }}
         />
       ) : null}
+      {house === "atelier" ? <Atelier onClose={() => setHouse(null)} /> : null}
       {house && DOORS[house] ? (
         <div className="absolute inset-0 z-20 flex flex-col bg-black">
           <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1">

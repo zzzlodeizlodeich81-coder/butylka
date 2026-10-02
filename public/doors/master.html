@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Master & Tag Studio</title>
+  <!-- Встроенный фавикон -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎵</text></svg>">
+  
+  <!-- VK Bridge SDK без параметров в URL -->
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4.4.0/dist/browser-id3-writer.min.js"></script>
+  
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      max-width: 520px;
+      width: 100%;
+    }
+    h2 { margin-top: 0; color: #2c2d2e; text-align: center; font-size: 20px; }
+    .version-tag { font-size: 12px; color: #2787f5; font-weight: normal; margin-left: 5px; }
+    .section-title {
+      font-weight: bold;
+      color: #2787f5;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+      font-size: 14px;
+    }
+    .group { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: #555; }
+    input[type="file"], input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 9px;
+      box-sizing: border-box;
+      border: 1px solid #dce1e6;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+    .row { display: flex; gap: 10px; }
+    .row .group { flex: 1; }
+    .btn {
+      width: 100%;
+      background: #2787f5;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn:hover { background: #2276d7; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-download { background: #4bb34b; display: none; margin-top: 10px; }
+    .btn-download:hover { background: #3ec13e; }
+    audio { width: 100%; margin-top: 15px; display: none; }
+    .status { font-size: 13px; color: #666; text-align: center; margin-top: 10px; font-weight: 500; }
+    .info-badge {
+      background: #e5f2ff;
+      color: #0077ff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 15px;
+      text-align: center;
+      font-weight: 500;
+    }
+    #coverGroup {
+      display: none;
+      background: #f9fbfd;
+      padding: 10px;
+      border: 1px dashed #2787f5;
+      border-radius: 8px;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #2c2d2e;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Pacman Анимация */
+    .pacman-loader {
+      display: none;
+      margin: 15px auto 5px auto;
+      width: 220px;
+      height: 32px;
+      position: relative;
+      overflow: hidden;
+      background: #f0f4f8;
+      border-radius: 16px;
+      border: 1px solid #e0e8f0;
+    }
+    .pacman {
+      width: 0;
+      height: 0;
+      border-right: 12px solid transparent;
+      border-top: 12px solid #ffcc00;
+      border-left: 12px solid #ffcc00;
+      border-bottom: 12px solid #ffcc00;
+      border-radius: 12px;
+      position: absolute;
+      top: 4px;
+      left: 10px;
+      z-index: 2;
+      animation: chomp 0.25s infinite alternate;
+    }
+    @keyframes chomp {
+      0% { border-right: 12px solid #ffcc00; }
+      100% { border-right: 12px solid transparent; }
+    }
+    .notes-track {
+      position: absolute;
+      top: 6px;
+      left: 35px;
+      right: 0;
+      height: 20px;
+      display: flex;
+      gap: 25px;
+      align-items: center;
+      font-size: 14px;
+      animation: moveNotes 1.2s linear infinite;
+    }
+    @keyframes moveNotes {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-40px); }
+    }
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #2787f5;
+      transition: width 0.1s ease;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Мастеринг & Очистка <span class="version-tag">v1.0.1</span></h2>
+  <div class="info-badge">Чистый звук без мусора Suno</div>
+
+  <div class="group">
+    <label>Аудиофайл (MP3 / WAV)</label>
+    <input type="file" id="audioFile" accept="audio/*">
+  </div>
+
+  <div class="section-title">1. Выбор формата и пресета</div>
+  <div class="row">
+    <div class="group">
+      <label>Формат на выходе</label>
+      <select id="outputFormat">
+        <option value="wav" selected>WAV (16-bit / 44.1kHz — Стандарт Стримингов)</option>
+        <option value="mp3">MP3 (320 kbps — С поддержкой Тегов и Обложки)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>Стиль обработки (Пресет)</label>
+    <select id="genrePreset">
+      <option value="rock">Рок / Метал (Плотный низ, контроль верха)</option>
+      <option value="pop">Поп / Электроника (Глянец, верха, -14 LUFS)</option>
+      <option value="hiphop">Хип-хоп / Трэп (Глубокий 808-бас & вокал)</option>
+      <option value="acoustic">Акустика / Инди (Мягкая динамика)</option>
+      <option value="neutral" selected>Нейтральный (Чистка мусора & Нормализация)</option>
+    </select>
+  </div>
+
+  <div class="section-title">2. Чистые метаданные</div>
+  <div class="row">
+    <div class="group">
+      <label>Исполнитель</label>
+      <input type="text" id="tagArtist" placeholder="Имя / Группа">
+    </div>
+    <div class="group">
+      <label>Название трека</label>
+      <input type="text" id="tagTitle" placeholder="Моя Песня">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="group">
+      <label>Название альбома</label>
+      <input type="text" id="tagAlbum" placeholder="Single / Album">
+    </div>
+    <div class="group">
+      <label>Жанр</label>
+      <input type="text" id="tagGenre" placeholder="Rock, Pop, Metal...">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="group">
+      <label>Год</label>
+      <input type="number" id="tagYear" value="2026">
+    </div>
+    <div class="group">
+      <label>Номер трека</label>
+      <input type="number" id="tagTrack" value="1">
+    </div>
+  </div>
+
+  <div class="group" id="coverGroup">
+    <label>Обложка трека (JPG / PNG)</label>
+    <input type="file" id="coverFile" accept="image/jpeg, image/png">
+  </div>
+
+  <button id="processBtn" class="btn">Очистить мусор & Обработать</button>
+
+  <!-- Pacman Анимация & Индикатор -->
+  <div id="pacmanLoader" class="pacman-loader">
+    <div class="pacman"></div>
+    <div class="notes-track">
+      <span>🎵</span>
+      <span>🎶</span>
+      <span>🎵</span>
+      <span>🎶</span>
+      <span>🎵</span>
+    </div>
+  </div>
+  <div id="progressContainer" class="progress-bar-container">
+    <div id="progressBar" class="progress-bar-fill"></div>
+  </div>
+
+  <div id="status" class="status"></div>
+  <audio id="audioPreview" controls></audio>
+  
+  <button id="downloadBtn" class="btn btn-download">Скачать готовый файл</button>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Экранная консоль отладки Eruda -->
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+
+<script>
+  let isVk = false;
+
+  // Мгновенная инициализация VK Bridge
+  try {
+    if (typeof vkBridge !== 'undefined') {
+      vkBridge.send('VKWebAppInit')
+        .then(data => {
+          isVk = true;
+          console.log('VK Bridge OK:', data);
+        })
+        .catch(err => console.warn('VK Bridge Init Warning:', err));
+    } else {
+      console.warn('vkBridge не обнаружен');
+    }
+  } catch (e) {
+    console.error('VK Bridge Error:', e);
+  }
+
+  let currentObjectUrl = null;
+
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.innerText = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  }
+
+  window.alert = function(msg) {
+    showToast(msg);
+  };
+
+  const audioFileInput = document.getElementById('audioFile');
+  const coverFileInput = document.getElementById('coverFile');
+  const outputFormatSelect = document.getElementById('outputFormat');
+  const coverGroup = document.getElementById('coverGroup');
+  const processBtn = document.getElementById('processBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const audioPreview = document.getElementById('audioPreview');
+  const statusDiv = document.getElementById('status');
+  const pacmanLoader = document.getElementById('pacmanLoader');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+
+  let audioBuffer = null;
+  let coverArrayBuffer = null;
+  let finalBlob = null;
+  let rawFileName = 'master_track';
+
+  outputFormatSelect.addEventListener('change', () => {
+    coverGroup.style.display = outputFormatSelect.value === 'mp3' ? 'block' : 'none';
+  });
+
+  audioFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    rawFileName = file.name.replace(/\.[^/.]+$/, "");
+    
+    statusDiv.innerText = 'Декодирование аудио...';
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      statusDiv.innerText = 'Файл готов к обработке.';
+    } catch (err) {
+      statusDiv.innerText = '';
+      showToast('Ошибка при чтении файла!');
+    }
+  });
+
+  coverFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => { coverArrayBuffer = evt.target.result; };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function setProgress(percent, text) {
+    progressBar.style.width = percent + '%';
+    if (text) statusDiv.innerText = text;
+  }
+
+  processBtn.addEventListener('click', async () => {
+    if (!audioBuffer) {
+      showToast('Сначала выберите аудиофайл!');
+      return;
+    }
+
+    if (isVk) {
+      try {
+        const adsCheck = await vkBridge.send('VKWebAppCheckNativeAds', { ad_format: 'interstitial' });
+        if (adsCheck.result) {
+          await vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' });
+        }
+      } catch (e) {
+        console.log('Реклама пропущена:', e);
+      }
+    }
+
+    processBtn.disabled = true;
+    downloadBtn.style.display = 'none';
+    pacmanLoader.style.display = 'block';
+    progressContainer.style.display = 'block';
+    setProgress(5, 'Инициализация DSP обработчика...');
+
+    await new Promise(r => setTimeout(r, 50));
+
+    try {
+      const selectedFormat = outputFormatSelect.value;
+      
+      const offlineCtx = new OfflineAudioContext(
+        audioBuffer.numberOfChannels,
+        audioBuffer.length,
+        44100
+      );
+
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+
+      const hpFilter = offlineCtx.createBiquadFilter();
+      hpFilter.type = 'highpass';
+      const lowEQ = offlineCtx.createBiquadFilter();
+      lowEQ.type = 'lowshelf';
+      const highEQ = offlineCtx.createBiquadFilter();
+      highEQ.type = 'highshelf';
+      const compressor = offlineCtx.createDynamicsCompressor();
+
+      const limiter = offlineCtx.createDynamicsCompressor();
+      limiter.threshold.value = -0.5;
+      limiter.knee.value = 0.0;
+      limiter.ratio.value = 20.0;
+      limiter.attack.value = 0.001;
+      limiter.release.value = 0.1;
+
+      const preset = document.getElementById('genrePreset').value;
+
+      if (preset === 'rock') {
+        hpFilter.frequency.value = 35;
+        lowEQ.frequency.value = 100; lowEQ.gain.value = 2.5;
+        highEQ.frequency.value = 8000; highEQ.gain.value = -1.0;
+        compressor.threshold.value = -16; compressor.ratio.value = 3.5;
+      } else if (preset === 'pop') {
+        hpFilter.frequency.value = 30;
+        lowEQ.frequency.value = 80; lowEQ.gain.value = 1.5;
+        highEQ.frequency.value = 10000; highEQ.gain.value = 3.0;
+        compressor.threshold.value = -14; compressor.ratio.value = 4.0;
+      } else if (preset === 'hiphop') {
+        hpFilter.frequency.value = 28;
+        lowEQ.frequency.value = 55; lowEQ.gain.value = 3.5;
+        highEQ.frequency.value = 9000; highEQ.gain.value = 1.5;
+        compressor.threshold.value = -15; compressor.ratio.value = 3.0;
+      } else if (preset === 'acoustic') {
+        hpFilter.frequency.value = 40;
+        lowEQ.frequency.value = 120; lowEQ.gain.value = 0.5;
+        highEQ.frequency.value = 12000; highEQ.gain.value = 1.0;
+        compressor.threshold.value = -10; compressor.ratio.value = 2.0;
+      } else {
+        hpFilter.frequency.value = 30;
+        lowEQ.frequency.value = 100; lowEQ.gain.value = 0;
+        highEQ.frequency.value = 10000; highEQ.gain.value = 0;
+        compressor.threshold.value = -12; compressor.ratio.value = 2.5;
+      }
+
+      source.connect(hpFilter);
+      hpFilter.connect(lowEQ);
+      lowEQ.connect(highEQ);
+      highEQ.connect(compressor);
+      compressor.connect(limiter);
+      limiter.connect(offlineCtx.destination);
+      source.start(0);
+
+      setProgress(20, 'Применение эквалайзера и компрессии...');
+      await new Promise(r => setTimeout(r, 40));
+
+      const renderedBuffer = await offlineCtx.startRendering();
+
+      if (selectedFormat === 'wav') {
+        setProgress(70, 'Сборка 16-bit PCM WAV...');
+        await new Promise(r => setTimeout(r, 40));
+        const wavBuffer = createStandardWavBuffer(renderedBuffer);
+        finalBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+      } else {
+        setProgress(50, 'Кодирование MP3 320 kbps (поблочно)...');
+        await new Promise(r => setTimeout(r, 40));
+        const rawMp3Buffer = await encodeMp3Async(renderedBuffer, (p) => {
+          setProgress(50 + Math.floor(p * 0.4), `Кодирование MP3: ${Math.floor(p * 100)}%`);
+        });
+
+        setProgress(92, 'Запись ID3-тегов и обложки...');
+        await new Promise(r => setTimeout(r, 30));
+
+        try {
+          const writer = new ID3Writer(rawMp3Buffer);
+          const artist = document.getElementById('tagArtist').value;
+          const title = document.getElementById('tagTitle').value;
+          const album = document.getElementById('tagAlbum').value;
+          const genre = document.getElementById('tagGenre').value;
+          const year = document.getElementById('tagYear').value;
+          const track = document.getElementById('tagTrack').value;
+
+          if (title) writer.setFrame('TIT2', title);
+          if (artist) writer.setFrame('TPE1', [artist]);
+          if (album) writer.setFrame('TALB', album);
+          if (genre) writer.setFrame('TCON', [genre]);
+          if (year) writer.setFrame('TYER', parseInt(year));
+          if (track) writer.setFrame('TRCK', track.toString());
+
+          if (coverArrayBuffer) {
+            writer.setFrame('APIC', {
+              type: 3,
+              data: coverArrayBuffer,
+              description: 'Cover'
+            });
+          }
+          writer.addTag();
+          finalBlob = writer.getBlob();
+        } catch(e) {
+          console.warn("Ошибка ID3 MP3:", e);
+          finalBlob = new Blob([rawMp3Buffer], { type: 'audio/mp3' });
+        }
+      }
+
+      setProgress(100, 'Готово!');
+
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+      currentObjectUrl = URL.createObjectURL(finalBlob);
+      
+      audioPreview.src = currentObjectUrl;
+      audioPreview.style.display = 'block';
+      downloadBtn.style.display = 'block';
+
+    } catch (err) {
+      console.error(err);
+      showToast('Произошла ошибка при обработке!');
+      statusDiv.innerText = 'Ошибка обработки.';
+    } finally {
+      processBtn.disabled = false;
+      pacmanLoader.style.display = 'none';
+      setTimeout(() => {
+        progressContainer.style.display = 'none';
+      }, 1500);
+    }
+  });
+
+  function encodeMp3Async(buffer, onProgress) {
+    return new Promise((resolve) => {
+      const channels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 320);
+      const mp3Data = [];
+
+      const sampleCount = buffer.length;
+      const left = buffer.getChannelData(0);
+      const right = channels > 1 ? buffer.getChannelData(1) : left;
+
+      const sampleBlockSize = 1152;
+      const leftInt16 = new Int16Array(sampleCount);
+      const rightInt16 = new Int16Array(sampleCount);
+
+      for (let i = 0; i < sampleCount; i++) {
+        let sL = Math.max(-1, Math.min(1, left[i]));
+        leftInt16[i] = sL < 0 ? sL * 0x8000 : sL * 0x7FFF;
+        let sR = Math.max(-1, Math.min(1, right[i]));
+        rightInt16[i] = sR < 0 ? sR * 0x8000 : sR * 0x7FFF;
+      }
+
+      let offset = 0;
+
+      function processChunk() {
+        const chunkSize = 20;
+        let count = 0;
+
+        while (offset < sampleCount && count < chunkSize) {
+          const leftChunk = leftInt16.subarray(offset, Math.min(offset + sampleBlockSize, sampleCount));
+          const rightChunk = rightInt16.subarray(offset, Math.min(offset + sampleBlockSize, sampleCount));
+          
+          let mp3buf;
+          if (channels === 2) {
+            mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+          } else {
+            mp3buf = mp3encoder.encodeBuffer(leftChunk);
+          }
+          
+          if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+          offset += sampleBlockSize;
+          count++;
+        }
+
+        onProgress(Math.min(1, offset / sampleCount));
+
+        if (offset < sampleCount) {
+          setTimeout(processChunk, 0);
+        } else {
+          const mp3buf = mp3encoder.flush();
+          if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+          let totalLen = 0;
+          for (let i = 0; i < mp3Data.length; i++) totalLen += mp3Data[i].length;
+          const merged = new Uint8Array(totalLen);
+          let writeOffset = 0;
+          for (let i = 0; i < mp3Data.length; i++) {
+            merged.set(mp3Data[i], writeOffset);
+            writeOffset += mp3Data[i].length;
+          }
+          resolve(merged.buffer);
+        }
+      }
+
+      processChunk();
+    });
+  }
+
+  function createStandardWavBuffer(audioBuffer) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const format = 1; 
+    const bitDepth = 16;
+
+    let result;
+    if (numChannels === 2) {
+      result = interleave(audioBuffer.getChannelData(0), audioBuffer.getChannelData(1));
+    } else {
+      result = audioBuffer.getChannelData(0);
+    }
+
+    const bytesPerSample = bitDepth / 8; 
+    const dataSize = result.length * bytesPerSample;
+    
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < result.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, result[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    return buffer;
+  }
+
+  function interleave(inputL, inputR) {
+    const length = inputL.length + inputR.length;
+    const result = new Float32Array(length);
+    let index = 0, inputIndex = 0;
+    while (index < length) {
+      result[index++] = inputL[inputIndex];
+      result[index++] = inputR[inputIndex];
+      inputIndex++;
+    }
+    return result;
+  }
+
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+
+  // Скачивание файлов без вызова рекламы
+  downloadBtn.addEventListener('click', () => {
+    if (!finalBlob) return;
+    saveProcessedFile();
+  });
+
+  async function saveProcessedFile() {
+    const ext = outputFormatSelect.value;
+    const artist = document.getElementById('tagArtist').value.trim();
+    const title = document.getElementById('tagTitle').value.trim();
+    let fileName = rawFileName;
+    if (artist && title) {
+      fileName = `${artist} - ${title}`;
+    } else if (title) {
+      fileName = title;
+    }
+    fileName = `${fileName}.${ext}`;
+
+    statusDiv.innerText = 'Подготовка файла к сохранению...';
+
+    const reader = new FileReader();
+    reader.readAsDataURL(finalBlob);
+    reader.onloadend = function () {
+      const dataUrl = reader.result;
+
+      if (window.vkBridge && vkBridge.supports && vkBridge.supports("VKWebAppDownloadFile")) {
+        vkBridge.send("VKWebAppDownloadFile", {
+          url: dataUrl,
+          filename: fileName
+        }).then(data => {
+          if (data.result) {
+            statusDiv.innerText = 'Файл успешно сохранен!';
+          }
+        }).catch(error => {
+          console.warn('VK Native Download Error, fallbacking...', error);
+          fallbackDownload(fileName);
+        });
+      } else {
+        fallbackDownload(fileName);
+      }
+    };
+  }
+
+  function fallbackDownload(fileName) {
+    const forceDownloadBlob = new Blob([finalBlob], { type: 'application/octet-stream' });
+    const downloadUrl = URL.createObjectURL(forceDownloadBlob);
+
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = downloadUrl;
+    a.download = fileName;
+    a.target = '_blank';
+
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+      statusDiv.innerText = 'Файл сохранен!';
+    }, 1000);
+  }
+</script>
+
+</body>
+</html>
