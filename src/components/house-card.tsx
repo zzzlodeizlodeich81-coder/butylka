@@ -65,7 +65,7 @@ export function HouseCard({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         {home?.tier ? (
-          <img src={standing.img} alt={standing.title} className="mb-3 aspect-square w-full rounded-2xl object-cover" />
+          <img src={standing.img} alt={standing.title} className="mb-3 mx-auto h-36 w-auto max-w-full rounded-xl object-contain" />
         ) : (
           <p className="mb-3 text-sm text-muted">Пока пустой участок. Палатка даётся сразу.</p>
         )}

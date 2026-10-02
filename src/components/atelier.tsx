@@ -23,7 +23,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
     }
     setError("");
     setBusy(true);
-    const next = `/api/paint?model=${model}&w=${size.w}&h=${size.h}&prompt=${encodeURIComponent(text)}&t=${Date.now()}`;
+    const next = `/api/paint?model=${model}&w=${size.w}&h=${size.h}&aspect=${size.id}&prompt=${encodeURIComponent(text)}&t=${Date.now()}`;
     void (async () => {
       try {
         const res = await fetch(next);
@@ -43,36 +43,37 @@ export function Atelier({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col bg-[#2a1a0c] text-[#f4e4c4]">
-      <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
-        <h2 className="font-display text-2xl">Мастерская</h2>
-        <Button variant="ghost" className="text-[#f4e4c4]" onClick={onClose}>
-          На двор
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <p className="text-sm text-[#c4a574]">
-          Картинка бесплатная, ноты не списываются. Кандинский рисует с твоего ключа FusionBrain, у него свой дневной лимит. Видео Grok и переход Kling остаются платными, они в киностудии.
+    <div className="absolute inset-0 z-20 flex items-end bg-black/40">
+      <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-[#2a1a0c] px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] text-[#f4e4c4]">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-2xl">Мастерская</h2>
+          <Button variant="ghost" className="text-[#f4e4c4]" onClick={onClose}>
+            На двор
+          </Button>
+        </div>
+        <p className="mt-2 text-sm text-[#c4a574]">
+          Flux и Sana бесплатные. Grok рисует с твоего Replicate, ноты не списываются.
         </p>
         <label className="mt-3 block text-xs tracking-widest text-[#c4a574]">МОДЕЛЬ</label>
-        <div className="mt-1 flex gap-2">
+        <div className="mt-1 flex flex-wrap gap-2">
           {[
-            ["flux", "Flux"],
-            ["sana", "Sana"],
-            ["kandinsky", "Кандинский"],
-          ].map(([id, label]) => (
+            ["flux", "Flux", "бесплатно"],
+            ["sana", "Sana", "бесплатно"],
+            ["kandinsky", "Кандинский", "бесплатно"],
+            ["grok", "Grok", "Replicate"],
+          ].map(([id, label, price]) => (
             <button
               key={id}
               type="button"
               className={`rounded-full px-3 py-1 text-sm ${model === id ? "bg-[#f4e4c4] text-[#2a1a0c]" : "bg-black/30"}`}
               onClick={() => setModel(id)}
             >
-              {label} · бесплатно
+              {label} · {price}
             </button>
           ))}
         </div>
         <label className="mt-3 block text-xs tracking-widest text-[#c4a574]">КАДР</label>
-        <div className="mt-1 flex gap-2">
+        <div className="mt-1 flex flex-wrap gap-2">
           {SIZES.map((item) => (
             <button
               key={item.id}
@@ -97,9 +98,9 @@ export function Atelier({ onClose }: { onClose: () => void }) {
         </Button>
         {error ? <p className="mt-2 text-sm text-[#e8a090]">{error}</p> : null}
         {shot ? (
-          <a href={shot} download="kadr.jpg" className="mt-3 block">
-            <img src={shot} alt="" className="w-full rounded-xl" />
-            <span className="mt-1 block text-center text-sm underline">Скачать</span>
+          <a href={shot} download="kadr.jpg" className="mt-3 block text-center">
+            <img src={shot} alt="" className="mx-auto max-h-48 w-auto max-w-full rounded-xl object-contain" />
+            <span className="mt-1 block text-sm underline">Скачать</span>
           </a>
         ) : null}
       </div>

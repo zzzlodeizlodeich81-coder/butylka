@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const MODELS = new Set(["flux", "sana", "kandinsky"]);
+const MODELS = new Set(["flux", "sana", "kandinsky", "grok"]);
 const FUSION = "https://api-key.fusionbrain.ai/key/api/v1";
 
 function snap64(n: number) {
@@ -54,6 +54,44 @@ async function kandinsky(prompt: string, w: number, h: number) {
   return new Response("Кандинский думает слишком долго", { status: 504 });
 }
 
+async function grokImage(prompt: string, aspect: string) {
+  const token = process.env.REPLICATE_API_TOKEN || "";
+  if (!token) return new Response("на сервере нет ключа Replicate", { status: 503 });
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    Prefer: "wait",
+  };
+  const input = { prompt, aspect_ratio: aspect === "16:9" || aspect === "9:16" ? aspect : "1:1" };
+  let run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-image-2/predictions", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ input }),
+  });
+  if (run.status === 422) {
+    run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-image-2/predictions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ input: { prompt } }),
+    });
+  }
+  if (!run.ok) return new Response("Grok на Replicate не принял заказ", { status: 502 });
+  let data = (await run.json()) as { status?: string; output?: string | string[]; error?: string; urls?: { get?: string } };
+  for (let i = 0; i < 12 && data.status && data.status !== "succeeded" && data.status !== "failed" && data.urls?.get; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const again = await fetch(data.urls.get, { headers: { Authorization: `Bearer ${token}` } });
+    if (!again.ok) break;
+    data = (await again.json()) as typeof data;
+  }
+  if (data.status === "failed" || data.error) return new Response("Grok не нарисовал", { status: 502 });
+  const url = Array.isArray(data.output) ? data.output[0] : data.output;
+  if (!url) return new Response("Grok отдал пустую картинку", { status: 502 });
+  const img = await fetch(url);
+  if (!img.ok) return new Response("картинка Grok не скачалась", { status: 502 });
+  return new Response(img.body, {
+    headers: { "Content-Type": img.headers.get("content-type") || "image/jpeg", "Cache-Control": "no-store" },
+  });
+}
 export const Route = createFileRoute("/api/paint")({
   server: {
     handlers: {
@@ -64,7 +102,9 @@ export const Route = createFileRoute("/api/paint")({
         const model = MODELS.has(q.get("model") || "") ? q.get("model") : "flux";
         const w = Math.min(1024, Math.max(256, Math.round(Number(q.get("w")) || 768)));
         const h = Math.min(1024, Math.max(256, Math.round(Number(q.get("h")) || 768)));
+        const aspect = q.get("aspect") || "1:1";
         if (model === "kandinsky") return kandinsky(prompt, w, h);
+        if (model === "grok") return grokImage(prompt, aspect);
         const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${w}&height=${h}&nologo=true&model=${model}`;
         const up = await fetch(url, {
           headers: { "User-Agent": "XXVKadr/1.0", Accept: "image/jpeg,image/png" },
