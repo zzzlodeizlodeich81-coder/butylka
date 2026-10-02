@@ -4,39 +4,39 @@ import { Button } from "@/components/ui/button";
 import { playRoom } from "@/lib/rooms";
 import { useWallet } from "@/lib/wallet";
 
-type Find = { id: string; word: string; reveal: string; left: string; top: string; width: string; height: string };
+type Find = { id: string; word: string; reveal: string; left: string; top: string };
 
 const FINDS: Find[] = [
-  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "22%", top: "70%", width: "5%", height: "7%" },
-  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "1%", top: "46%", width: "6%", height: "24%" },
-  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "42%", top: "40%", width: "4%", height: "5%" },
-  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "48%", top: "60%", width: "4%", height: "7%" },
-  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "34%", top: "8%", width: "5%", height: "8%" },
-  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "26%", top: "20%", width: "5%", height: "6%" },
-  { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "32%", top: "66%", width: "4%", height: "6%" },
-  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "46%", top: "46%", width: "3%", height: "8%" },
-  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "52%", top: "56%", width: "4%", height: "5%" },
-  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "18%", top: "56%", width: "4%", height: "5%" },
-  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "40%", top: "62%", width: "4%", height: "6%" },
-  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "50%", top: "78%", width: "3%", height: "4%" },
-  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "30%", top: "34%", width: "4%", height: "6%" },
-  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "44%", top: "16%", width: "4%", height: "6%" },
-  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "56%", top: "62%", width: "4%", height: "10%" },
-  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "38%", top: "74%", width: "3%", height: "4%" },
-  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "24%", top: "80%", width: "3%", height: "4%" },
-  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "54%", top: "72%", width: "4%", height: "5%" },
-  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "8%", top: "16%", width: "4%", height: "5%" },
-  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "58%", top: "26%", width: "4%", height: "5%" },
-  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "18%", top: "46%", width: "5%", height: "6%" },
-  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "62%", top: "72%", width: "3%", height: "6%" },
-  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "62%", top: "80%", width: "3%", height: "5%" },
-  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "56%", top: "76%", width: "3%", height: "4%" },
-  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "26%", top: "42%", width: "4%", height: "4%" },
-  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "32%", top: "56%", width: "3%", height: "4%" },
-  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "14%", top: "76%", width: "3%", height: "4%" },
-  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "44%", top: "70%", width: "5%", height: "4%" },
-  { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "50%", top: "40%", width: "4%", height: "7%" },
-  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "60%", top: "10%", width: "6%", height: "8%" },
+  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "30%", top: "68%" },
+  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "39%", top: "72%" },
+  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "48%", top: "58%" },
+  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "57%", top: "46%" },
+  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "66%", top: "38%" },
+  { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "75%", top: "50%" },
+  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "84%", top: "42%" },
+  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "88%", top: "62%" },
+  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "78%", top: "70%" },
+  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "68%", top: "74%" },
+  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "58%", top: "76%" },
+  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "48%", top: "74%" },
+  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "40%", top: "58%" },
+  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "31%", top: "50%" },
+  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "27%", top: "66%" },
+  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "90%", top: "76%" },
+  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "54%", top: "64%" },
+  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "72%", top: "26%" },
+  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "82%", top: "22%" },
+  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "44%", top: "44%" },
+  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "34%", top: "40%" },
+  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "24%", top: "58%" },
+  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "52%", top: "34%" },
+  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "63%", top: "20%" },
+  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "74%", top: "14%" },
+  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "86%", top: "30%" },
+  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "26%", top: "34%" },
+  { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "60%", top: "30%" },
+  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "70%", top: "12%" },
+  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "4%", top: "58%" },
 ];
 
 const GLYPH: Record<string, string> = { dust: "·", note: "♪", moon: "☾", skull: "☠", frame: "▣" };
@@ -67,34 +67,52 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [spinning, setSpinning] = useState(false);
   const [slotLine, setSlotLine] = useState("2 ноты");
   const [slot, setSlot] = useState(false);
-  const [egg] = useState(() => {
-    const spots = [
-      { left: "74%", top: "62%", width: "12%", height: "16%" },
-      { left: "36%", top: "78%", width: "12%", height: "12%" },
-      { left: "48%", top: "14%", width: "10%", height: "12%" },
-      { left: "22%", top: "28%", width: "10%", height: "12%" },
-    ];
-    return spots[Math.floor(Math.random() * spots.length)];
-  });
   const done = found.length === round.length;
   const left = round.filter((item) => !found.includes(item.id));
+  const active = new Set(round.map((item) => item.id));
 
   function tap(id: string, reveal: string) {
     setLine(reveal);
     setFound((cur) => (cur.includes(id) ? cur : [...cur, id]));
   }
 
+  function spin() {
+    void (async () => {
+      setSpinning(true);
+      setSlotLine("…");
+      const started = Date.now();
+      const timer = window.setInterval(() => setReels([rollGlyph(), rollGlyph(), rollGlyph()]), 90);
+      try {
+        const res = await playRoom({ data: { action: "spin" } });
+        const wait = 1100 - (Date.now() - started);
+        if (wait > 0) await new Promise((r) => window.setTimeout(r, wait));
+        window.clearInterval(timer);
+        if (!res.ok) {
+          toast.error(res.error);
+          setSlotLine("нет нот");
+          return;
+        }
+        setReels(res.reels || []);
+        useWallet.getState().apply({ notes: res.notes });
+        setSlotLine(res.win ? `+${res.win}` : "пусто");
+      } finally {
+        window.clearInterval(timer);
+        setSpinning(false);
+      }
+    })();
+  }
+
   return (
     <div className="absolute inset-0 z-30 cursor-default bg-black">
       <div
         className="absolute inset-x-0 flex items-center justify-center [container-type:size]"
-        style={{ top: "2.4rem", bottom: "5.6rem" }}
+        style={{ top: "2.4rem", bottom: "6.4rem" }}
       >
         <div className="relative" style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}>
           <img src="/rooms/hunt.jpg" alt="Кладовая" className="absolute inset-0 h-full w-full object-fill" />
           <div
-            className="absolute cursor-default overflow-hidden"
-            style={{ left: "6.5%", top: "18%", width: "13%", height: "32%" }}
+            className="absolute overflow-hidden"
+            style={{ left: "8%", top: "18%", width: "10%", height: "24%" }}
             onPointerEnter={() => setFace(true)}
             onPointerLeave={() => setFace(false)}
             onClick={() => setFace((on) => !on)}
@@ -102,83 +120,70 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
             <img
               src="/rooms/face.jpg"
               alt=""
-              className={`h-full w-full origin-center object-cover transition-opacity duration-300 ${face ? "scale-[1.9] opacity-80" : "scale-[1.9] opacity-0"}`}
+              className={`h-full w-full origin-center object-cover transition-opacity duration-300 ${face ? "scale-[2.2] opacity-85" : "scale-[2.2] opacity-0"}`}
             />
           </div>
-          {round.map((item) =>
-            found.includes(item.id) ? (
-              <span
-                key={item.id}
-                className="pointer-events-none absolute rounded-full bg-[#140e0a] shadow-[0_0_12px_8px_#140e0a]"
-                style={{ left: item.left, top: item.top, width: item.width, height: item.height }}
-              />
-            ) : (
+          <button
+            type="button"
+            aria-label="Картина"
+            className="absolute cursor-default overflow-hidden rounded-sm shadow-md"
+            style={{ left: "37%", top: "5%", width: "20%", height: "24%" }}
+            onClick={() => setSlot(true)}
+          >
+            <img src="/rooms/cowboy.jpg" alt="" className="h-full w-full object-cover" />
+          </button>
+          {FINDS.map((item) => {
+            if (found.includes(item.id)) return null;
+            const box = { left: item.left, top: item.top, width: "7%", height: "13%" };
+            if (!active.has(item.id)) {
+              return (
+                <img
+                  key={item.id}
+                  src={`/rooms/items/${item.id}.png`}
+                  alt=""
+                  className="pointer-events-none absolute object-contain drop-shadow-md"
+                  style={box}
+                />
+              );
+            }
+            return (
               <button
                 key={item.id}
                 type="button"
                 aria-label={item.word}
                 className="absolute cursor-default"
-                style={{ left: item.left, top: item.top, width: item.width, height: item.height }}
+                style={box}
                 onClick={() => tap(item.id, item.reveal)}
-              />
-            ),
-          )}
-          <button
-            type="button"
-            aria-label="Пустое место"
-            className="absolute cursor-default"
-            style={egg}
-            onClick={() => setSlot(true)}
-          />
+              >
+                <img src={`/rooms/items/${item.id}.png`} alt="" className="h-full w-full object-contain drop-shadow-md" />
+              </button>
+            );
+          })}
           {slot ? (
-          <div
-            className="absolute z-10 flex flex-col items-center rounded-md border border-[#8a7044] bg-[#1a120c]/95 px-2 py-2 text-[#f4e4c4] shadow-inner"
-            style={{ left: "28%", top: "34%", width: "44%" }}
-          >
-            <p className="text-[10px] tracking-widest text-[#c4a574]">СЛОМАН</p>
-            <div className="mt-1 flex w-full gap-1">
-              {reels.map((symbol, index) => (
-                <div
-                  key={index}
-                  className="flex h-10 flex-1 items-center justify-center rounded-sm border border-[#3a2a18] bg-black font-display text-xl"
-                >
-                  {GLYPH[symbol] || "·"}
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              disabled={spinning}
-              className="mt-2 w-full rounded-sm bg-[#6b2a22] px-2 py-1 text-[11px] text-[#f4e4c4] disabled:opacity-60"
-              onClick={() => {
-                void (async () => {
-                  setSpinning(true);
-                  setSlotLine("…");
-                  const started = Date.now();
-                  const timer = window.setInterval(() => setReels([rollGlyph(), rollGlyph(), rollGlyph()]), 90);
-                  try {
-                    const res = await playRoom({ data: { action: "spin" } });
-                    const wait = 1100 - (Date.now() - started);
-                    if (wait > 0) await new Promise((r) => window.setTimeout(r, wait));
-                    window.clearInterval(timer);
-                    if (!res.ok) {
-                      toast.error(res.error);
-                      setSlotLine("нет нот");
-                      return;
-                    }
-                    setReels(res.reels || []);
-                    useWallet.getState().apply({ notes: res.notes });
-                    setSlotLine(res.win ? `+${res.win}` : "пусто");
-                  } finally {
-                    window.clearInterval(timer);
-                    setSpinning(false);
-                  }
-                })();
-              }}
+            <div
+              className="absolute z-10 flex flex-col items-center rounded-md border border-[#8a7044] bg-[#1a120c]/95 px-2 py-2 text-[#f4e4c4]"
+              style={{ left: "28%", top: "36%", width: "44%" }}
             >
-              {spinning ? "крутится" : `рычаг · ${slotLine}`}
-            </button>
-          </div>
+              <p className="text-[10px] tracking-widest text-[#c4a574]">СЛОМАН</p>
+              <div className="mt-1 flex w-full gap-1">
+                {reels.map((symbol, index) => (
+                  <div
+                    key={index}
+                    className="flex h-10 flex-1 items-center justify-center rounded-sm border border-[#3a2a18] bg-black font-display text-xl"
+                  >
+                    {GLYPH[symbol] || "·"}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={spinning}
+                className="mt-2 w-full rounded-sm bg-[#6b2a22] px-2 py-1 text-[11px] text-[#f4e4c4] disabled:opacity-60"
+                onClick={spin}
+              >
+                {spinning ? "крутится" : `рычаг · ${slotLine}`}
+              </button>
+            </div>
           ) : null}
         </div>
       </div>
@@ -221,7 +226,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
           ) : null}
         </div>
       </div>
-      <p className="absolute top-0 left-0 max-w-[70%] px-3 pt-[max(0.6rem,env(safe-area-inset-top))] text-sm text-white">
+      <p className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))] text-sm text-white">
         <span className="rounded-full bg-black/45 px-3 py-1">Кладовая</span>
       </p>
     </div>
