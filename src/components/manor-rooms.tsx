@@ -7,36 +7,36 @@ import { useWallet } from "@/lib/wallet";
 type Find = { id: string; word: string; reveal: string; left: string; top: string };
 
 const FINDS: Find[] = [
-  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "30%", top: "68%" },
-  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "39%", top: "72%" },
-  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "48%", top: "58%" },
-  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "57%", top: "46%" },
-  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "66%", top: "38%" },
-  { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "75%", top: "50%" },
-  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "84%", top: "42%" },
-  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "88%", top: "62%" },
-  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "78%", top: "70%" },
-  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "68%", top: "74%" },
-  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "58%", top: "76%" },
-  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "48%", top: "74%" },
-  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "40%", top: "58%" },
-  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "31%", top: "50%" },
-  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "27%", top: "66%" },
-  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "90%", top: "76%" },
-  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "54%", top: "64%" },
-  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "72%", top: "26%" },
-  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "82%", top: "22%" },
-  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "44%", top: "44%" },
-  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "34%", top: "40%" },
-  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "24%", top: "58%" },
-  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "52%", top: "34%" },
-  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "63%", top: "20%" },
-  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "74%", top: "14%" },
-  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "86%", top: "30%" },
-  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "26%", top: "34%" },
-  { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "60%", top: "30%" },
-  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "70%", top: "12%" },
-  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "4%", top: "58%" },
+  { id: "onion", word: "Лук", reveal: "Луковица, не оружие.", left: "41%", top: "71%" },
+  { id: "key", word: "Ключ", reveal: "От двери, не гаечный.", left: "48%", top: "64%" },
+  { id: "brush", word: "Кисть", reveal: "Кисть художника, не рука.", left: "55%", top: "58%" },
+  { id: "vulture", word: "Гриф", reveal: "Птица, не гриф гитары.", left: "63%", top: "22%" },
+  { id: "shoe", word: "Подкова", reveal: "Подкова на счастье.", left: "71%", top: "28%" },
+  { id: "apple", word: "Яблоко", reveal: "Красное яблоко.", left: "78%", top: "46%" },
+  { id: "candle", word: "Свеча", reveal: "Огарок свечи.", left: "86%", top: "38%" },
+  { id: "watch", word: "Часы", reveal: "Карманные часы, не время суток.", left: "91%", top: "62%" },
+  { id: "needle", word: "Игла", reveal: "Швейная игла, не хвоя.", left: "82%", top: "72%" },
+  { id: "feather", word: "Перо", reveal: "Птичье перо, не ручка.", left: "74%", top: "68%" },
+  { id: "coin", word: "Монета", reveal: "Медная монета.", left: "66%", top: "76%" },
+  { id: "knight", word: "Конь", reveal: "Шахматный конь, не живой.", left: "58%", top: "74%" },
+  { id: "bell", word: "Колокол", reveal: "Маленький колокол.", left: "44%", top: "48%" },
+  { id: "bottle", word: "Бутылка", reveal: "Зелёное стекло.", left: "36%", top: "42%" },
+  { id: "pearl", word: "Жемчуг", reveal: "Одна жемчужина.", left: "33%", top: "68%" },
+  { id: "nail", word: "Гвоздь", reveal: "Ржавый гвоздь.", left: "93%", top: "78%" },
+  { id: "card", word: "Карта", reveal: "Игральная карта, не карта города.", left: "52%", top: "70%" },
+  { id: "spider", word: "Паук", reveal: "Паук в углу.", left: "88%", top: "14%" },
+  { id: "moth", word: "Моль", reveal: "Ночная моль, не пристань.", left: "79%", top: "16%" },
+  { id: "glove", word: "Перчатка", reveal: "Одна перчатка.", left: "61%", top: "48%" },
+  { id: "spoon", word: "Ложка", reveal: "Старая ложка.", left: "47%", top: "36%" },
+  { id: "fork", word: "Вилка", reveal: "Столовая вилка, не развилка.", left: "39%", top: "56%" },
+  { id: "cork", word: "Пробка", reveal: "Пробка от бутылки.", left: "54%", top: "32%" },
+  { id: "matches", word: "Спички", reveal: "Коробок спичек.", left: "68%", top: "18%" },
+  { id: "thimble", word: "Напёрсток", reveal: "Напёрсток у иглы.", left: "76%", top: "34%" },
+  { id: "button", word: "Пуговица", reveal: "Одна пуговица.", left: "84%", top: "56%" },
+  { id: "ribbon", word: "Лента", reveal: "Шёлковая лента, не плёнка.", left: "42%", top: "24%" },
+  { id: "rose", word: "Роза", reveal: "Сухая роза.", left: "57%", top: "42%" },
+  { id: "ship", word: "Корабль", reveal: "Кораблик в бутылке.", left: "72%", top: "12%" },
+  { id: "scythe", word: "Коса", reveal: "Коса жнеца, не волосы.", left: "28%", top: "62%" },
 ];
 
 const GLYPH: Record<string, string> = { dust: "·", note: "♪", moon: "☾", skull: "☠", frame: "▣" };
@@ -60,7 +60,6 @@ function rollGlyph() {
 export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [round] = useState(pickRound);
   const [found, setFound] = useState<string[]>([]);
-  const [face, setFace] = useState(false);
   const [line, setLine] = useState("Десять из тридцати. Названия врут.");
   const [busy, setBusy] = useState(false);
   const [reels, setReels] = useState(["note", "moon", "skull"]);
@@ -69,7 +68,6 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [slot, setSlot] = useState(false);
   const done = found.length === round.length;
   const left = round.filter((item) => !found.includes(item.id));
-  const active = new Set(round.map((item) => item.id));
 
   function tap(id: string, reveal: string) {
     setLine(reveal);
@@ -110,52 +108,31 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
       >
         <div className="relative" style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}>
           <img src="/rooms/hunt.jpg" alt="Кладовая" className="absolute inset-0 h-full w-full object-fill" />
-          <div
-            className="absolute overflow-hidden"
-            style={{ left: "8%", top: "18%", width: "10%", height: "24%" }}
-            onPointerEnter={() => setFace(true)}
-            onPointerLeave={() => setFace(false)}
-            onClick={() => setFace((on) => !on)}
-          >
-            <img
-              src="/rooms/face.jpg"
-              alt=""
-              className={`h-full w-full origin-center object-cover transition-opacity duration-300 ${face ? "scale-[2.2] opacity-85" : "scale-[2.2] opacity-0"}`}
-            />
-          </div>
           <button
             type="button"
             aria-label="Картина"
-            className="absolute cursor-default overflow-hidden rounded-sm shadow-md"
-            style={{ left: "37%", top: "5%", width: "20%", height: "24%" }}
+            className="absolute cursor-default overflow-hidden rounded-sm opacity-80 shadow-md"
+            style={{ left: "58%", top: "4%", width: "11%", height: "16%" }}
             onClick={() => setSlot(true)}
           >
             <img src="/rooms/cowboy.jpg" alt="" className="h-full w-full object-cover" />
           </button>
-          {FINDS.map((item) => {
+          {round.map((item) => {
             if (found.includes(item.id)) return null;
-            const box = { left: item.left, top: item.top, width: "7%", height: "13%" };
-            if (!active.has(item.id)) {
-              return (
-                <img
-                  key={item.id}
-                  src={`/rooms/items/${item.id}.png`}
-                  alt=""
-                  className="pointer-events-none absolute object-contain drop-shadow-md"
-                  style={box}
-                />
-              );
-            }
             return (
               <button
                 key={item.id}
                 type="button"
                 aria-label={item.word}
                 className="absolute cursor-default"
-                style={box}
+                style={{ left: item.left, top: item.top, width: "4.2%", height: "8%" }}
                 onClick={() => tap(item.id, item.reveal)}
               >
-                <img src={`/rooms/items/${item.id}.png`} alt="" className="h-full w-full object-contain drop-shadow-md" />
+                <img
+                  src={`/rooms/items/${item.id}.png`}
+                  alt=""
+                  className="h-full w-full object-contain opacity-80 mix-blend-multiply"
+                />
               </button>
             );
           })}
