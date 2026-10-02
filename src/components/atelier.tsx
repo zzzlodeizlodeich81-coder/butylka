@@ -11,7 +11,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("flux");
   const [size, setSize] = useState(SIZES[0]);
-  const [src, setSrc] = useState("");
+  const [shot, setShot] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,16 +24,22 @@ export function Atelier({ onClose }: { onClose: () => void }) {
     setError("");
     setBusy(true);
     const next = `/api/paint?model=${model}&w=${size.w}&h=${size.h}&prompt=${encodeURIComponent(text)}&t=${Date.now()}`;
-    const img = new Image();
-    img.onload = () => {
-      setSrc(next);
-      setBusy(false);
-    };
-    img.onerror = () => {
-      setBusy(false);
-      setError("Модель не ответила. Попробуй ещё раз или другую.");
-    };
-    img.src = next;
+    void (async () => {
+      try {
+        const res = await fetch(next);
+        if (!res.ok) {
+          setError((await res.text()) || "Модель не ответила.");
+          return;
+        }
+        const blob = await res.blob();
+        if (shot) URL.revokeObjectURL(shot);
+        setShot(URL.createObjectURL(blob));
+      } catch {
+        setError("Модель не ответила. Попробуй ещё раз или другую.");
+      } finally {
+        setBusy(false);
+      }
+    })();
   }
 
   return (
@@ -46,13 +52,14 @@ export function Atelier({ onClose }: { onClose: () => void }) {
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <p className="text-sm text-[#c4a574]">
-          Картинка бесплатная, ноты не списываются. Видео Grok и переход Kling остаются платными, они в киностудии.
+          Картинка бесплатная, ноты не списываются. Кандинский рисует с твоего ключа FusionBrain, у него свой дневной лимит. Видео Grok и переход Kling остаются платными, они в киностудии.
         </p>
         <label className="mt-3 block text-xs tracking-widest text-[#c4a574]">МОДЕЛЬ</label>
         <div className="mt-1 flex gap-2">
           {[
             ["flux", "Flux"],
             ["sana", "Sana"],
+            ["kandinsky", "Кандинский"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -89,9 +96,9 @@ export function Atelier({ onClose }: { onClose: () => void }) {
           {busy ? "Рисует…" : "Нарисовать"}
         </Button>
         {error ? <p className="mt-2 text-sm text-[#e8a090]">{error}</p> : null}
-        {src ? (
-          <a href={src} download="kadr.jpg" className="mt-3 block">
-            <img src={src} alt="" className="w-full rounded-xl" />
+        {shot ? (
+          <a href={shot} download="kadr.jpg" className="mt-3 block">
+            <img src={shot} alt="" className="w-full rounded-xl" />
             <span className="mt-1 block text-center text-sm underline">Скачать</span>
           </a>
         ) : null}
