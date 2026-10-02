@@ -29,8 +29,9 @@ export const Route = createFileRoute("/api/host")({
       POST: async ({ request }) => {
         const guest = guestFromRequest(request);
         if (!guest) return Response.json({ error: "Сначала зайди во двор." }, { status: 401 });
-        const key = process.env.XAI_API_KEY || "";
-        if (!key) return Response.json({ error: "Хозяин сейчас молчит: нет ключа." }, { status: 503 });
+        const groq = process.env.GROQ_API_KEY || "";
+        const xai = process.env.XAI_API_KEY || "";
+        if (!groq && !xai) return Response.json({ error: "Хозяин сейчас молчит: нет ключа." }, { status: 503 });
         const body = (await request.json().catch(() => null)) as { text?: string; history?: Turn[] } | null;
         const text = (body?.text || "").trim().slice(0, 600);
         if (text.length < 2) return Response.json({ error: "Скажи, о чём писать." }, { status: 400 });
@@ -43,11 +44,11 @@ export const Route = createFileRoute("/api/host")({
         const paid = await spendPurse(guest.id, NOTE_PRICE.host);
         if (!paid.ok) return Response.json({ error: paid.error, notes: paid.notes }, { status: 402 });
         const system = await systemPrompt();
-        const res = await fetch("https://api.x.ai/v1/chat/completions", {
+        const res = await fetch(groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.x.ai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groq || xai}` },
           body: JSON.stringify({
-            model: process.env.XAI_CHAT_MODEL || "grok-4-fast-non-reasoning",
+            model: groq ? process.env.GROQ_MODEL || "qwen/qwen3.8-27b" : process.env.XAI_CHAT_MODEL || "grok-4-fast-non-reasoning",
             temperature: 0.9,
             max_tokens: 900,
             messages: [{ role: "system", content: system }, ...history, { role: "user", content: text }],
@@ -58,7 +59,7 @@ export const Route = createFileRoute("/api/host")({
           return Response.json({ error: "Хозяин не ответил. Ноты вернул.", notes: back?.notes ?? paid.notes + NOTE_PRICE.host }, { status: 502 });
         }
         const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-        const reply = (data.choices?.[0]?.message?.content || "").trim();
+        const reply = (data.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
         if (!reply) {
           const back = await addPurse(guest.id, NOTE_PRICE.host);
           return Response.json({ error: "Пустой ответ. Ноты вернул.", notes: back?.notes ?? paid.notes + NOTE_PRICE.host }, { status: 502 });
