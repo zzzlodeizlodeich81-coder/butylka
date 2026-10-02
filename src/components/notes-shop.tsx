@@ -64,8 +64,8 @@ export function NotesShop() {
           </li>
           <li>
             {NOTE_LABEL.cover} — {NOTE_PRICE.cover} нот
-          </p>
-          <p>
+          </li>
+          <li>
             {NOTE_LABEL.grok} — {NOTE_PRICE.grok} нот
           </li>
           <li>
