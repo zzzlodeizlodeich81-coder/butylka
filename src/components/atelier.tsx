@@ -129,6 +129,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
               {[
                 ["flux", "Flux", "бесплатно"],
                 ["sana", "Sana", "бесплатно"],
+                ["art", "Яндекс", "10 нот"],
                 ["grok", "Grok", "20 нот"],
               ].map(([id, label, price]) => (
                 <button

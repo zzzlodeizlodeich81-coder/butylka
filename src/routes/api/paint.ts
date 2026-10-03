@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { NOTE_PRICE } from "@/lib/notes";
 import { addPurse, guestFromRequest, spendPurse } from "@/lib/purse.server";
 
-const MODELS = new Set(["flux", "sana", "kandinsky", "grok"]);
+const MODELS = new Set(["flux", "sana", "kandinsky", "grok", "art"]);
 const FUSION = "https://api-key.fusionbrain.ai/key/api/v1";
 
 function snap64(n: number) {
@@ -94,6 +94,53 @@ async function grokImage(prompt: string, aspect: string) {
     headers: { "Content-Type": img.headers.get("content-type") || "image/jpeg", "Cache-Control": "no-store" },
   });
 }
+async function yandexArt(prompt: string, aspect: string) {
+  const key = process.env.YANDEX_ART_KEY || process.env.YANDEX_API_KEY || "";
+  const folder = process.env.YANDEX_FOLDER_ID || "";
+  if (!key || !folder) return new Response("на сервере нет ключа Яндекса", { status: 503 });
+  const ratio = aspect === "16:9" ? ["16", "9"] : aspect === "9:16" ? ["9", "16"] : ["1", "1"];
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Api-Key ${key}`,
+    "x-folder-id": folder,
+  };
+  const run = await fetch("https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      modelUri: `art://${folder}/yandex-art/latest`,
+      generationOptions: {
+        mimeType: "image/jpeg",
+        aspectRatio: { widthRatio: ratio[0], heightRatio: ratio[1] },
+      },
+      messages: [{ text: prompt.slice(0, 480) }],
+    }),
+  });
+  if (!run.ok) {
+    return new Response(run.status === 403 ? "ключу Яндекса не хватает области картинок" : "Яндекс не принял картинку", {
+      status: 502,
+    });
+  }
+  let op = (await run.json()) as {
+    id?: string;
+    done?: boolean;
+    response?: { image?: string };
+    error?: { message?: string };
+  };
+  for (let i = 0; i < 20 && op.id && !op.done && !op.error; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const st = await fetch(`https://operation.api.cloud.yandex.net/operations/${op.id}`, { headers });
+    if (!st.ok) continue;
+    op = (await st.json()) as typeof op;
+  }
+  if (op.error) return new Response("Яндекс не нарисовал", { status: 502 });
+  const raw = op.response?.image;
+  if (!raw) return new Response("Яндекс думает слишком долго", { status: 504 });
+  return new Response(Buffer.from(raw, "base64"), {
+    headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store" },
+  });
+}
+
 export const Route = createFileRoute("/api/paint")({
   server: {
     handlers: {
@@ -106,20 +153,21 @@ export const Route = createFileRoute("/api/paint")({
         const h = Math.min(1024, Math.max(256, Math.round(Number(q.get("h")) || 768)));
         const aspect = q.get("aspect") || "1:1";
         if (model === "kandinsky") return kandinsky(prompt, w, h);
-        if (model === "grok") {
+        if (model === "grok" || model === "art") {
+          const price = model === "art" ? NOTE_PRICE.art : NOTE_PRICE.grok;
           const guest = guestFromRequest(request);
           if (!guest) return new Response("Сначала зайди во двор.", { status: 401 });
-          const paid = await spendPurse(guest.id, NOTE_PRICE.grok);
+          const paid = await spendPurse(guest.id, price);
           if (!paid.ok) {
             return new Response(paid.error, { status: 402, headers: { "X-Notes": String(paid.notes) } });
           }
-          const shot = await grokImage(prompt, aspect);
+          const shot = model === "art" ? await yandexArt(prompt, aspect) : await grokImage(prompt, aspect);
           if (!shot.ok) {
-            const back = await addPurse(guest.id, NOTE_PRICE.grok);
+            const back = await addPurse(guest.id, price);
             const text = await shot.text();
             return new Response(text, {
               status: shot.status,
-              headers: { "X-Notes": String(back?.notes ?? paid.notes + NOTE_PRICE.grok) },
+              headers: { "X-Notes": String(back?.notes ?? paid.notes + price) },
             });
           }
           return new Response(shot.body, {
