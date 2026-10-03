@@ -1,4 +1,3 @@
-import { createServerFn } from "@tanstack/react-start";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -76,20 +75,16 @@ function toolById(id: string) {
   return TOOLS.find((tool) => tool.id === id);
 }
 
-export const landDesk = createServerFn({ method: "POST" })
-  .validator(
-    (input: {
-      action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle";
-      kind?: PlotKind;
-      title?: string;
-      tool?: string;
-      code?: string;
-      plot?: string;
-      url?: string;
-      how?: "paid" | "state";
-    }) => input,
-  )
-  .handler(async ({ data }) => {
+export async function runLand(data: {
+  action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle";
+  kind?: PlotKind;
+  title?: string;
+  tool?: string;
+  code?: string;
+  plot?: string;
+  url?: string;
+  how?: "paid" | "state";
+}) {
     const guest = currentGuest();
     if (!guest) return { ok: false as const, error: "Сначала зайди.", notes: 0 };
     const book = await readBook();
@@ -261,4 +256,4 @@ export const landDesk = createServerFn({ method: "POST" })
     }
 
     return { ok: false as const, error: "Не понял.", notes: (await readPurse(guest.id))?.notes ?? 0 };
-  });
+}

@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PLOT_LABEL, PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, type PlotKind } from "@/lib/lands";
-import { landDesk } from "@/lib/lands.server";
+import { landDesk } from "@/lib/land-desk";
 import { useWallet } from "@/lib/wallet";
 
 type Plot = { id: string; name: string; kind: PlotKind; tools: string[]; code: string; state: string; owner: boolean };

@@ -11,7 +11,7 @@ import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
 import { LandCard } from "@/components/land-card";
-import { landDesk } from "@/lib/lands.server";
+import { landDesk } from "@/lib/land-desk";
 import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
