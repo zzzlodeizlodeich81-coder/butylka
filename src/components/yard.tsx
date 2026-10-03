@@ -77,15 +77,15 @@ const ZONES: { id: HouseId; label: string; left: string; top: string; width: str
 ];
 
 const YARD_PHONE: typeof ZONES = [
-  { id: "record", label: "Дом записи", left: "4%", top: "7%", width: "30%", height: "16%", sign: "bottom" },
-  { id: "factory", label: "Фабрика звука", left: "34%", top: "4%", width: "32%", height: "16%", sign: "bottom" },
-  { id: "frame", label: "Рама", left: "76%", top: "12%", width: "20%", height: "12%", sign: "bottom" },
-  { id: "atelier", label: "Мастерская", left: "60%", top: "28%", width: "34%", height: "10%", sign: "top" },
-  { id: "stage", label: "Сцена", left: "2%", top: "58%", width: "42%", height: "18%", sign: "top" },
-  { id: "organ", label: "Шарманщик", left: "52%", top: "40%", width: "26%", height: "18%", sign: "bottom" },
-  { id: "cinema", label: "Киностудия", left: "56%", top: "18%", width: "24%", height: "12%", sign: "bottom" },
-  { id: "market", label: "Торговые ряды", left: "8%", top: "58%", width: "84%", height: "13%", sign: "top" },
-  { id: "gate", label: "Ворота", left: "26%", top: "76%", width: "48%", height: "16%", sign: "top" },
+  { id: "record", label: "Дом записи", left: "3%", top: "8%", width: "30%", height: "18%", sign: "bottom" },
+  { id: "factory", label: "Фабрика звука", left: "34%", top: "4%", width: "34%", height: "20%", sign: "bottom" },
+  { id: "frame", label: "Рама", left: "70%", top: "10%", width: "26%", height: "16%", sign: "bottom" },
+  { id: "stage", label: "Сцена", left: "2%", top: "36%", width: "34%", height: "18%", sign: "bottom" },
+  { id: "organ", label: "Шарманщик", left: "36%", top: "34%", width: "28%", height: "18%", sign: "bottom" },
+  { id: "atelier", label: "Мастерская", left: "66%", top: "32%", width: "30%", height: "16%", sign: "bottom" },
+  { id: "cinema", label: "Киностудия", left: "60%", top: "54%", width: "36%", height: "16%", sign: "bottom" },
+  { id: "market", label: "Торговые ряды", left: "6%", top: "66%", width: "52%", height: "14%", sign: "top" },
+  { id: "gate", label: "Ворота", left: "28%", top: "80%", width: "44%", height: "16%", sign: "top" },
 ];
 
 const DOORS: Partial<Record<HouseId, string>> = {

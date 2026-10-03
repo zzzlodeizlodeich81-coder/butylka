@@ -51,7 +51,7 @@ export function HostChat({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         <p className="mt-1 text-sm text-[#c4a574]">
-          Стихи и песни он пишет по-английски и отдаёт литературным русским. Ответ {NOTE_PRICE.host} нот. Если молчит, ноты вернутся.
+          Стихи, песни и промпты для музыки. Ответ {NOTE_PRICE.host} нот. Если молчит, ноты вернутся.
         </p>
         <div className="mt-3 min-h-24 flex-1 space-y-2 overflow-auto">
           {lines.length === 0 ? <p className="text-sm text-[#c4a574]">Скажи тему. Например: тоска по двору, медленный куплет.</p> : null}
@@ -70,7 +70,7 @@ export function HostChat({ onClose }: { onClose: () => void }) {
           onChange={(e) => setText(e.target.value)}
           rows={2}
           maxLength={600}
-          placeholder="О чём песня"
+          placeholder="Стихи, песня или промпт для музыки"
           className="mt-2 w-full rounded-xl bg-black/30 px-3 py-2 text-sm outline-none"
         />
         <Button className="mt-2 w-full rounded-xl" disabled={busy} onClick={ask}>
