@@ -137,10 +137,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="absolute inset-0 z-30 cursor-default bg-black">
-      <div
-        className="absolute inset-x-0 flex items-center justify-center [container-type:size]"
-        style={{ top: "2.4rem", bottom: "6.4rem" }}
-      >
+      <div className="absolute inset-x-0 top-10 bottom-28 flex items-center justify-center [container-type:size] landscape:inset-0">
         <div
           className="relative"
           style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}
@@ -234,9 +231,9 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
           ) : null}
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-[#2a1a0c] px-3 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] text-[#f4e4c4]">
-        <p className="text-sm">{line}</p>
-        <div className="mt-2 flex flex-wrap gap-1">
+      <div className="absolute inset-x-0 bottom-0 bg-[#2a1a0c]/95 px-3 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] text-[#f4e4c4] landscape:flex landscape:items-end landscape:gap-2 landscape:px-2 landscape:pt-1 landscape:pb-[max(0.35rem,env(safe-area-inset-bottom))]">
+        <p className="text-sm landscape:hidden">{line}</p>
+        <div className="mt-2 flex flex-wrap gap-1 landscape:mt-0 landscape:max-w-[58%] landscape:flex-nowrap landscape:overflow-x-auto">
           {left.map((item) => (
             <span
               key={item.id}
@@ -246,7 +243,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
             </span>
           ))}
         </div>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex gap-2 landscape:mt-0 landscape:shrink-0">
           <Button variant="secondary" className="rounded-xl" onClick={onClose}>
             В особняк
           </Button>
