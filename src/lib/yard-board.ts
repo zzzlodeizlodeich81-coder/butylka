@@ -43,7 +43,10 @@ type Mem = {
   chat: YardLine[];
 };
 
+type Stall = { id: string; owner: string; name: string; about: string; url: string; until: number };
+
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
+const stalls: Stall[] = [];
 const spots: (YardSpot & { at: number })[] = [];
 
 function liveSpots(): YardSpot[] {
@@ -60,11 +63,16 @@ function boardFile() {
 function loadBoardFile() {
   boardReady ??= (async () => {
     try {
-      const raw = JSON.parse(await readFile(boardFile(), "utf8")) as { songs?: YardSong[]; chat?: YardLine[] };
+      const raw = JSON.parse(await readFile(boardFile(), "utf8")) as {
+        songs?: YardSong[];
+        chat?: YardLine[];
+        stalls?: Stall[];
+      };
       if (Array.isArray(raw.songs)) {
         mem.songs = raw.songs.slice(-80).map((song) => ({ ...song, title: song.title || "" }));
       }
       if (Array.isArray(raw.chat)) mem.chat = raw.chat.slice(-80);
+      if (Array.isArray(raw.stalls)) stalls.splice(0, stalls.length, ...raw.stalls);
     } catch {
       /* доски ещё нет */
     }
@@ -75,7 +83,7 @@ function loadBoardFile() {
 async function saveBoardFile() {
   const path = boardFile();
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify({ songs: mem.songs, chat: mem.chat }));
+  await writeFile(path, JSON.stringify({ songs: mem.songs, chat: mem.chat, stalls }));
 }
 
 function cleanUrl(raw: string) {
@@ -168,6 +176,19 @@ function heroRows() {
   return [...heroes.values()].sort((a, b) => b.fame - a.fame || b.votes - a.votes).slice(0, 20);
 }
 
+function vkPage(raw: string) {
+  const text = raw.trim();
+  if (!text) return "";
+  const withProto = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+  try {
+    const url = new URL(withProto);
+    if (!/(^|\.)vk\.(com|ru)$/i.test(url.hostname)) return "";
+    return url.toString().slice(0, 200);
+  } catch {
+    return "";
+  }
+}
+
 type BoardRes = {
   ok: boolean;
   error?: string;
@@ -186,13 +207,14 @@ type BoardRes = {
   score?: number;
   published?: boolean;
   ready?: string[];
+  stalls?: { id: string; name: string; about: string; url: string; until: number; mine: boolean }[];
 };
 
 export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot";
+      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent";
       kind?: "draft" | "release";
       url?: string;
       title?: string;
@@ -216,6 +238,40 @@ export const yardBoard = createServerFn({ method: "POST" })
     const { communityOf } = await import("@/lib/lands.server");
     const room = guest ? await communityOf(guest.id) : "";
     await loadBoardFile();
+
+    if (data.action === "stalls" || data.action === "rent") {
+      const now = Date.now();
+      const live = () =>
+        stalls
+          .filter((row) => row.until > now)
+          .map((row) => ({ id: row.id, name: row.name, about: row.about, url: row.url, until: row.until, mine: row.owner === vkId }));
+      if (data.action === "stalls") return { ok: true, stalls: live() };
+      if (!guest) return { ok: false, error: "Сначала зайди." };
+      const about = String(data.text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      const url = vkPage(data.url || "");
+      if (!about) return { ok: false, error: "Напиши, что делаешь." };
+      if (!url) return { ok: false, error: "Нужна ссылка на страницу ВК: vk.com или vk.ru." };
+      const { spendPurse } = await import("@/lib/purse.server");
+      const { STALL_DAYS, STALL_RENT } = await import("@/lib/yard");
+      const paid = await spendPurse(guest.id, STALL_RENT);
+      if (!paid.ok) return { ok: false, error: paid.error, notes: paid.notes };
+      const prev = stalls.find((row) => row.owner === guest.id);
+      const from = prev && prev.until > now ? prev.until : now;
+      const next: Stall = {
+        id: prev?.id || crypto.randomUUID(),
+        owner: guest.id,
+        name,
+        about,
+        url,
+        until: from + STALL_DAYS * 24 * 60 * 60 * 1000,
+      };
+      const index = stalls.findIndex((row) => row.owner === guest.id);
+      if (index >= 0) stalls[index] = next;
+      else stalls.push(next);
+      await saveBoardFile();
+      return { ok: true, notes: paid.notes, stalls: live() };
+    }
+
     const remote = await sheetCall({ ...data, vkId, name });
     if (remote?.ok) {
       if (data.action === "hear" && vk && remote.credit) {

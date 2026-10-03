@@ -2,6 +2,7 @@ export const NOTES_PER_FRAME = 100;
 export const HOUSE_CUT = 0.1;
 
 export const ROLES = [
+  { id: "passer", label: "Прохожий", hint: "зашёл на рынок, жить не обязан" },
   { id: "artist", label: "Артист", hint: "выходит на сцену" },
   { id: "poet", label: "Поэт", hint: "пишет строки" },
   { id: "musician", label: "Музыкант", hint: "собирает трек" },
@@ -10,6 +11,9 @@ export const ROLES = [
 ] as const;
 
 export type RoleId = (typeof ROLES)[number]["id"];
+
+export const STALL_RENT = 286;
+export const STALL_DAYS = 30;
 
 export type Listing = {
   id: string;
@@ -24,13 +28,6 @@ const CARD_KEY = "yard-roles";
 const BOARD_KEY = "yard-board";
 const FRAMES_KEY = "yard-frames";
 const HOUSE_KEY = "yard-house-notes";
-
-const SEED: Listing[] = [
-  { id: "seed-poet", name: "Лера", role: "poet", service: "Текст под твой трек", price: 40 },
-  { id: "seed-live", name: "Дима", role: "live", service: "Озвучка куплета", price: 80 },
-  { id: "seed-promo", name: "Катя", role: "promo", service: "Вынести песню на стену двора", price: 50 },
-  { id: "seed-sound", name: "Макс", role: "musician", service: "Свести стемы", price: 100 },
-];
 
 export function splitDeal(price: number) {
   const house = Math.max(1, Math.round(price * HOUSE_CUT));
@@ -53,10 +50,10 @@ export function writeRoles(ids: RoleId[]) {
 export function readBoard(): Listing[] {
   try {
     const raw = JSON.parse(localStorage.getItem(BOARD_KEY) || "null") as Listing[] | null;
-    if (!raw?.length) return SEED;
-    return raw;
+    if (!raw?.length) return [];
+    return raw.filter((row) => row.id && !String(row.id).startsWith("seed-"));
   } catch {
-    return SEED;
+    return [];
   }
 }
 

@@ -15,21 +15,14 @@ import { landDesk } from "@/lib/land-desk";
 import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
-import { uid } from "@/lib/utils";
-import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
-import { settleYard } from "@/lib/yard-server";
 import {
   ROLES,
-  addHouseTake,
-  readBoard,
+  STALL_RENT,
   readFrames,
   readHouseTake,
   readRoles,
-  splitDeal,
-  writeBoard,
   writeRoles,
-  type Listing,
   type RoleId,
 } from "@/lib/yard";
 
@@ -107,21 +100,6 @@ const DOORS: Partial<Record<HouseId, string>> = {
   frame: "/doors/frame.html",
   cinema: "/doors/cinema.html",
 };
-
-async function pay(notes: number, kind: "deal" | "frame") {
-  const res = await settleYard({ data: { notes, kind } });
-  if (!res.ok) return res;
-  if (res.local) {
-    const game = useGame.getState();
-    const you = game.players.find((p) => p.id === game.youId);
-    if (!you || you.notes < notes) return { ok: false as const, error: `Нужно ${notes} нот.`, notes: you?.notes ?? 0 };
-    game.spendNotes(game.youId, notes);
-    return { ok: true as const, notes: you.notes - notes };
-  }
-  if (typeof res.notes === "number") useWallet.getState().apply({ notes: res.notes });
-  else await refreshWallet();
-  return res;
-}
 
 export function Yard() {
   const toStudio = useGame((s) => s.toStudio);
@@ -614,13 +592,7 @@ function HouseSheet(props: {
             </Button>
           </p>
         ) : null}
-        {props.house === "market" ? (
-          <MarketCard
-            roles={props.roles}
-            houseTake={props.houseTake}
-            onHouseTake={props.onHouseTake}
-          />
-        ) : null}
+        {props.house === "market" ? <MarketCard /> : null}
       </div>
     </div>
   );
@@ -631,7 +603,7 @@ function GateCard({ roles, onSave }: { roles: RoleId[]; onSave: (ids: RoleId[]) 
   return (
     <div>
       <p className="text-sm leading-relaxed text-muted">
-        Кто ты на дворе. Можно несколько. По этим ролям тебя найдут в торговых рядах.
+        Кто ты на дворе. Можно несколько. Прохожий просто заходит на рынок и не селится. Остальные роли — если живёшь и работаешь здесь.
       </p>
       <div className="mt-3 flex flex-col gap-2">
         {ROLES.map((role) => {
@@ -662,108 +634,74 @@ function GateCard({ roles, onSave }: { roles: RoleId[]; onSave: (ids: RoleId[]) 
   );
 }
 
-function MarketCard({
-  roles,
-  houseTake,
-  onHouseTake,
-}: {
-  roles: RoleId[];
-  houseTake: number;
-  onHouseTake: (n: number) => void;
-}) {
-  const youName = useGame((s) => s.players.find((p) => p.id === s.youId)?.name || "Я");
-  const [board, setBoard] = useState<Listing[]>(() => readBoard());
-  const [service, setService] = useState("");
-  const [price, setPrice] = useState(50);
-  const [role, setRole] = useState<RoleId>(roles[0] ?? "artist");
-  const [busy, setBusy] = useState<string | null>(null);
+function MarketCard() {
+  const [stalls, setStalls] = useState<{ id: string; name: string; about: string; url: string; until: number; mine: boolean }[]>([]);
+  const [about, setAbout] = useState("");
+  const [link, setLink] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function save(next: Listing[]) {
-    setBoard(next);
-    writeBoard(next);
+  async function load() {
+    const res = await yardBoard({ data: { action: "stalls" } });
+    if (res.ok && res.stalls) setStalls(res.stalls);
   }
+
+  useEffect(() => {
+    void load();
+  }, []);
 
   return (
     <div className="text-sm text-muted">
       <p>
-        Сделка целиком списывается с покупателя. Мастеру {""}
-        девять частей, двору одна. Казне двора уже {houseTake} нот.
+        Место в рядах на месяц — {STALL_RENT} нот, это около 200 ₽. 10 нот = 7 ₽. Напиши, что делаешь, и вставь ссылку на свою страницу ВК.
       </p>
       <div className="mt-3 flex flex-col gap-2">
-        {board.map((row) => {
-          const cut = splitDeal(row.price);
-          const label = ROLES.find((r) => r.id === row.role)?.label ?? row.role;
-          return (
+        {stalls.length ? (
+          stalls.map((row) => (
             <div key={row.id} className="rounded-xl border border-border bg-surface px-3 py-2">
               <p className="font-medium text-fg">
-                {row.name} · {label}
+                {row.name}
+                {row.mine ? " · твоё" : ""}
               </p>
-              <p>{row.service}</p>
-              <p className="mt-1 text-xs">
-                {row.price} нот · мастеру {cut.seller} · двору {cut.house}
-              </p>
-              <Button
-                variant="secondary"
-                className="mt-2 rounded-xl"
-                disabled={Boolean(busy) || row.mine}
-                onClick={() => {
-                  void (async () => {
-                    setBusy(row.id);
-                    try {
-                      const paid = await pay(row.price, "deal");
-                      if (!paid.ok) {
-                        toast.error(paid.error);
-                        useWallet.getState().setShop(true);
-                        return;
-                      }
-                      onHouseTake(addHouseTake(cut.house));
-                      toast.success(`${row.name} получил ${cut.seller} нот. Двору ${cut.house}.`);
-                    } finally {
-                      setBusy(null);
-                    }
-                  })();
-                }}
-              >
-                {row.mine ? "Твоя карточка" : busy === row.id ? "Считаю…" : "Заказать"}
-              </Button>
+              <p>{row.about}</p>
+              <p className="mt-1 text-xs">до {new Date(row.until).toLocaleDateString("ru-RU")}</p>
+              <a className="mt-2 inline-flex rounded-xl bg-surface-2 px-3 py-2 text-fg" href={row.url} target="_blank" rel="noreferrer">
+                Страница ВК
+              </a>
             </div>
-          );
-        })}
+          ))
+        ) : (
+          <p>Ряды пустые. Первое место ещё никто не снял.</p>
+        )}
       </div>
       <div className="mt-4 flex flex-col gap-2">
-        <p className="text-fg">Своя карточка</p>
-        <select
-          className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
-          value={role}
-          onChange={(e) => setRole(e.target.value as RoleId)}
-        >
-          {ROLES.filter((r) => !roles.length || roles.includes(r.id)).map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <Input placeholder="Что делаешь" value={service} onChange={(e) => setService(e.target.value)} />
-        <Input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} aria-label="Цена в нотах" />
+        <p className="text-fg">Снять место</p>
+        <Input placeholder="Что делаешь" value={about} onChange={(e) => setAbout(e.target.value)} />
+        <Input placeholder="vk.com/твоя_страница" value={link} onChange={(e) => setLink(e.target.value)} />
         <Button
           className="rounded-xl"
+          disabled={busy}
           onClick={() => {
-            const text = service.trim();
-            if (!text) return;
-            const row: Listing = {
-              id: uid("card"),
-              name: youName,
-              role,
-              service: text.slice(0, 80),
-              price: Math.max(10, Math.round(price) || 10),
-              mine: true,
-            };
-            save([row, ...board]);
-            setService("");
-            toast.success("Карточка висит в рядах.");
+            void (async () => {
+              setBusy(true);
+              try {
+                const res = await yardBoard({ data: { action: "rent", text: about, url: link } });
+                if (!res.ok) {
+                  toast.error(res.error || "Не вышло.");
+                  if (res.error?.includes("нот")) useWallet.getState().setShop(true);
+                  return;
+                }
+                if (typeof res.notes === "number") useWallet.getState().apply({ notes: res.notes });
+                if (res.stalls) setStalls(res.stalls);
+                setAbout("");
+                setLink("");
+                toast.success("Место твое на месяц.");
+              } finally {
+                setBusy(false);
+              }
+            })();
           }}
         >
-          Повесить
+          {busy ? "Считаю…" : `Арендовать · ${STALL_RENT} нот`}
         </Button>
       </div>
     </div>
