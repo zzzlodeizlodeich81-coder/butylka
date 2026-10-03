@@ -41,10 +41,7 @@ async function writeBook(book: Book) {
 
 function payout(reels: SymbolId[]) {
   if (reels[0] !== reels[1] || reels[1] !== reels[2]) return 0;
-  if (reels[0] === "frame") return 30;
-  if (reels[0] === "note") return 8;
-  if (reels[0] === "moon") return 4;
-  return 0;
+  return 10;
 }
 
 async function once(book: Book, map: "bandits" | "prizes", key: string, amount: number) {

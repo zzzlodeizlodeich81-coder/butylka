@@ -10,7 +10,7 @@ const RIDDLES: { id: RiddleId; say: string; left: string; top: string; width: st
   { id: "key", say: "Им можно открыть или открутить.", left: "28%", top: "56%", width: "14%", height: "18%" },
   { id: "bird", say: "Он летает. На нём играют.", left: "46%", top: "24%", width: "16%", height: "18%" },
   { id: "apple", say: "Оно круглое. Оно съедобное.", left: "38%", top: "60%", width: "14%", height: "16%" },
-  { id: "soldier", say: "Инвалид.", left: "54%", top: "32%", width: "16%", height: "22%" },
+  { id: "soldier", say: "Инвалид.", left: "68%", top: "36%", width: "16%", height: "30%" },
   { id: "feather", say: "И пишут, и режут, и летают.", left: "50%", top: "62%", width: "14%", height: "16%" },
 ];
 
@@ -49,6 +49,8 @@ function shuffle<T>(list: T[]) {
   return bag;
 }
 
+const GLYPH: Record<string, string> = { dust: "·", note: "♪", moon: "☾", skull: "☠", frame: "▣" };
+
 function applyNotes(notes?: number) {
   if (typeof notes === "number") useWallet.getState().apply({ notes });
 }
@@ -57,6 +59,7 @@ function Bricks({ onWin }: { onWin: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const won = useRef(false);
   const winRef = useRef(onWin);
+  const [lives, setLives] = useState(3);
   winRef.current = onWin;
   useEffect(() => {
     const canvas = ref.current;
@@ -69,6 +72,7 @@ function Bricks({ onWin }: { onWin: () => void }) {
     let vx = 2.1;
     let vy = -2.5;
     let pad = w / 2;
+    let left = 3;
     const cols = 6;
     const bw = (w - 16) / cols;
     const alive = Array.from({ length: 24 }, () => true);
@@ -85,10 +89,16 @@ function Bricks({ onWin }: { onWin: () => void }) {
       y += vy;
       if (x < 6 || x > w - 6) vx *= -1;
       if (y < 6) vy *= -1;
-      if (y > h - 22 && Math.abs(x - pad) < 34) {
+      if (y > h - 22 && y < h - 4 && Math.abs(x - pad) < 34 && vy > 0) {
         vy = -Math.abs(vy);
         vx += (x - pad) / 24;
-      } else if (y > h + 8) {
+      } else if (y > h + 6) {
+        left -= 1;
+        setLives(left);
+        if (left <= 0) {
+          toast.message("Попытки кончились.");
+          return;
+        }
         x = w / 2;
         y = h - 46;
         vx = 2.1;
@@ -131,7 +141,12 @@ function Bricks({ onWin }: { onWin: () => void }) {
       canvas.removeEventListener("pointerdown", move);
     };
   }, []);
-  return <canvas ref={ref} width={300} height={190} className="w-full touch-none rounded-md" />;
+  return (
+    <div>
+      <p className="mb-1 text-xs text-[#c4a574]">Попытки: {lives}. Мяч мимо ракетки — минус одна.</p>
+      <canvas ref={ref} width={300} height={190} className="w-full touch-none rounded-md" />
+    </div>
+  );
 }
 
 export function HuntRoom({ onClose }: { onClose: () => void }) {
@@ -144,6 +159,9 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
   const [boxes, setBoxes] = useState<boolean[] | null>(null);
   const [cake, setCake] = useState(() => shuffle(CAKE));
   const [cakeStep, setCakeStep] = useState(0);
+  const [cakeHit, setCakeHit] = useState<string[]>([]);
+  const [reels, setReels] = useState(["note", "moon", "skull"]);
+  const [spinning, setSpinning] = useState(false);
   const [hint, setHint] = useState("");
   const [faces, setFaces] = useState(() => shuffle(FACES));
   const [memoryOrder] = useState(() => shuffle(FACES));
@@ -165,6 +183,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
     setDue(false);
     setCake(shuffle(CAKE));
     setCakeStep(0);
+    setCakeHit([]);
     setHint("");
     setFaces(shuffle(FACES));
     setMemoryStep(0);
@@ -193,18 +212,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
       return;
     }
     if (id === "soldier") {
-      void (async () => {
-        setBusy(true);
-        try {
-          const res = await playRoom({ data: { action: "bandit" } });
-          applyNotes(res.notes);
-          if (!res.ok) toast.message(res.error);
-          else toast.success("Инвалид отсыпал 10 нот.");
-          nextRiddle();
-        } finally {
-          setBusy(false);
-        }
-      })();
+      setOpen("soldier");
       return;
     }
     if (id === "key") {
@@ -269,12 +277,43 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
     })();
   }
 
+  function spin() {
+    void (async () => {
+      setSpinning(true);
+      const started = Date.now();
+      const timer = window.setInterval(
+        () => setReels(["dust", "note", "moon", "skull", "frame"].sort(() => Math.random() - 0.5).slice(0, 3)),
+        90,
+      );
+      try {
+        const res = await playRoom({ data: { action: "spin" } });
+        const wait = 1100 - (Date.now() - started);
+        if (wait > 0) await new Promise((r) => window.setTimeout(r, wait));
+        window.clearInterval(timer);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        if (res.reels) setReels(res.reels);
+        applyNotes(res.notes);
+        toast.message(res.win ? `Тройка. +${res.win}` : "Пусто.");
+      } finally {
+        window.clearInterval(timer);
+        setSpinning(false);
+      }
+    })();
+  }
+
   function tapCake(id: string) {
+    if (cakeHit.includes(id)) return;
     if (id !== CAKE[cakeStep].id) {
       setCakeStep(0);
+      setCakeHit([]);
       toast.message("Не тот ход. Сначала.");
       return;
     }
+    const hit = [...cakeHit, id];
+    setCakeHit(hit);
     const step = cakeStep + 1;
     if (step >= CAKE.length) {
       takePrize("cake");
@@ -327,7 +366,7 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
             style={{ left: riddle.left, top: riddle.top, width: riddle.width, height: riddle.height }}
             onClick={() => openRiddle(riddle.id)}
           />
-          {open && open !== "soldier" ? (
+          {open ? (
             <div className="absolute inset-x-2 bottom-2 z-20 rounded-xl border border-[#8a7044] bg-[#1a120c]/95 p-2 text-[#f4e4c4]">
               {open === "key" && boxes ? (
                 <div className="flex gap-2">
@@ -358,10 +397,10 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
                       <button
                         key={slice.id}
                         type="button"
-                        className="rounded-md bg-[#3a2414] px-1 py-2 text-xs"
+                        className={`rounded-md px-1 py-2 text-xs ${cakeHit.includes(slice.id) ? "bg-[#3d5a32]" : "bg-[#3a2414]"}`}
                         onClick={() => tapCake(slice.id)}
                       >
-                        {slice.mark}
+                        {cakeHit.includes(slice.id) ? `✓ ${slice.mark}` : slice.mark}
                       </button>
                     ))}
                   </div>
@@ -390,6 +429,26 @@ export function HuntRoom({ onClose }: { onClose: () => void }) {
                 </>
               ) : null}
               {open === "feather" ? <Bricks onWin={() => takePrize("brick")} /> : null}
+              {open === "soldier" ? (
+                <>
+                  <p className="text-xs text-[#c4a574]">Рычаг 2 ноты. Три одинаковых — 10.</p>
+                  <div className="mt-1 flex gap-1">
+                    {reels.map((symbol, index) => (
+                      <div key={index} className="flex h-10 flex-1 items-center justify-center rounded-sm bg-black text-xl">
+                        {GLYPH[symbol] || "·"}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={spinning || busy}
+                    className="mt-2 w-full rounded-sm bg-[#6b2a22] px-2 py-1 text-[11px] disabled:opacity-60"
+                    onClick={spin}
+                  >
+                    {spinning ? "крутится" : "крутить"}
+                  </button>
+                </>
+              ) : null}
               <button type="button" className="mt-1 text-[11px] underline" onClick={() => setOpen(null)}>
                 закрыть
               </button>
