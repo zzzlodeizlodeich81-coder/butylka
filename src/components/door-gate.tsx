@@ -159,6 +159,23 @@ export function DoorGate({ children }: { children: ReactNode }) {
           </form>
         </div>
       ) : null}
+      {phase === "in" ? (
+        <button
+          type="button"
+          className="fixed left-3 bottom-[max(0.8rem,env(safe-area-inset-bottom))] z-[60] rounded-full bg-black/55 px-3 py-1 text-xs text-white"
+          onClick={() => {
+            void (async () => {
+              await door({ action: "out" });
+              useWallet.getState().apply({ vkId: null, name: "", notes: 0, admin: false, inVk: false, shopOpen: false });
+              setKassa(false);
+              setPassword("");
+              setPhase("lock");
+            })();
+          }}
+        >
+          Выйти
+        </button>
+      ) : null}
       <button
         type="button"
         className="fixed right-3 bottom-[max(0.8rem,env(safe-area-inset-bottom))] z-[60] rounded-full bg-black/55 px-3 py-1 text-xs text-white"

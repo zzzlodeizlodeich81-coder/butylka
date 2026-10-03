@@ -5,6 +5,7 @@ import {
   addPurse,
   checkAdminPassword,
   checkDoorPassword,
+  clearCookie,
   deletePurse,
   doorCookieValue,
   doorEnabled,
@@ -72,6 +73,12 @@ export const Route = createFileRoute("/api/door")({
             status: 200,
             headers,
           });
+        }
+
+        if (body.action === "out") {
+          headers.append("set-cookie", clearCookie(request, DOOR_COOKIE));
+          headers.append("set-cookie", clearCookie(request, GUEST_COOKIE));
+          return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
         }
 
         if (body.action === "enter") {

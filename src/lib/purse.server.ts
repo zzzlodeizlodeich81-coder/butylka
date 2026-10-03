@@ -303,5 +303,10 @@ export function setCookie(req: Request, name: string, value: string) {
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
 }
 
+export function clearCookie(req: Request, name: string) {
+  const secure = new URL(req.url).protocol === "https:" ? "; Secure" : "";
+  return `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
 export const DOOR_COOKIE = DOOR;
 export const GUEST_COOKIE = GUEST;
