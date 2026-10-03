@@ -87,8 +87,19 @@ async function saveBoardFile() {
 }
 
 function cleanUrl(raw: string) {
-  const url = raw.trim().slice(0, 300);
-  return /^https:\/\/\S+$/i.test(url) ? url : "";
+  const text = raw.trim().slice(0, 1200);
+  const fromFrame = text.match(/src=["'](https:\/\/[^"'\s]+)["']/i)?.[1] || "";
+  const url = (fromFrame || text.split(/\s+/)[0] || "").trim().slice(0, 300);
+  if (!/^https:\/\/\S+$/i.test(url)) return "";
+  if (!fromFrame) return url;
+  try {
+    const page = new URL(url);
+    if (!/^music\.yandex\.(ru|com)$/i.test(page.hostname)) return "";
+    if (!page.pathname.includes("/iframe")) return "";
+  } catch {
+    return "";
+  }
+  return url;
 }
 
 function score(n: unknown) {

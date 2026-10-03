@@ -209,7 +209,7 @@ function ReleaseRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong
         <iframe
           title={song.title || song.author}
           src={frame}
-          className="h-[180px] w-full rounded-lg border-0"
+          className={`${/\/iframe\/album\/\d+\/?$/.test(frame.split("?")[0] || "") && !frame.includes("#track") ? "h-[420px]" : "h-[180px]"} w-full rounded-lg border-0`}
           allow="autoplay; encrypted-media"
         />
       ) : null}
@@ -257,7 +257,7 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
       <div className="mt-3 flex flex-col gap-2">
         <Input placeholder="Название песни" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="flex gap-2">
-        <Input placeholder="https:// ссылка на релиз" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Input placeholder="Ссылка или код вставки Яндекс Музыки" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Button
           disabled={busy}
           onClick={() => {
