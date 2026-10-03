@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -344,6 +344,52 @@ const CITY_PHONE: typeof CITY = [
   { id: "yard", label: "Наш двор", left: "10%", top: "64%", width: "80%", height: "30%" },
 ];
 
+const HECKLER = [
+  "Вы все говно.",
+  "Вашу музыку никто не слушает.",
+  "Ты бездарность.",
+  "Брось писать стихи, это не твоё.",
+  "Пошлятина!",
+  "Вы ничего не понимаете в искусстве.",
+  "Кто это назвал песней?",
+  "Слух оставь там, где нашёл.",
+  "Опять этот двор. Уши вянут.",
+  "Талант кончился на первой строчке.",
+  "Иди мимо. И молча.",
+  "Даже ворона поёт честнее.",
+];
+
+function Heckler({ phone }: { phone: boolean }) {
+  const [line, setLine] = useState("");
+  const last = useRef(0);
+  function poke() {
+    const now = Date.now();
+    if (now - last.current < 350) return;
+    last.current = now;
+    setLine((prev) => {
+      const pool = HECKLER.filter((row) => row !== prev);
+      return pool[Math.floor(Math.random() * pool.length)] || prev;
+    });
+  }
+  return (
+    <button
+      type="button"
+      aria-label="Злой прохожий"
+      className="absolute z-20"
+      style={phone ? { left: "84%", top: "78%", width: "13%" } : { left: "36%", top: "78%", width: "3.2%" }}
+      onMouseEnter={poke}
+      onPointerDown={poke}
+    >
+      <img src="/heckler.png" alt="" className="pointer-events-none h-auto w-full" />
+      {line ? (
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 w-max max-w-[11rem] -translate-x-1/2 rounded bg-[#1a100c]/92 px-2 py-1 text-left text-[11px] leading-snug text-[#f4e4c4]">
+          {line}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
   const stage = useStage();
   const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
@@ -379,6 +425,7 @@ function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
             {plot.name}
           </span>
         ))}
+        <Heckler phone={stage === "phone"} />
       </MapStage>
     </div>
   );
