@@ -22,7 +22,7 @@ import {
   setCookie,
   setFace,
 } from "@/lib/purse.server";
-import { postWhisper, threadFor } from "@/lib/mail.server";
+import { postWhisper, threadFor, unreadFrom } from "@/lib/mail.server";
 import { forgetName } from "@/lib/yard-board";
 
 export const Route = createFileRoute("/api/door")({
@@ -41,6 +41,7 @@ export const Route = createFileRoute("/api/door")({
           photo?: string;
           to?: string;
           text?: string;
+          image?: string;
           with?: string;
         } = {};
         try {
@@ -118,12 +119,15 @@ export const Route = createFileRoute("/api/door")({
           return Response.json({ ok: true, players });
         }
 
-        if (body.action === "people" || body.action === "face" || body.action === "whisper" || body.action === "thread") {
+        if (body.action === "people" || body.action === "face" || body.action === "whisper" || body.action === "thread" || body.action === "inbox") {
           if (!doorFromRequest(request)) {
             return Response.json({ ok: false, error: "Сначала зайди во двор." }, { status: 401 });
           }
           const guest = guestFromRequest(request);
           if (!guest) return Response.json({ ok: false, error: "Сначала назовись." }, { status: 401 });
+          if (body.action === "inbox") {
+            return Response.json({ ok: true, me: guest.id, from: await unreadFrom(guest.id) });
+          }
           if (body.action === "people") {
             return Response.json({ ok: true, me: guest.id, people: await peoplePurse() });
           }
@@ -138,7 +142,7 @@ export const Route = createFileRoute("/api/door")({
             return Response.json({ ok: false, error: "Такого человека нет." }, { status: 400 });
           }
           if (body.action === "whisper") {
-            const sent = await postWhisper(guest.id, other, body.text || "");
+            const sent = await postWhisper(guest.id, other, body.text || "", body.image || "");
             if (!sent) return Response.json({ ok: false, error: "Пусто." }, { status: 400 });
           }
           return Response.json({ ok: true, lines: await threadFor(guest.id, other) });

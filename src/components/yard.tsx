@@ -15,6 +15,8 @@ import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
+import { PLOT_LABEL, TOOLS, type PlotKind } from "@/lib/lands";
+import { landDesk } from "@/lib/land-desk";
 import {
   ROLES,
   STALL_RENT,
@@ -125,6 +127,13 @@ export function Yard() {
   const [guide, setGuide] = useState(false);
   const [lands, setLands] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
+  const [lock, setLock] = useState<{ name: string; kind: PlotKind; tools: string[]; owner: boolean } | null>(null);
+  const [ask, setAsk] = useState<(typeof TOOLS)[number] | null>(null);
+  const [pingYard, setPingYard] = useState(false);
+  const [pingPeople, setPingPeople] = useState<string[]>([]);
+  const [chatWho, setChatWho] = useState("");
+  const [myId, setMyId] = useState("");
+  const myIdRef = useRef("");
 
   useEffect(() => {
     const saved = readRoles();
@@ -147,8 +156,42 @@ export function Yard() {
     let stop = false;
     const pull = () => {
       void yardBoard({ data: { action: "list" } }).then((res) => {
-        if (!stop && res.ok) setFaces(res.spots || []);
+        if (!stop && res.ok) {
+          setFaces(res.spots || []);
+          const last = (res.chat || [])[(res.chat || []).length - 1];
+          let seen = "";
+          try {
+            seen = localStorage.getItem("kadr-seen-yard") || "";
+          } catch {
+            seen = "";
+          }
+          if (last && !seen) {
+            try {
+              localStorage.setItem("kadr-seen-yard", last.id);
+            } catch {
+              /* уже показано */
+            }
+          } else if (last && last.id !== seen && last.who !== myIdRef.current) {
+            setPingYard(true);
+          }
+        }
       });
+      void fetch("/api/door", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "inbox" }),
+      })
+        .then((res) => res.json())
+        .then((row: { ok?: boolean; me?: string; from?: string[] }) => {
+          if (stop || !row.ok) return;
+          if (row.me) {
+            myIdRef.current = row.me;
+            setMyId(row.me);
+          }
+          setPingPeople(row.from || []);
+        })
+        .catch(() => undefined);
     };
     pull();
     const timer = window.setInterval(pull, 8000);
@@ -159,6 +202,11 @@ export function Yard() {
   }, []);
 
   function open(id: HouseId) {
+    const tool = TOOLS.find((item) => item.id === id);
+    if (lock && tool && !lock.tools.includes(tool.id)) {
+      setAsk(tool);
+      return;
+    }
     if (!roles.length && id !== "gate") {
       toast.message("Сначала у ворот: кто ты на этом дворе.");
       setHouse("gate");
@@ -167,11 +215,20 @@ export function Yard() {
     setHouse(id);
   }
 
+  function enterPlot(plot: { name: string; kind: PlotKind; tools: string[]; owner: boolean }) {
+    setLock({ name: plot.name, kind: plot.kind, tools: plot.tools || [], owner: plot.owner });
+    setAsk(null);
+    setHouse(null);
+    setSpot(null);
+    setLands(false);
+    setLayer("yard");
+  }
+
   if (layer === "world") {
     return (
       <>
         <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} />
-        {lands ? <LandCard onClose={() => setLands(false)} /> : null}
+        {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
         {splash ? (
           <button type="button" className="fixed inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
             <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
@@ -198,35 +255,45 @@ export function Yard() {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#24301c]">
       <MapStage src={yardMap.src} alt="Двор" aspect={yardMap.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
-          {yardMap.zones.map((zone) => (
+          {yardMap.zones.map((zone) => {
+            const tool = TOOLS.find((item) => item.id === zone.id);
+            const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
+            return (
             <button
               key={zone.id}
               type="button"
               aria-label={zone.label}
-              className="absolute rounded-xl border border-transparent hover:border-white/70 hover:bg-white/10"
+              className={`absolute rounded-xl border ${closed ? "border-white/30 bg-black/45" : "border-transparent hover:border-white/70 hover:bg-white/10"}`}
               style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
               onClick={() => open(zone.id)}
             >
               <span
                 className={`pointer-events-none absolute left-1/2 max-w-[92%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium text-[#f4e4c4] shadow ${zone.sign === "top" ? "top-0.5" : "bottom-0.5"}`}
               >
-                {zone.label}
+                {closed ? `закрыто · ${tool?.price}` : zone.label}
               </span>
               {faces
                 .filter((person) => person.spot === zone.id)
-                .slice(0, 3)
+                .slice(0, 4)
                 .map((person, index) => (
                   <span
                     key={person.id}
-                    title={person.name}
-                    className="pointer-events-none absolute top-0.5 flex size-6 items-center justify-center overflow-hidden rounded-full border border-white/80 bg-[#2a1a0c] text-xs"
-                    style={{ left: `${2 + index * 18}px` }}
+                    title={`${person.name}. Написать`}
+                    className={`pointer-events-auto absolute top-0 z-10 flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#2a1a0c] text-base ${stage === "phone" ? "size-9" : "size-12"}`}
+                    style={{ left: `${index * (stage === "phone" ? 26 : 42)}px` }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setChatWho(person.id);
+                      setChat(true);
+                    }}
                   >
                     {person.photo ? <img src={person.photo} alt="" className="h-full w-full object-cover" /> : "🪆"}
                   </span>
                 ))}
             </button>
-          ))}
+            );
+          })}
       </MapStage>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex max-w-[62vw] flex-nowrap gap-2 overflow-x-auto">
@@ -237,7 +304,14 @@ export function Yard() {
           >
             В город
           </button>
-          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setChat(true)}>
+          <button
+            type="button"
+            className={`rounded-full px-3 py-1 text-sm text-white ${pingYard || pingPeople.length ? "kadr-blink" : "bg-black/45"}`}
+            onClick={() => {
+              setChatWho("");
+              setChat(true);
+            }}
+          >
             Чат
           </button>
           <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setLands(true)}>
@@ -269,9 +343,82 @@ export function Yard() {
           <NotesButton />
         </div>
       </div>
-      {chat ? <YardChat onClose={() => setChat(false)} /> : null}
+      {!chat && (pingYard || pingPeople.length) ? (
+        <button
+          type="button"
+          className="kadr-blink absolute top-14 left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-1 text-sm"
+          onClick={() => setChat(true)}
+        >
+          {pingPeople.length ? "Тебе написали" : "Новая реплика на дворе"}
+        </button>
+      ) : null}
+      {lock ? (
+        <div className="absolute top-14 left-3 z-20 max-w-[70vw] rounded-2xl bg-black/70 px-3 py-2 text-sm text-white">
+          <p>
+            Твой двор · {PLOT_LABEL[lock.kind]} · {lock.name}
+          </p>
+          <button type="button" className="mt-1 text-xs text-white/80" onClick={() => setLock(null)}>
+            Общий двор
+          </button>
+        </div>
+      ) : null}
+      {ask ? (
+        <div className="absolute inset-x-4 bottom-24 z-30 rounded-2xl bg-[#1a120c] p-4 text-[#f4e4c4]">
+          <p className="font-medium">
+            {ask.title} · {ask.price} нот
+          </p>
+          <p className="mt-1 text-sm text-[#f4e4c4]/80">
+            {lock?.owner ? "Поставить этот дом на своём участке?" : "Хозяин участка ещё не поставил этот дом."}
+          </p>
+          <div className="mt-3 flex gap-2">
+            {lock?.owner ? (
+              <Button
+                onClick={() => {
+                  void (async () => {
+                    const res = await landDesk({ data: { action: "tool", tool: ask.id } });
+                    if (typeof res.notes === "number") useWallet.getState().apply({ notes: res.notes });
+                    if (!res.ok) {
+                      toast.error(res.error || "Не купилось.");
+                      return;
+                    }
+                    setLock((prev) => (prev ? { ...prev, tools: [...prev.tools, ask.id] } : prev));
+                    setAsk(null);
+                    toast.success("Дом стоит.");
+                  })();
+                }}
+              >
+                Купить
+              </Button>
+            ) : null}
+            <Button variant="ghost" onClick={() => setAsk(null)}>
+              Не сейчас
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {chat ? (
+        <YardChat
+          onClose={() => {
+            setChat(false);
+            setChatWho("");
+          }}
+          focusId={chatWho}
+          pingYard={pingYard}
+          pingPeople={pingPeople}
+          myId={myId}
+          onSeenYard={(id) => {
+            try {
+              localStorage.setItem("kadr-seen-yard", id);
+            } catch {
+              /* и так прочитано */
+            }
+            setPingYard(false);
+          }}
+          onOpenPerson={(id) => setPingPeople((list) => list.filter((item) => item !== id))}
+        />
+      ) : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
-      {lands ? <LandCard onClose={() => setLands(false)} /> : null}
+      {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}

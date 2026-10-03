@@ -19,7 +19,16 @@ export type YardSong = {
   up?: number;
 };
 
-export type YardLine = { id: string; name: string; text: string; at: number; room?: string };
+export type YardLine = {
+  id: string;
+  name: string;
+  text: string;
+  at: number;
+  room?: string;
+  who?: string;
+  photo?: string;
+  image?: string;
+};
 export type YardSpot = { id: string; name: string; photo: string; spot: string };
 
 export type Hero = {
@@ -241,6 +250,7 @@ export const yardBoard = createServerFn({ method: "POST" })
       songId?: string;
       tier?: string;
       text?: string;
+      image?: string;
       hook?: number;
       lyric?: number;
       music?: number;
@@ -465,8 +475,14 @@ export const yardBoard = createServerFn({ method: "POST" })
     }
 
     const text = (data.text || "").trim().slice(0, 200);
-    if (!text) return { ok: false as const, error: "Пусто." };
-    mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now(), room });
+    const image = typeof data.image === "string" && data.image.startsWith("data:image/jpeg;base64,") && data.image.length <= 160000 ? data.image : "";
+    if (!text && !image) return { ok: false as const, error: "Пусто." };
+    let photo = spots.find((row) => row.id === vkId)?.photo || "";
+    if (!photo && guest) {
+      const row = await (await import("@/lib/purse.server")).readPurse(guest.id);
+      photo = row?.photo || "";
+    }
+    mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now(), room, who: vkId, photo, ...(image ? { image } : {}) });
     if (mem.chat.length > 80) mem.chat.shift();
     await saveBoardFile();
     const listed = listMem();

@@ -71,6 +71,9 @@
     animation: none;
     opacity: 0.2;
   }
+  .kadr-blink {
+    animation: none;
+  }
 }
 
 @keyframes manor-ghost {
@@ -87,4 +90,20 @@
   mix-blend-mode: screen;
   animation: manor-ghost 6.5s ease-in-out infinite;
   mask-image: linear-gradient(90deg, #000 0%, #000 42%, transparent 58%);
+}
+
+@keyframes kadr-blink {
+  0%,
+  100% {
+    background: #e24c2c;
+    color: #fff8f4;
+  }
+  50% {
+    background: #2a1a0c;
+    color: #f4e4c4;
+  }
+}
+
+.kadr-blink {
+  animation: kadr-blink 0.8s step-end infinite;
 }

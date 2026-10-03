@@ -334,7 +334,9 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
 }
 
 type Face = { id: string; name: string; photo: string };
-type WhisperLine = { id: string; from: string; to: string; text: string; at: number };
+type WhisperLine = { id: string; from: string; to: string; text: string; at: number; image?: string; seen?: boolean };
+
+const SMILES = ["😊", "😂", "😉", "😍", "😎", "🤔", "😭", "😡", "👍", "🔥", "❤️", "💀", "🎵", "🎤", "🎸", "👏", "🙏", "⭐", "👀", "🪆"];
 
 async function postDoor(body: Record<string, unknown>) {
   const res = await fetch("/api/door", {
@@ -347,34 +349,56 @@ async function postDoor(body: Record<string, unknown>) {
     ok?: boolean;
     error?: string;
     me?: string;
+    from?: string[];
     people?: Face[];
     lines?: WhisperLine[];
   };
 }
 
 function shrinkFace(file: File) {
+  return shrinkShot(file, 256, 90000, true);
+}
+
+function shrinkShot(file: File, edge = 480, limit = 150000, square = false) {
   return new Promise<string>((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const size = 256;
       const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
+      let width = img.width;
+      let height = img.height;
+      if (square) {
+        width = edge;
+        height = edge;
+      } else {
+        const scale = Math.min(1, edge / Math.max(img.width, img.height));
+        width = Math.max(1, Math.round(img.width * scale));
+        height = Math.max(1, Math.round(img.height * scale));
+      }
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         URL.revokeObjectURL(url);
         reject(new Error("canvas"));
         return;
       }
-      const side = Math.min(img.width, img.height);
-      ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+      if (square) {
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, edge, edge);
+      } else {
+        ctx.drawImage(img, 0, 0, width, height);
+      }
       URL.revokeObjectURL(url);
       let quality = 0.72;
       let data = canvas.toDataURL("image/jpeg", quality);
-      while (data.length > 90000 && quality > 0.4) {
+      while (data.length > limit && quality > 0.4) {
         quality -= 0.08;
         data = canvas.toDataURL("image/jpeg", quality);
+      }
+      if (data.length > limit) {
+        reject(new Error("big"));
+        return;
       }
       resolve(data);
     };
@@ -386,13 +410,54 @@ function shrinkFace(file: File) {
   });
 }
 
-function PrivatePane() {
+function FaceDot({ photo, name }: { photo?: string; name?: string }) {
+  if (photo) return <img src={photo} alt="" className="size-8 shrink-0 rounded-full object-cover" />;
+  return (
+    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#2a1a0c] text-sm text-[#f4e4c4]">
+      {(name || "🪆").slice(0, 1)}
+    </span>
+  );
+}
+
+function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {SMILES.map((smile) => (
+        <button key={smile} type="button" className="rounded-lg bg-surface px-2 py-1 text-lg" onClick={() => onPick(smile)}>
+          {smile}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function useStick(dep: unknown) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = box.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [dep]);
+  return box;
+}
+
+function PrivatePane({
+  focusId,
+  pingPeople,
+  onOpenPerson,
+}: {
+  focusId?: string;
+  pingPeople: string[];
+  onOpenPerson: (id: string) => void;
+}) {
   const [people, setPeople] = useState<Face[]>([]);
   const [me, setMe] = useState("");
-  const [withId, setWithId] = useState("");
+  const [withId, setWithId] = useState(focusId || "");
   const [lines, setLines] = useState<WhisperLine[]>([]);
   const [text, setText] = useState("");
+  const [shot, setShot] = useState("");
+  const [smiles, setSmiles] = useState(false);
   const mine = people.find((person) => person.id === me);
+  const box = useStick(lines);
 
   async function loadPeople() {
     const row = await postDoor({ action: "people" });
@@ -414,22 +479,36 @@ function PrivatePane() {
   }, []);
 
   useEffect(() => {
+    if (focusId) setWithId(focusId);
+  }, [focusId]);
+
+  useEffect(() => {
     if (!withId) return;
+    onOpenPerson(withId);
     void loadThread(withId);
-    const timer = window.setInterval(() => void loadThread(withId), 5000);
+    const timer = window.setInterval(() => void loadThread(withId), 4000);
     return () => window.clearInterval(timer);
   }, [withId]);
 
   const others = people.filter((person) => person.id !== me);
+  const talk = people.find((person) => person.id === withId);
+
+  async function send() {
+    const row = await postDoor({ action: "whisper", to: withId, text, image: shot });
+    if (!row.ok) {
+      toast.error(row.error || "Не ушло.");
+      return;
+    }
+    setText("");
+    setShot("");
+    setSmiles(false);
+    setLines(row.lines || []);
+  }
 
   return (
     <div>
       <div className="mb-3 flex items-center gap-3">
-        {mine?.photo ? (
-          <img src={mine.photo} alt="" className="size-12 rounded-full object-cover" />
-        ) : (
-          <span className="inline-flex size-12 items-center justify-center rounded-full bg-surface-2 text-xs text-muted">лицо</span>
-        )}
+        <FaceDot photo={mine?.photo} name={mine?.name} />
         <label className="cursor-pointer rounded-xl bg-surface px-3 py-2 text-sm text-fg">
           Поставить своё лицо
           <input
@@ -462,10 +541,10 @@ function PrivatePane() {
           <button
             key={person.id}
             type="button"
-            className={`flex shrink-0 items-center gap-2 rounded-full border px-2 py-1 text-sm ${withId === person.id ? "border-accent bg-accent text-accent-fg" : "border-border"}`}
+            className={`flex shrink-0 items-center gap-2 rounded-full border px-2 py-1 text-sm ${withId === person.id ? "border-accent bg-accent text-accent-fg" : "border-border"} ${pingPeople.includes(person.id) && withId !== person.id ? "kadr-blink" : ""}`}
             onClick={() => setWithId(person.id)}
           >
-            {person.photo ? <img src={person.photo} alt="" className="size-7 rounded-full object-cover" /> : null}
+            <FaceDot photo={person.photo} name={person.name} />
             {person.name}
           </button>
         ))}
@@ -473,31 +552,45 @@ function PrivatePane() {
       </div>
       {withId ? (
         <>
-          <div className="flex max-h-52 flex-col gap-1 overflow-auto text-sm">
-            {lines.map((line) => (
-              <p key={line.id} className={line.from === me ? "text-right" : ""}>
-                <span className="text-muted">{line.text}</span>
-              </p>
-            ))}
-            {lines.length === 0 ? <p className="text-sm text-muted">Это видите только вы двое.</p> : null}
+          <div ref={box} className="flex max-h-52 flex-col gap-2 overflow-auto text-sm">
+            {lines.map((line) => {
+              const own = line.from === me;
+              const face = people.find((person) => person.id === line.from);
+              return (
+                <div key={line.id} className={own ? "flex flex-row-reverse gap-2" : "flex gap-2"}>
+                  <FaceDot photo={face?.photo} name={face?.name} />
+                  <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
+                    {line.image ? <img src={line.image} alt="" className="mb-1 max-h-40 rounded-lg" /> : null}
+                    {line.text ? <p className="text-muted">{line.text}</p> : null}
+                    {own ? <p className="text-xs text-accent">{line.seen ? "✓✓" : "✓"}</p> : null}
+                  </div>
+                </div>
+              );
+            })}
+            {lines.length === 0 ? <p className="text-sm text-muted">Это видите только вы двое. {talk ? talk.name : ""}</p> : null}
           </div>
+          {smiles ? <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} /> : null}
+          {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
           <div className="mt-3 flex gap-2">
-            <Input value={text} placeholder="Только ему" onChange={(e) => setText(e.target.value)} />
-            <Button
-              onClick={() => {
-                void (async () => {
-                  const row = await postDoor({ action: "whisper", to: withId, text });
-                  if (!row.ok) {
-                    toast.error(row.error || "Не ушло.");
-                    return;
-                  }
-                  setText("");
-                  setLines(row.lines || []);
-                })();
-              }}
-            >
-              Сказать
+            <Button type="button" variant="secondary" className="rounded-xl px-3" onClick={() => setSmiles((open) => !open)}>
+              😊
             </Button>
+            <label className="inline-flex cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
+              фото
+              <input
+                className="hidden"
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  void shrinkShot(file).then(setShot).catch(() => toast.error("Картинка не влезла."));
+                }}
+              />
+            </label>
+            <Input value={text} placeholder="Только ему" onChange={(e) => setText(e.target.value)} />
+            <Button onClick={() => void send()}>Сказать</Button>
           </div>
         </>
       ) : null}
@@ -505,21 +598,47 @@ function PrivatePane() {
   );
 }
 
-export function YardChat({ onClose }: { onClose: () => void }) {
+export function YardChat({
+  onClose,
+  focusId,
+  pingYard,
+  pingPeople,
+  myId,
+  onSeenYard,
+  onOpenPerson,
+}: {
+  onClose: () => void;
+  focusId?: string;
+  pingYard: boolean;
+  pingPeople: string[];
+  myId: string;
+  onSeenYard: (id: string) => void;
+  onOpenPerson: (id: string) => void;
+}) {
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
-  const [shared, setShared] = useState(true);
-  const [tab, setTab] = useState<"yard" | "private">("yard");
+  const [shot, setShot] = useState("");
+  const [smiles, setSmiles] = useState(false);
+  const [tab, setTab] = useState<"yard" | "private">(focusId ? "private" : "yard");
+  const box = useStick(tab === "yard" ? lines : tab);
 
   async function pull() {
     const row = await loadBoard();
     setLines(row.chat);
-    setShared(row.shared);
+    const last = row.chat[row.chat.length - 1];
+    if (last) onSeenYard(last.id);
   }
 
   useEffect(() => {
+    if (focusId) setTab("private");
+  }, [focusId]);
+
+  useEffect(() => {
+    if (tab !== "yard") return;
     void pull();
-  }, []);
+    const timer = window.setInterval(() => void pull(), 4000);
+    return () => window.clearInterval(timer);
+  }, [tab]);
 
   return (
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
@@ -531,43 +650,78 @@ export function YardChat({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         <div className="mb-3 flex gap-2">
-          <Button variant={tab === "yard" ? "default" : "secondary"} className="rounded-xl" onClick={() => setTab("yard")}>
+          <Button variant={tab === "yard" ? "default" : "secondary"} className={`rounded-xl ${pingYard && tab !== "yard" ? "kadr-blink" : ""}`} onClick={() => setTab("yard")}>
             Двор
           </Button>
-          <Button variant={tab === "private" ? "default" : "secondary"} className="rounded-xl" onClick={() => setTab("private")}>
+          <Button
+            variant={tab === "private" ? "default" : "secondary"}
+            className={`rounded-xl ${pingPeople.length && tab !== "private" ? "kadr-blink" : ""}`}
+            onClick={() => setTab("private")}
+          >
             Лично
           </Button>
         </div>
-        {tab === "private" ? <PrivatePane /> : null}
+        {tab === "private" ? <PrivatePane focusId={focusId} pingPeople={pingPeople} onOpenPerson={onOpenPerson} /> : null}
         {tab === "yard" ? (
           <>
-        <div className="flex max-h-64 flex-col gap-1 overflow-auto text-sm">
-          {lines.map((line) => (
-            <p key={line.id}>
-              <span className="font-medium text-fg">{line.name}: </span>
-              <span className="text-muted">{line.text}</span>
-            </p>
-          ))}
-        </div>
-        <div className="mt-3 flex gap-2">
-          <Input value={text} placeholder="Реплика двору" onChange={(e) => setText(e.target.value)} />
-          <Button
-            onClick={() => {
-              void (async () => {
-                const res = await yardBoard({ data: { action: "say", text, ...caller() } });
-                if (!res.ok) {
-                  toast.error(res.error || "Не ушло.");
-                  return;
-                }
-                setText("");
-                setLines(res.chat || []);
-                setShared(Boolean(res.shared));
-              })();
-            }}
-          >
-            Сказать
-          </Button>
-        </div>
+            <div ref={box} className="flex max-h-64 flex-col gap-2 overflow-auto text-sm">
+              {lines.map((line) => {
+                const own = Boolean(myId && line.who === myId);
+                return (
+                  <div key={line.id} className={own ? "flex flex-row-reverse gap-2" : "flex gap-2"}>
+                    <FaceDot photo={line.photo} name={line.name} />
+                    <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
+                      {!own ? <p className="text-xs font-medium text-fg">{line.name}</p> : null}
+                      {line.image ? <img src={line.image} alt="" className="mb-1 max-h-40 rounded-lg" /> : null}
+                      {line.text ? <p className="text-muted">{line.text}</p> : null}
+                      {own ? <p className="text-xs text-accent">✓</p> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {smiles ? <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} /> : null}
+            {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
+            <div className="mt-3 flex gap-2">
+              <Button type="button" variant="secondary" className="rounded-xl px-3" onClick={() => setSmiles((open) => !open)}>
+                😊
+              </Button>
+              <label className="inline-flex cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
+                фото
+                <input
+                  className="hidden"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!file) return;
+                    void shrinkShot(file).then(setShot).catch(() => toast.error("Картинка не влезла."));
+                  }}
+                />
+              </label>
+              <Input value={text} placeholder="Реплика двору" onChange={(e) => setText(e.target.value)} />
+              <Button
+                onClick={() => {
+                  void (async () => {
+                    const res = await yardBoard({ data: { action: "say", text, image: shot, ...caller() } });
+                    if (!res.ok) {
+                      toast.error(res.error || "Не ушло.");
+                      return;
+                    }
+                    setText("");
+                    setShot("");
+                    setSmiles(false);
+                    const next = res.chat || [];
+                    setLines(next);
+                    const last = next[next.length - 1];
+                    if (last) onSeenYard(last.id);
+                  })();
+                }}
+              >
+                Сказать
+              </Button>
+            </div>
           </>
         ) : null}
       </div>

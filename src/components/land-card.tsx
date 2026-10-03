@@ -19,7 +19,7 @@ type War = {
   tracks: { side: "a" | "b"; url: string }[];
 };
 
-export function LandCard({ onClose }: { onClose: () => void }) {
+export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: (plot: Plot) => void }) {
   const notes = useWallet((s) => s.notes);
   const [mine, setMine] = useState<Plot | null>(null);
   const [commune, setCommune] = useState<Plot | null>(null);
@@ -62,7 +62,7 @@ export function LandCard({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const home = commune || (mine?.kind === "commune" ? mine : null);
+  const homeName = commune && commune.id !== mine?.id ? commune.name : "";
 
   return (
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
@@ -79,12 +79,27 @@ export function LandCard({ onClose }: { onClose: () => void }) {
           <p className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Наш двор</p>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          {plots.map((plot) => (
-            <span key={plot.id} className="rounded-full bg-[#2a1a0c] px-2 py-1 text-xs text-[#f4e4c4]">
-              {PLOT_LABEL[plot.kind]} · {plot.name}
-              {plot.state ? " · государство" : ""}
-            </span>
-          ))}
+          {plots.map((plot) => {
+            const enter = plot.owner || commune?.id === plot.id;
+            return (
+              <button
+                key={plot.id}
+                type="button"
+                className="rounded-full bg-[#2a1a0c] px-2 py-1 text-xs text-[#f4e4c4]"
+                onClick={() => {
+                  if (!enter) {
+                    toast.message("Чужой участок. Войти можно только в свой или в своё сообщество.");
+                    return;
+                  }
+                  onEnter?.(plot);
+                }}
+              >
+                {PLOT_LABEL[plot.kind]} · {plot.name}
+                {plot.state ? " · государство" : ""}
+                {enter ? " · войти" : ""}
+              </button>
+            );
+          })}
         </div>
         {!mine ? (
           <div className="mt-3 flex flex-col gap-2">
@@ -100,22 +115,25 @@ export function LandCard({ onClose }: { onClose: () => void }) {
             Твоё место: {PLOT_LABEL[mine.kind]} {mine.name}. {mine.code ? `Код для своих: ${mine.code}` : ""}
           </p>
         )}
-        {home ? (
+        {homeName ? <p className="mt-3 text-sm text-muted">Ты в сообществе {homeName}. Дома там ставит хозяин, войти можно по метке.</p> : null}
+        {mine ? (
           <div className="mt-4">
-            <p className="text-sm text-fg">Инструменты сообщества. Пользование по-прежнему за ноты, это право поставить дом.</p>
+            <p className="text-sm text-fg">
+              Поставить на своём дворе: {PLOT_LABEL[mine.kind]} {mine.name}. Пока дом не куплен, на участке его нет. Пользование генератором по-прежнему за ноты.
+            </p>
             <div className="mt-2 flex flex-col gap-2">
               {TOOLS.map((tool) => (
                 <Button
                   key={tool.id}
                   variant="secondary"
                   className="rounded-xl"
-                  disabled={busy || home.tools.includes(tool.id) || !mine || mine.kind !== "commune"}
+                  disabled={busy || mine.tools.includes(tool.id)}
                   onClick={() => void run({ action: "tool", tool: tool.id })}
                 >
-                  {home.tools.includes(tool.id) ? "Стоит" : "Купить"} {tool.title} · {tool.price}
+                  {mine.tools.includes(tool.id) ? "Стоит" : "Купить"} {tool.title} · {tool.price}
                 </Button>
               ))}
-              <Button className="rounded-xl" disabled={busy || !mine || mine.kind !== "commune"} onClick={() => void run({ action: "bundle" })}>
+              <Button className="rounded-xl" disabled={busy || TOOLS.every((tool) => mine.tools.includes(tool.id))} onClick={() => void run({ action: "bundle" })}>
                 Все сразу · {TOOLS_ALL} вместо {TOOLS.reduce((sum, tool) => sum + tool.price, 0)}
               </Button>
             </div>

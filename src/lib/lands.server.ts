@@ -179,9 +179,8 @@ export async function runLand(data: {
       return { ok: true as const, notes: paid.notes };
     }
 
-    if (!mine || mine.kind !== "commune") return { ok: false as const, error: "Инструменты и войны — у сообщества." };
-
     if (data.action === "tool" || data.action === "bundle") {
+      if (!mine) return { ok: false as const, error: "Сначала купи место." };
       const want = data.action === "bundle" ? TOOLS.map((tool) => tool.id) : [data.tool || ""];
       const fresh = want.filter((id): id is ToolId => Boolean(toolById(id)) && !mine.tools.includes(id as ToolId));
       if (!fresh.length) return { ok: false as const, error: "Это уже стоит." };
@@ -192,6 +191,8 @@ export async function runLand(data: {
       await writeBook(book);
       return { ok: true as const, notes: paid.notes, mine: pub(mine, guest.id) };
     }
+
+    if (!mine || mine.kind !== "commune") return { ok: false as const, error: "Войны объявляет сообщество." };
 
     if (data.action === "war") {
       const other = book.plots.find((plot) => plot.id === data.plot && plot.kind === "commune" && plot.id !== mine.id);
