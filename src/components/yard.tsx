@@ -11,6 +11,7 @@ import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
 import { useStage } from "@/lib/stage";
+import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
