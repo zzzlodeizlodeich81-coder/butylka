@@ -80,6 +80,15 @@ function loadBoardFile() {
   return boardReady;
 }
 
+export async function forgetName(name: string, songs: boolean) {
+  const who = name.trim();
+  if (!who) return;
+  await loadBoardFile();
+  mem.chat = mem.chat.filter((line) => line.name !== who);
+  if (songs) mem.songs = mem.songs.filter((song) => song.author !== who);
+  await saveBoardFile();
+}
+
 async function saveBoardFile() {
   const path = boardFile();
   await mkdir(dirname(path), { recursive: true });
@@ -318,9 +327,13 @@ export const yardBoard = createServerFn({ method: "POST" })
     }
 
     if (data.action === "add") {
-      const url = cleanUrl(data.url || "");
-      if (!url) return { ok: false as const, error: "Нужна ссылка https://…" };
       const kind = data.kind === "release" ? "release" : "draft";
+      const raw = data.url || "";
+      if (kind === "release" && !/<iframe[\s\S]*music\.yandex\.(ru|com)\/iframe/i.test(raw)) {
+        return { ok: false as const, error: "На сцену вставляй код с Яндекса, не ссылку." };
+      }
+      const url = cleanUrl(raw);
+      if (!url) return { ok: false as const, error: kind === "release" ? "В коде нет плеера Яндекса." : "Нужна ссылка https://…" };
       const row: YardSong = {
         id: crypto.randomUUID(),
         kind,
@@ -370,7 +383,13 @@ export const yardBoard = createServerFn({ method: "POST" })
       const song = mem.songs.find((item) => item.id === data.songId);
       if (!song) return { ok: false as const, error: "Ссылки уже нет." };
       const mine = song.vk === vkId || song.author === name;
-      if (!mine) return { ok: false as const, error: "Чужую ссылку не убрать." };
+      let admin = false;
+      if (guest) {
+        const { isAdminLogin, readPurse } = await import("@/lib/purse.server");
+        const row = await readPurse(guest.id);
+        admin = isAdminLogin(row?.login);
+      }
+      if (!mine && !admin) return { ok: false as const, error: "Чужую ссылку не убрать." };
       mem.songs = mem.songs.filter((item) => item.id !== song.id);
       await saveBoardFile();
       return listMem();

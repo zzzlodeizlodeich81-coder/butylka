@@ -8,6 +8,7 @@ type WalletState = {
   notes: number;
   inVk: boolean;
   shopOpen: boolean;
+  admin: boolean;
   error: string | null;
   setShop: (open: boolean) => void;
   apply: (patch: Partial<Omit<WalletState, "setShop" | "apply">>) => void;
@@ -21,6 +22,7 @@ export const useWallet = create<WalletState>((set) => ({
   notes: 0,
   inVk: false,
   shopOpen: false,
+  admin: false,
   error: null,
   setShop: (shopOpen) => set({ shopOpen }),
   apply: (patch) => set(patch),

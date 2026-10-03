@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWallet } from "@/lib/wallet";
 
-type Guest = { id: string; name: string; notes: number };
+type Guest = { id: string; name: string; notes: number; admin?: boolean };
 type Player = { id: string; name: string; notes: number };
 
 async function door(body: Record<string, unknown>) {
@@ -31,7 +31,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [kassa, setKassa] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
+  const admin = useWallet((s) => s.admin);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
 
@@ -49,7 +49,12 @@ export function DoorGate({ children }: { children: ReactNode }) {
       setPhase("name");
       return;
     }
-    useWallet.getState().apply({ notes: row.guest.notes, name: row.guest.name, ready: true });
+    useWallet.getState().apply({
+      notes: row.guest.notes,
+      name: row.guest.name,
+      ready: true,
+      admin: Boolean(row.guest.admin),
+    });
     setPhase("in");
   }
 
@@ -60,13 +65,24 @@ export function DoorGate({ children }: { children: ReactNode }) {
   }, []);
 
   async function openKassa() {
-    const row = await door({ action: "admin", password: adminPassword });
+    const row = await door({ action: "admin" });
     if (!row.ok) {
-      toast.error(row.error || "Касса не открылась.");
+      toast.error(row.error || "Админка не открылась.");
       setPlayers(null);
       return;
     }
     setPlayers(row.players || []);
+  }
+
+  async function runAdmin(body: Record<string, unknown>, done: string) {
+    const row = await door({ action: "admin", ...body });
+    if (!row.ok) {
+      toast.error(row.error || "Не вышло.");
+      return;
+    }
+    setPlayers(row.players || []);
+    toast.success(done);
+    await sync();
   }
 
   return (
@@ -99,7 +115,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
             {phase === "lock" || phase === "name" ? (
               <>
                 <p className="mt-3 text-sm text-[#f4e4c4]/70">
-                  Вход по своему логину или через VK ID. Пароль кассы по-прежнему только у хозяина.
+                  Вход по своему логину. Касса для покупки нот — кнопка внизу. Админка открывается только у хозяина.
                 </p>
                 <div className="mt-3 flex gap-2">
                   <Button type="button" variant={mode === "login" ? "default" : "secondary"} className="rounded-xl" onClick={() => setMode("login")}>
@@ -146,29 +162,27 @@ export function DoorGate({ children }: { children: ReactNode }) {
       <button
         type="button"
         className="fixed right-3 bottom-[max(0.8rem,env(safe-area-inset-bottom))] z-[60] rounded-full bg-black/55 px-3 py-1 text-xs text-white"
-        onClick={() => setKassa(true)}
+        onClick={() => {
+          if (admin) {
+            setKassa(true);
+            void openKassa();
+            return;
+          }
+          useWallet.getState().setShop(true);
+        }}
       >
-        Касса
+        {admin ? "Админка" : "Касса"}
       </button>
-      {kassa ? (
+      {kassa && admin ? (
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="max-h-[80dvh] w-full max-w-md overflow-auto rounded-2xl bg-[#1a120c] p-4 text-[#f4e4c4]">
             <div className="flex items-center justify-between gap-3">
-              <p className="font-display text-2xl">Касса</p>
+              <p className="font-display text-2xl">Админка</p>
               <button type="button" className="text-sm" onClick={() => setKassa(false)}>
                 Закрыть
               </button>
             </div>
-            <Input
-              className="mt-3 bg-black/40 text-white"
-              type="password"
-              placeholder="Пароль кассы"
-              value={adminPassword}
-              onChange={(event) => setAdminPassword(event.target.value)}
-            />
-            <Button className="mt-2 w-full rounded-xl" type="button" onClick={() => void openKassa()}>
-              Открыть список
-            </Button>
+            <p className="mt-2 text-sm text-[#f4e4c4]/70">Ноты начисляешь ты. Чужим эта дверь не открывается.</p>
             <div className="mt-3 flex flex-col gap-2">
               {(players || []).map((player) => (
                 <div key={player.id} className="rounded-xl border border-white/10 px-3 py-2 text-sm">
@@ -186,25 +200,17 @@ export function DoorGate({ children }: { children: ReactNode }) {
                     <Button
                       type="button"
                       variant="secondary"
-                      onClick={() => {
-                        void (async () => {
-                          const row = await door({
-                            action: "admin",
-                            password: adminPassword,
-                            id: player.id,
-                            amount: Number(amounts[player.id] || 0),
-                          });
-                          if (!row.ok) {
-                            toast.error(row.error || "Не начислилось.");
-                            return;
-                          }
-                          setPlayers(row.players || []);
-                          toast.success("Ноты легли.");
-                          await sync();
-                        })();
-                      }}
+                      onClick={() => void runAdmin({ id: player.id, amount: Number(amounts[player.id] || 0) }, "Ноты легли.")}
                     >
                       Дать
+                    </Button>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <Button type="button" variant="secondary" onClick={() => void runAdmin({ op: "chat", who: player.name }, "Сообщения стёрты.")}>
+                      Из чата
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => void runAdmin({ op: "drop", id: player.id }, "Учётка снята.")}>
+                      Удалить
                     </Button>
                   </div>
                 </div>

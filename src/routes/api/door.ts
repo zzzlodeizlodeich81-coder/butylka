@@ -5,11 +5,13 @@ import {
   addPurse,
   checkAdminPassword,
   checkDoorPassword,
+  deletePurse,
   doorCookieValue,
   doorEnabled,
   doorFromRequest,
   guestFromRequest,
   guestToken,
+  isAdminLogin,
   joinPurse,
   listPurse,
   loginAccount,
@@ -20,6 +22,7 @@ import {
   setFace,
 } from "@/lib/purse.server";
 import { postWhisper, threadFor } from "@/lib/mail.server";
+import { forgetName } from "@/lib/yard-board";
 
 export const Route = createFileRoute("/api/door")({
   server: {
@@ -32,6 +35,8 @@ export const Route = createFileRoute("/api/door")({
           name?: string;
           id?: string;
           amount?: number;
+          op?: string;
+          who?: string;
           photo?: string;
           to?: string;
           text?: string;
@@ -51,7 +56,7 @@ export const Route = createFileRoute("/api/door")({
             ok: true,
             needDoor: doorEnabled(),
             inside: doorFromRequest(request) || Boolean(row),
-            guest: row ? { id: row.id, name: row.name, notes: row.notes, login: row.login || "" } : null,
+            guest: row ? { id: row.id, name: row.name, notes: row.notes, login: row.login || "", admin: isAdminLogin(row.login) } : null,
           });
         }
 
@@ -88,10 +93,17 @@ export const Route = createFileRoute("/api/door")({
         }
 
         if (body.action === "admin") {
-          if (!checkAdminPassword(body.password || "")) {
-            return Response.json({ ok: false, error: "Это не пароль кассы." }, { status: 401 });
+          const guest = guestFromRequest(request);
+          const me = guest ? await readPurse(guest.id) : null;
+          const byPassword = checkAdminPassword(body.password || "");
+          if (!byPassword && !isAdminLogin(me?.login)) {
+            return Response.json({ ok: false, error: "Это не твоя админка." }, { status: 401 });
           }
-          if (body.id) {
+          if (body.op === "chat" && body.who) await forgetName(body.who, false);
+          if (body.op === "drop" && body.id) {
+            const gone = await deletePurse(body.id);
+            if (gone) await forgetName(gone.name, true);
+          } else if (body.id && body.op !== "chat") {
             const row = await addPurse(body.id, Number(body.amount || 0));
             if (!row) return Response.json({ ok: false, error: "Не начислилось. Проверь игрока и число." }, { status: 400 });
           }

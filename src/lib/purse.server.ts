@@ -17,6 +17,15 @@ function adminPassword() {
   return (process.env.ADMIN_PASSWORD || "").trim();
 }
 
+function adminLogin() {
+  return (process.env.ADMIN_LOGIN || "zzzlodeizlodeich").trim().toLowerCase();
+}
+
+export function isAdminLogin(login?: string) {
+  const user = (login || "").trim().toLowerCase();
+  return Boolean(user) && user === adminLogin();
+}
+
 function macSecret() {
   return doorPassword() || "kadr-dev";
 }
@@ -137,6 +146,7 @@ function cleanLogin(login: string) {
 export async function registerAccount(login: string, password: string, name: string) {
   const user = cleanLogin(login);
   const shown = name.replace(/[|\n\r]/g, "").trim().slice(0, 24);
+  if (user === adminLogin()) return { ok: false as const, error: "Этот логин занят." };
   if (!/^[\p{L}\p{N}_-]{3,20}$/u.test(user)) return { ok: false as const, error: "Логин: 3–20 букв или цифр." };
   if (password.trim().length < 4) return { ok: false as const, error: "Пароль хотя бы из 4 знаков." };
   if (shown.length < 2) return { ok: false as const, error: "Имя хотя бы из двух букв." };
@@ -152,9 +162,22 @@ export async function registerAccount(login: string, password: string, name: str
 
 export async function loginAccount(login: string, password: string) {
   const user = cleanLogin(login);
+  const typed = password.trim();
+  if (isAdminLogin(user) && checkAdminPassword(typed)) {
+    return locked(async () => {
+      const book = await readBook();
+      let row = book.rows.find((item) => item.login === user);
+      if (!row) {
+        row = { id: randomUUID(), name: "Хозяин", notes: 0, login: user, pass: hashPass(typed) };
+        book.rows.push(row);
+        await writeBook(book);
+      }
+      return { ok: true as const, row };
+    });
+  }
   const book = await readBook();
   const row = book.rows.find((item) => item.login === user && item.pass);
-  if (!row || !row.pass || !passOk(password, row.pass)) return { ok: false as const, error: "Логин или пароль не тот." };
+  if (!row || !row.pass || !passOk(typed, row.pass)) return { ok: false as const, error: "Логин или пароль не тот." };
   return { ok: true as const, row };
 }
 
@@ -171,6 +194,18 @@ export async function loginVk(vkId: string, name: string) {
       await writeBook(book);
     }
     return row;
+  });
+}
+
+export async function deletePurse(id: string) {
+  return locked(async () => {
+    const book = await readBook();
+    const row = book.rows.find((item) => item.id === id);
+    if (!row) return null;
+    if (isAdminLogin(row.login)) return null;
+    book.rows = book.rows.filter((item) => item.id !== id);
+    await writeBook(book);
+    return { id: row.id, name: row.name };
   });
 }
 

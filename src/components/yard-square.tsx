@@ -87,6 +87,9 @@ export function OrganCard() {
 }
 
 function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]) => void }) {
+  const admin = useWallet((s) => s.admin);
+  const who = caller();
+  const mine = song.vk === who.heroId || song.author === who.author;
   const [score, setScore] = useState({ hook: 3, lyric: 3, music: 3, orig: 3 });
   const axes = [
     ["hook", "хук"],
@@ -134,6 +137,24 @@ function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]
       >
         Оценить
       </Button>
+      {mine || admin ? (
+        <Button
+          variant="secondary"
+          className="mt-2 w-full rounded-xl"
+          onClick={() => {
+            void (async () => {
+              const res = await yardBoard({ data: { action: "drop", songId: song.id, ...caller() } });
+              if (!res.ok) {
+                toast.error(res.error || "Не удалилось.");
+                return;
+              }
+              onDone(res.songs || []);
+            })();
+          }}
+        >
+          Удалить
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -163,6 +184,7 @@ function ReleaseRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong
   const heard = useRef({ last: 0, total: 0, paid: false });
   const frame = yandexFrame(song.url);
   const file = fileTrack(song.url);
+  const admin = useWallet((s) => s.admin);
   const who = caller();
   const mine = song.vk === who.heroId || song.author === who.author;
 
@@ -219,7 +241,7 @@ function ReleaseRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong
           Играет здесь, только у тебя. Пол-ноты за Яндекс не даём: их плеер не сообщает, дослушал ты или закрыл.
         </p>
       ) : null}
-      {mine ? (
+      {mine || admin ? (
         <Button
           variant="secondary"
           className="w-full rounded-xl"
@@ -253,11 +275,11 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
 
   return (
     <div className="text-sm text-muted">
-      <p>Название и ссылка. Файл играет нашим плеером, и за него дают 0,5 ноты, если правда дослушать. Ссылка Яндекса играет тут же, в карточке, но пол-ноты за неё не приходит.</p>
+      <p>Название и код вставки с Яндекс Музыки. Обычная ссылка на сцену не встанет. Пол-ноты за этот плеер не даём: Яндекс не сообщает, дослушали или нет.</p>
       <div className="mt-3 flex flex-col gap-2">
         <Input placeholder="Название песни" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="flex gap-2">
-        <Input placeholder="Ссылка или код вставки Яндекс Музыки" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Input placeholder="Код вставки Яндекс Музыки" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Button
           disabled={busy}
           onClick={() => {

@@ -11,7 +11,6 @@ import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
 import { LandCard } from "@/components/land-card";
-import { landDesk } from "@/lib/land-desk";
 import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
@@ -376,7 +375,7 @@ function Heckler({ phone }: { phone: boolean }) {
       type="button"
       aria-label="Злой прохожий"
       className="absolute z-20"
-      style={phone ? { left: "84%", top: "78%", width: "13%" } : { left: "36%", top: "78%", width: "3.2%" }}
+      style={phone ? { left: "72%", top: "70%", width: "22%" } : { left: "30%", top: "68%", width: "7%" }}
       onMouseEnter={poke}
       onPointerDown={poke}
     >
@@ -393,12 +392,6 @@ function Heckler({ phone }: { phone: boolean }) {
 function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
   const stage = useStage();
   const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
-  const [plots, setPlots] = useState<{ id: string; name: string; kind: string }[]>([]);
-  useEffect(() => {
-    void landDesk({ data: { action: "look" } }).then((res) => {
-      if (res.ok && Array.isArray(res.plots)) setPlots(res.plots);
-    });
-  }, []);
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#1c2830]">
       <MapStage src={map.src} alt="Большая карта" aspect={map.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
@@ -411,19 +404,12 @@ function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
             style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
             onClick={() => (zone.id === "buy" ? onBuy() : onCity())}
           >
-            <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-2 py-0.5 text-[12px] font-medium text-[#f4e4c4] shadow">
+            <span
+              className={`pointer-events-none absolute left-1/2 -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-2 py-0.5 text-[12px] font-medium text-[#f4e4c4] shadow ${zone.id === "city" ? "top-2" : "bottom-1"}`}
+            >
               {zone.label}
             </span>
           </button>
-        ))}
-        {plots.map((plot, index) => (
-          <span
-            key={plot.id}
-            className="pointer-events-none absolute rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white"
-            style={{ right: "4%", top: `${8 + index * 6}%` }}
-          >
-            {plot.name}
-          </span>
         ))}
         <Heckler phone={stage === "phone"} />
       </MapStage>

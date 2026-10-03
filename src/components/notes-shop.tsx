@@ -78,7 +78,7 @@ export function NotesShop() {
           <div>
             <p className="font-display text-2xl text-fg">Ноты</p>
             <p className="mt-1 text-sm text-muted">
-              Баланс {notes}. Покупка — голосами VK. Файлы качаем сразу, на сервере не храним.
+              Баланс {notes}. Голоса человек покупает у ВК, деньги падают в кабинет приложения ВК, не тебе на карту. Пока ноты кладёшь ты, из админки.
             </p>
           </div>
           <Button variant="ghost" size="icon" aria-label="Закрыть" onClick={() => setShop(false)}>
