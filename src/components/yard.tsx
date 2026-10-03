@@ -79,11 +79,11 @@ const ZONES: { id: HouseId; label: string; left: string; top: string; width: str
 const YARD_PHONE: typeof ZONES = [
   { id: "record", label: "Дом записи", left: "4%", top: "7%", width: "30%", height: "16%", sign: "bottom" },
   { id: "factory", label: "Фабрика звука", left: "34%", top: "4%", width: "32%", height: "16%", sign: "bottom" },
-  { id: "frame", label: "Рама", left: "66%", top: "10%", width: "30%", height: "14%", sign: "bottom" },
-  { id: "atelier", label: "Мастерская", left: "66%", top: "26%", width: "30%", height: "14%", sign: "bottom" },
-  { id: "stage", label: "Сцена", left: "4%", top: "34%", width: "30%", height: "16%", sign: "bottom" },
-  { id: "organ", label: "Шарманщик", left: "36%", top: "32%", width: "28%", height: "18%", sign: "bottom" },
-  { id: "cinema", label: "Киностудия", left: "66%", top: "44%", width: "30%", height: "16%", sign: "top" },
+  { id: "frame", label: "Рама", left: "76%", top: "12%", width: "20%", height: "12%", sign: "bottom" },
+  { id: "atelier", label: "Мастерская", left: "60%", top: "28%", width: "34%", height: "10%", sign: "top" },
+  { id: "stage", label: "Сцена", left: "2%", top: "58%", width: "42%", height: "18%", sign: "top" },
+  { id: "organ", label: "Шарманщик", left: "52%", top: "40%", width: "26%", height: "18%", sign: "bottom" },
+  { id: "cinema", label: "Киностудия", left: "56%", top: "18%", width: "24%", height: "12%", sign: "bottom" },
   { id: "market", label: "Торговые ряды", left: "8%", top: "58%", width: "84%", height: "13%", sign: "top" },
   { id: "gate", label: "Ворота", left: "26%", top: "76%", width: "48%", height: "16%", sign: "top" },
 ];
@@ -394,7 +394,7 @@ function Manor({ onClose }: { onClose: () => void }) {
   const phone = useStage() === "phone";
   if (room === "hunt") return <HuntRoom onClose={() => setRoom(null)} />;
   const spots = phone
-    ? { host: { left: "30%", top: "40%" }, table: { left: "18%", top: "58%", width: "64%", height: "18%" }, pantry: { left: "8%", top: "80%" } }
+    ? { host: { left: "18%", top: "56%" }, table: { left: "55%", top: "40%", width: "40%", height: "14%" }, pantry: { left: "4%", top: "62%" } }
     : { host: { left: "18%", top: "58%" }, table: { left: "50%", top: "46%", width: "46%", height: "40%" }, pantry: { left: "8%", top: "72%" } };
   return (
     <div className="absolute inset-0 z-20 bg-black">
