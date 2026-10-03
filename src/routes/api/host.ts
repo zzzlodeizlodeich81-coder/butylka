@@ -11,6 +11,48 @@ const FALLBACK = `Ты хозяин особняка XXV Kadr. Говоришь 
 
 type Turn = { role: "user" | "assistant"; content: string };
 
+async function askModel(system: string, history: Turn[], text: string) {
+  const yandexKey = process.env.YANDEX_API_KEY || "";
+  const folder = process.env.YANDEX_FOLDER_ID || "";
+  const groq = process.env.GROQ_API_KEY || "";
+  const xai = process.env.XAI_API_KEY || "";
+  const messages = [{ role: "system" as const, content: system }, ...history, { role: "user" as const, content: text }];
+  if (yandexKey && folder) {
+    const res = await fetch("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Api-Key ${yandexKey}`,
+        "x-folder-id": folder,
+      },
+      body: JSON.stringify({
+        modelUri: `gpt://${folder}/${process.env.YANDEX_MODEL || "yandexgpt-lite"}/latest`,
+        completionOptions: { stream: false, temperature: 0.8, maxTokens: "900" },
+        messages: messages.map((row) => ({ role: row.role, text: row.content })),
+      }),
+    });
+    if (!res.ok) return { ok: false as const, error: `Яндекс не ответил (${res.status}). Ноты вернул.` };
+    const data = (await res.json()) as { result?: { alternatives?: { message?: { text?: string } }[] } };
+    const reply = (data.result?.alternatives?.[0]?.message?.text || "").trim();
+    return reply ? { ok: true as const, text: reply } : { ok: false as const, error: "Пустой ответ. Ноты вернул." };
+  }
+  if (!groq && !xai) return { ok: false as const, error: "Хозяин сейчас молчит: нет ключа." };
+  const res = await fetch(groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${groq || xai}` },
+    body: JSON.stringify({
+      model: groq ? process.env.GROQ_MODEL || "qwen/qwen3.8-27b" : process.env.XAI_CHAT_MODEL || "grok-4-fast-non-reasoning",
+      temperature: 0.9,
+      max_tokens: 900,
+      messages,
+    }),
+  });
+  if (!res.ok) return { ok: false as const, error: `Модель не ответила (${res.status}). Ноты вернул.` };
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const reply = (data.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return reply ? { ok: true as const, text: reply } : { ok: false as const, error: "Пустой ответ. Ноты вернул." };
+}
+
 async function systemPrompt() {
   const fromEnv = (process.env.MANOR_PROMPT || "").trim();
   if (fromEnv) return fromEnv;
@@ -29,9 +71,6 @@ export const Route = createFileRoute("/api/host")({
       POST: async ({ request }) => {
         const guest = guestFromRequest(request);
         if (!guest) return Response.json({ error: "Сначала зайди во двор." }, { status: 401 });
-        const groq = process.env.GROQ_API_KEY || "";
-        const xai = process.env.XAI_API_KEY || "";
-        if (!groq && !xai) return Response.json({ error: "Хозяин сейчас молчит: нет ключа." }, { status: 503 });
         const body = (await request.json().catch(() => null)) as { text?: string; history?: Turn[] } | null;
         const text = (body?.text || "").trim().slice(0, 600);
         if (text.length < 2) return Response.json({ error: "Скажи, о чём писать." }, { status: 400 });
@@ -44,27 +83,12 @@ export const Route = createFileRoute("/api/host")({
         const paid = await spendPurse(guest.id, NOTE_PRICE.host);
         if (!paid.ok) return Response.json({ error: paid.error, notes: paid.notes }, { status: 402 });
         const system = await systemPrompt();
-        const res = await fetch(groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.x.ai/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groq || xai}` },
-          body: JSON.stringify({
-            model: groq ? process.env.GROQ_MODEL || "qwen/qwen3.8-27b" : process.env.XAI_CHAT_MODEL || "grok-4-fast-non-reasoning",
-            temperature: 0.9,
-            max_tokens: 900,
-            messages: [{ role: "system", content: system }, ...history, { role: "user", content: text }],
-          }),
-        });
-        if (!res.ok) {
+        const hit = await askModel(system, history, text);
+        if (!hit.ok) {
           const back = await addPurse(guest.id, NOTE_PRICE.host);
-          return Response.json({ error: "Хозяин не ответил. Ноты вернул.", notes: back?.notes ?? paid.notes + NOTE_PRICE.host }, { status: 502 });
+          return Response.json({ error: hit.error, notes: back?.notes ?? paid.notes + NOTE_PRICE.host }, { status: 502 });
         }
-        const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-        const reply = (data.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-        if (!reply) {
-          const back = await addPurse(guest.id, NOTE_PRICE.host);
-          return Response.json({ error: "Пустой ответ. Ноты вернул.", notes: back?.notes ?? paid.notes + NOTE_PRICE.host }, { status: 502 });
-        }
-        return Response.json({ text: reply, notes: paid.notes });
+        return Response.json({ text: hit.text, notes: paid.notes });
       },
     },
   },
