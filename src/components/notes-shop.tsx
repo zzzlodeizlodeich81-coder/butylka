@@ -1,8 +1,10 @@
 import { Music, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { NOTE_LABEL, NOTE_PACKS, NOTE_PRICE, cookCost } from "@/lib/notes";
-import { buyPack } from "@/lib/vk/boot";
+import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
 
 export function PriceSheet({ onClose }: { onClose: () => void }) {
@@ -20,7 +22,7 @@ export function PriceSheet({ onClose }: { onClose: () => void }) {
             Закрыть
           </Button>
         </div>
-        <p className="text-sm text-muted">10 нот — это один голос ВК, 7 ₽. Кадр — 100 нот.</p>
+        <p className="text-sm text-muted">10 нот — 7 ₽. Кадр — 100 нот.</p>
         <ul className="mt-3 space-y-1 text-sm text-fg">
           {rows.map((row) => (
             <li key={row.id} className="flex items-center justify-between gap-3 border-b border-border py-1.5">
@@ -54,21 +56,60 @@ export function NotesButton() {
   );
 }
 
+export function KassaReturn() {
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("kassa") !== "1") return;
+    url.searchParams.delete("kassa");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+    void (async () => {
+      for (let i = 0; i < 6; i += 1) {
+        const res = await fetch("/api/yookassa", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "check" }),
+        });
+        const row = (await res.json()) as { paid?: boolean; notes?: number };
+        if (row.paid && typeof row.notes === "number") {
+          useWallet.getState().apply({ notes: row.notes });
+          useGame.getState().setYouNotes(row.notes);
+          toast.success("Ноты на балансе.");
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      }
+    })();
+  }, []);
+  return null;
+}
+
 export function NotesShop() {
   const open = useWallet((s) => s.shopOpen);
   const setShop = useWallet((s) => s.setShop);
   const notes = useWallet((s) => s.notes);
-  const inVk = useWallet((s) => s.inVk);
-  const vkId = useWallet((s) => s.vkId);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
   if (!open) return null;
 
   async function buy(id: string) {
-    const hit = await buyPack(id);
-    if (!hit.ok) {
-      toast.error(hit.error ?? "Не купилось.");
-      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/yookassa", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pack: id, email }),
+      });
+      const row = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+      if (!row.ok || !row.url) {
+        toast.error(row.error || "Оплата не открылась.");
+        return;
+      }
+      window.location.href = row.url;
+    } finally {
+      setBusy(false);
     }
-    toast.success("Ноты на балансе.");
   }
 
   return (
@@ -78,7 +119,7 @@ export function NotesShop() {
           <div>
             <p className="font-display text-2xl text-fg">Ноты</p>
             <p className="mt-1 text-sm text-muted">
-              Баланс {notes}. Голоса человек покупает у ВК, деньги падают в кабинет приложения ВК, не тебе на карту. Пока ноты кладёшь ты, из админки.
+              Баланс {notes}. Оплата картой.
             </p>
           </div>
           <Button variant="ghost" size="icon" aria-label="Закрыть" onClick={() => setShop(false)}>
@@ -121,27 +162,26 @@ export function NotesShop() {
           </li>
           <li>Стихи + два трека + минус — {cookCost()} нот</li>
         </ul>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <Input
+          className="mt-4"
+          placeholder="Почта для чека, если ЮKassa спросит"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        <div className="mt-3 grid grid-cols-2 gap-2">
           {NOTE_PACKS.map((pack) => (
             <Button
               key={pack.id}
               variant="secondary"
               className="h-auto flex-col items-start rounded-xl py-3 text-left"
-              disabled={!inVk && vkId !== "preview"}
+              disabled={busy}
               onClick={() => void buy(pack.id)}
             >
               <span className="font-medium text-fg">{pack.title}</span>
-              <span className="text-xs text-muted">
-                {pack.votes} голосов · {pack.hint}
-              </span>
+              <span className="text-xs text-muted">{pack.votes * 7} ₽</span>
             </Button>
           ))}
         </div>
-        {!inVk ? (
-          <p className="mt-3 text-sm text-muted">
-            Голоса списываются только внутри ВКонтакте. Открой мини-приложение — и пачки заработают.
-          </p>
-        ) : null}
       </div>
     </div>
   );

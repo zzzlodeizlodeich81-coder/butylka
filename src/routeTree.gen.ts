@@ -20,6 +20,7 @@ import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
 import { Route as ApiVkIdRouteImport } from './routes/api/vk-id'
 import { Route as ApiVkPayRouteImport } from './routes/api/vk-pay'
 import { Route as ApiVkSessionRouteImport } from './routes/api/vk-session'
+import { Route as ApiYookassaRouteImport } from './routes/api/yookassa'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const ApiVkSessionRoute = ApiVkSessionRouteImport.update({
   path: '/api/vk-session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYookassaRoute = ApiYookassaRouteImport.update({
+  id: '/api/yookassa',
+  path: '/api/yookassa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/api/vk-id': typeof ApiVkIdRoute
   '/api/vk-pay': typeof ApiVkPayRoute
   '/api/vk-session': typeof ApiVkSessionRoute
+  '/api/yookassa': typeof ApiYookassaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/api/vk-id': typeof ApiVkIdRoute
   '/api/vk-pay': typeof ApiVkPayRoute
   '/api/vk-session': typeof ApiVkSessionRoute
+  '/api/yookassa': typeof ApiYookassaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/api/vk-id': typeof ApiVkIdRoute
   '/api/vk-pay': typeof ApiVkPayRoute
   '/api/vk-session': typeof ApiVkSessionRoute
+  '/api/yookassa': typeof ApiYookassaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/api/vk-id'
     | '/api/vk-pay'
     | '/api/vk-session'
+    | '/api/yookassa'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/api/vk-id'
     | '/api/vk-pay'
     | '/api/vk-session'
+    | '/api/yookassa'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/api/vk-id'
     | '/api/vk-pay'
     | '/api/vk-session'
+    | '/api/yookassa'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   ApiVkIdRoute: typeof ApiVkIdRoute
   ApiVkPayRoute: typeof ApiVkPayRoute
   ApiVkSessionRoute: typeof ApiVkSessionRoute
+  ApiYookassaRoute: typeof ApiYookassaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVkSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/yookassa': {
+      id: '/api/yookassa'
+      path: '/api/yookassa'
+      fullPath: '/api/yookassa'
+      preLoaderRoute: typeof ApiYookassaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVkIdRoute: ApiVkIdRoute,
   ApiVkPayRoute: ApiVkPayRoute,
   ApiVkSessionRoute: ApiVkSessionRoute,
+  ApiYookassaRoute: ApiYookassaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

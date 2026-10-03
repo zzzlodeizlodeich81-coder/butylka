@@ -3,7 +3,7 @@ import { BottleTable } from "@/components/bottle-table";
 import { BringSong } from "@/components/bring-song";
 import { CookBridge } from "@/components/cook-bridge";
 import { KaraokeStage } from "@/components/karaoke";
-import { NotesShop } from "@/components/notes-shop";
+import { KassaReturn, NotesShop } from "@/components/notes-shop";
 import { Chrome, GateScreen, Lobby, ProfileScreen, Result, Reveal } from "@/components/screens";
 import { SongPick } from "@/components/song-pick";
 import { VerseRound } from "@/components/verse-round";
@@ -77,6 +77,7 @@ export function App() {
   return (
     <DoorGate>
       <Shell />
+      <KassaReturn />
       <NotesShop />
     </DoorGate>
   );
