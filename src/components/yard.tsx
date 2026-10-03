@@ -10,7 +10,7 @@ import { HostChat } from "@/components/host-chat";
 import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
-import { useGame } from "@/lib/store";
+import { useStage } from "@/lib/stage";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
@@ -36,13 +36,17 @@ function MapStage({
   src,
   alt,
   top,
+  aspect = "16 / 9",
   children,
 }: {
   src: string;
   alt: string;
   top: string;
+  aspect?: string;
   children: ReactNode;
 }) {
+  const [aw, ah] = aspect.split("/").map((part) => Number(part.trim()));
+  const ratio = aw / ah || 16 / 9;
   return (
     <div
       className="absolute inset-x-0 bottom-0 flex items-center justify-center [container-type:size]"
@@ -50,7 +54,7 @@ function MapStage({
     >
       <div
         className="relative"
-        style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}
+        style={{ aspectRatio: aspect, width: `min(100cqw, calc(100cqh * ${ratio}))` }}
       >
         <img src={src} alt={alt} className="absolute inset-0 h-full w-full object-fill" />
         {children}
@@ -69,6 +73,18 @@ const ZONES: { id: HouseId; label: string; left: string; top: string; width: str
   { id: "organ", label: "Шарманщик", left: "50%", top: "34%", width: "16%", height: "22%", sign: "bottom" },
   { id: "market", label: "Торговые ряды", left: "28%", top: "60%", width: "40%", height: "18%", sign: "top" },
   { id: "gate", label: "Ворота", left: "38%", top: "78%", width: "24%", height: "18%", sign: "top" },
+];
+
+const YARD_PHONE: typeof ZONES = [
+  { id: "record", label: "Дом записи", left: "4%", top: "7%", width: "30%", height: "16%", sign: "bottom" },
+  { id: "factory", label: "Фабрика звука", left: "34%", top: "4%", width: "32%", height: "16%", sign: "bottom" },
+  { id: "frame", label: "Рама", left: "66%", top: "10%", width: "30%", height: "14%", sign: "bottom" },
+  { id: "atelier", label: "Мастерская", left: "66%", top: "26%", width: "30%", height: "14%", sign: "bottom" },
+  { id: "stage", label: "Сцена", left: "4%", top: "34%", width: "30%", height: "16%", sign: "bottom" },
+  { id: "organ", label: "Шарманщик", left: "36%", top: "32%", width: "28%", height: "18%", sign: "bottom" },
+  { id: "cinema", label: "Киностудия", left: "66%", top: "44%", width: "30%", height: "16%", sign: "top" },
+  { id: "market", label: "Торговые ряды", left: "8%", top: "58%", width: "84%", height: "13%", sign: "top" },
+  { id: "gate", label: "Ворота", left: "26%", top: "76%", width: "48%", height: "16%", sign: "top" },
 ];
 
 const DOORS: Partial<Record<HouseId, string>> = {
@@ -112,6 +128,8 @@ export function Yard() {
   const [radioOpen, setRadioOpen] = useState(false);
   const [price, setPrice] = useState(false);
   const [splash, setSplash] = useState(true);
+  const stage = useStage();
+  const yardMap = stage === "phone" ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE } : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const [guide, setGuide] = useState(false);
 
   useEffect(() => {
@@ -151,8 +169,8 @@ export function Yard() {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#24301c]">
-      <MapStage src="/yard.jpg" alt="Двор" top="max(3.2rem, calc(env(safe-area-inset-top) + 2.6rem))">
-          {ZONES.map((zone) => (
+      <MapStage src={yardMap.src} alt="Двор" aspect={yardMap.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
+          {yardMap.zones.map((zone) => (
             <button
               key={zone.id}
               type="button"
@@ -170,7 +188,7 @@ export function Yard() {
           ))}
       </MapStage>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <div className="pointer-events-auto flex flex-wrap gap-2">
+        <div className="pointer-events-auto flex max-w-[62vw] flex-nowrap gap-2 overflow-x-auto">
           <button
             type="button"
             className="rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
@@ -277,6 +295,14 @@ const CITY: { id: SpotId; label: string; left: string; top: string; width: strin
   { id: "kadr", label: "XXV Kadr", left: "76%", top: "0%", width: "22%", height: "32%" },
 ];
 
+const CITY_PHONE: typeof CITY = [
+  { id: "kadr", label: "XXV Kadr", left: "48%", top: "2%", width: "48%", height: "22%" },
+  { id: "sferoom", label: "Sferoom", left: "4%", top: "28%", width: "30%", height: "22%" },
+  { id: "needle", label: "needle music", left: "34%", top: "26%", width: "30%", height: "24%" },
+  { id: "yourtunes", label: "Yourtunes", left: "66%", top: "30%", width: "30%", height: "22%" },
+  { id: "yard", label: "Наш двор", left: "10%", top: "64%", width: "80%", height: "30%" },
+];
+
 function District({
   spot,
   onSpot,
@@ -286,10 +312,12 @@ function District({
   onSpot: (id: SpotId | null) => void;
   onYard: () => void;
 }) {
+  const stage = useStage();
+  const cityMap = stage === "phone" ? { src: "/m/district.jpg", aspect: "9 / 16", zones: CITY_PHONE } : { src: "/district.jpg", aspect: "16 / 9", zones: CITY };
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#1c2430]">
-      <MapStage src="/district.jpg" alt="Город" top="max(2.8rem, calc(env(safe-area-inset-top) + 2.2rem))">
-          {CITY.map((zone) => (
+      <MapStage src={cityMap.src} alt="Город" aspect={cityMap.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
+          {cityMap.zones.map((zone) => (
             <button
               key={zone.id}
               type="button"
@@ -362,17 +390,29 @@ function PromoSheet({ spot, onClose }: { spot: SpotId; onClose: () => void }) {
 function Manor({ onClose }: { onClose: () => void }) {
   const [room, setRoom] = useState<"hunt" | "host" | null>(null);
   const [price, setPrice] = useState(false);
+  const phone = useStage() === "phone";
   if (room === "hunt") return <HuntRoom onClose={() => setRoom(null)} />;
+  const spots = phone
+    ? { host: { left: "30%", top: "40%" }, table: { left: "18%", top: "58%", width: "64%", height: "18%" }, pantry: { left: "8%", top: "80%" } }
+    : { host: { left: "18%", top: "58%" }, table: { left: "50%", top: "46%", width: "46%", height: "40%" }, pantry: { left: "8%", top: "72%" } };
   return (
     <div className="absolute inset-0 z-20 bg-black">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative h-full max-h-full w-full" style={{ aspectRatio: "16 / 9" }}>
-          <img src="/manor.jpg" alt="" className="h-full w-full object-contain" />
-          <img src="/manor.jpg" alt="" className="manor-ghost pointer-events-none absolute inset-0 h-full w-full object-contain" />
+      <div className="absolute inset-0 flex items-center justify-center [container-type:size]">
+        <div
+          className="relative"
+          style={{
+            aspectRatio: phone ? "9 / 16" : "16 / 9",
+            width: phone ? "min(100cqw, calc(100cqh * 9 / 16))" : "min(100cqw, calc(100cqh * 16 / 9))",
+          }}
+        >
+          <img src={phone ? "/m/manor.jpg" : "/manor.jpg"} alt="" className="absolute inset-0 h-full w-full object-fill" />
+          {phone ? null : (
+            <img src="/manor.jpg" alt="" className="manor-ghost pointer-events-none absolute inset-0 h-full w-full object-contain" />
+          )}
           <button
             type="button"
             className="absolute rounded-full bg-black/55 px-3 py-1 text-[11px] text-[#f4e4c4]"
-            style={{ left: "18%", top: "58%" }}
+            style={spots.host}
             onClick={() => setRoom("host")}
           >
             Хозяин
@@ -383,7 +423,7 @@ function Manor({ onClose }: { onClose: () => void }) {
             rel="noreferrer"
             aria-label="Стол, группа XXV Kadr"
             className="absolute rounded-xl hover:bg-white/10"
-            style={{ left: "50%", top: "46%", width: "46%", height: "40%" }}
+            style={spots.table}
           >
             <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-[11px] font-medium text-[#f4e4c4]">
               Стол
@@ -392,7 +432,7 @@ function Manor({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             className="absolute rounded-full bg-black/55 px-3 py-1 text-[11px] text-[#f4e4c4]"
-            style={{ left: "8%", top: "72%" }}
+            style={spots.pantry}
             onClick={() => setRoom("hunt")}
           >
             Кладовая
