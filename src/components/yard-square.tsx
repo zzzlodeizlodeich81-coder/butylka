@@ -19,7 +19,8 @@ function caller() {
   } catch {
     /* двор без хранилища */
   }
-  const name = useGame.getState().players.find((p) => p.id === useGame.getState().youId)?.name || "Гость";
+  const walletName = useWallet.getState().name;
+  const name = walletName || useGame.getState().players.find((p) => p.id === useGame.getState().youId)?.name || "Гость";
   return { heroId, author: name };
 }
 

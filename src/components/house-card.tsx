@@ -31,6 +31,7 @@ function caller() {
 }
 
 export function HouseCard({ onClose }: { onClose: () => void }) {
+  const notes = useWallet((s) => s.notes);
   const [home, setHome] = useState<HomeState | null>(null);
   const [busy, setBusy] = useState(false);
   const standing = houseById(home?.tier);
@@ -70,8 +71,8 @@ export function HouseCard({ onClose }: { onClose: () => void }) {
           <p className="mb-3 text-sm text-muted">Пока пустой участок. Палатка даётся сразу.</p>
         )}
         <p className="text-sm text-muted">
-          Прослушивания {home?.listens ?? "…"} · тёплые отзывы {home?.ups ?? "…"} · рейтинг {home?.score ?? "…"} · треки на сцене{" "}
-          {home ? (home.published ? "есть" : "нет") : "…"}
+          На счету {notes} нот. Прослушивания {home?.listens ?? "…"} · тёплые отзывы {home?.ups ?? "…"} · рейтинг{" "}
+          {home?.score ?? "…"} · треки на сцене {home ? (home.published ? "есть" : "нет") : "…"}
         </p>
         <p className="mt-1 text-xs text-muted">Тёплый отзыв — оценка от 4. Рейтинг — сумма всех оценок у шарманщика.</p>
         <div className="mt-3 flex flex-col gap-2">

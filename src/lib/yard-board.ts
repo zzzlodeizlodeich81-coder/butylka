@@ -19,7 +19,8 @@ export type YardSong = {
   up?: number;
 };
 
-export type YardLine = { id: string; name: string; text: string; at: number };
+export type YardLine = { id: string; name: string; text: string; at: number; room?: string };
+export type YardSpot = { id: string; name: string; photo: string; spot: string };
 
 export type Hero = {
   vk: string;
@@ -43,6 +44,12 @@ type Mem = {
 };
 
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
+const spots: (YardSpot & { at: number })[] = [];
+
+function liveSpots(): YardSpot[] {
+  const now = Date.now();
+  return spots.filter((row) => now - row.at < 45000).map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
+}
 const heroes = new Map<string, Hero>();
 let boardReady: Promise<void> | null = null;
 
@@ -168,6 +175,8 @@ type BoardRes = {
   songs?: YardSong[];
   chat?: YardLine[];
   heroes?: Hero[];
+  spots?: YardSpot[];
+  room?: string;
   notes?: number;
   credit?: number;
   local?: boolean;
@@ -183,7 +192,7 @@ export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build";
+      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot";
       kind?: "draft" | "release";
       url?: string;
       title?: string;
@@ -201,8 +210,11 @@ export const yardBoard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<BoardRes> => {
     const vk = context.vk;
-    const vkId = vk?.vkId || String(data.heroId || "guest").slice(0, 48);
-    const name = (data.author || vk?.name || "Гость").slice(0, 32);
+    const guest = (await import("@/lib/purse.server")).currentGuest();
+    const vkId = guest?.id || vk?.vkId || String(data.heroId || "guest").slice(0, 48);
+    const name = (guest?.name || vk?.name || data.author || "Гость").slice(0, 32);
+    const { communityOf } = await import("@/lib/lands.server");
+    const room = guest ? await communityOf(guest.id) : "";
     await loadBoardFile();
     const remote = await sheetCall({ ...data, vkId, name });
     if (remote?.ok) {
@@ -219,7 +231,24 @@ export const yardBoard = createServerFn({ method: "POST" })
     }
     if (remote && remote.ok === false) return { ok: false as const, error: remote.error || "Не вышло.", shared: true };
 
-    if (data.action === "list") return listMem();
+    if (data.action === "list") {
+      const listed = listMem();
+      return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots() };
+    }
+
+    if (data.action === "spot") {
+      const spot = String(data.tier || "yard").slice(0, 24);
+      let photo = "";
+      if (guest) {
+        const row = await (await import("@/lib/purse.server")).readPurse(guest.id);
+        photo = row?.photo || "";
+      }
+      const next = { id: vkId, name, photo, spot, at: Date.now() };
+      const index = spots.findIndex((row) => row.id === vkId);
+      if (index >= 0) spots[index] = next;
+      else spots.push(next);
+      return { ok: true, spots: liveSpots() };
+    }
 
     if (data.action === "add") {
       const url = cleanUrl(data.url || "");
@@ -351,8 +380,9 @@ export const yardBoard = createServerFn({ method: "POST" })
 
     const text = (data.text || "").trim().slice(0, 200);
     if (!text) return { ok: false as const, error: "Пусто." };
-    mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now() });
+    mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now(), room });
     if (mem.chat.length > 80) mem.chat.shift();
     await saveBoardFile();
-    return listMem();
+    const listed = listMem();
+    return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots() };
   });

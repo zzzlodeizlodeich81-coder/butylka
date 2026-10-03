@@ -12,8 +12,10 @@ import {
   guestToken,
   joinPurse,
   listPurse,
+  loginAccount,
   peoplePurse,
   readPurse,
+  registerAccount,
   setCookie,
   setFace,
 } from "@/lib/purse.server";
@@ -26,6 +28,7 @@ export const Route = createFileRoute("/api/door")({
         let body: {
           action?: string;
           password?: string;
+          login?: string;
           name?: string;
           id?: string;
           amount?: number;
@@ -42,13 +45,27 @@ export const Route = createFileRoute("/api/door")({
         const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
 
         if (body.action === "status") {
-          const guest = doorFromRequest(request) ? guestFromRequest(request) : null;
+          const guest = guestFromRequest(request);
           const row = guest ? await readPurse(guest.id) : null;
           return Response.json({
             ok: true,
             needDoor: doorEnabled(),
-            inside: doorFromRequest(request),
-            guest: row ? { id: row.id, name: row.name, notes: row.notes } : null,
+            inside: doorFromRequest(request) || Boolean(row),
+            guest: row ? { id: row.id, name: row.name, notes: row.notes, login: row.login || "" } : null,
+          });
+        }
+
+        if (body.action === "register" || body.action === "login") {
+          const found =
+            body.action === "register"
+              ? await registerAccount(body.login || "", body.password || "", body.name || "")
+              : await loginAccount(body.login || "", body.password || "");
+          if (!found.ok) return Response.json({ ok: false, error: found.error }, { status: 401 });
+          headers.append("set-cookie", setCookie(request, DOOR_COOKIE, doorCookieValue()));
+          headers.append("set-cookie", setCookie(request, GUEST_COOKIE, guestToken(found.row)));
+          return new Response(JSON.stringify({ ok: true, guest: { id: found.row.id, name: found.row.name, notes: found.row.notes } }), {
+            status: 200,
+            headers,
           });
         }
 

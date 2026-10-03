@@ -26,6 +26,8 @@ async function door(body: Record<string, unknown>) {
 
 export function DoorGate({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<"load" | "lock" | "name" | "in">("load");
+  const [mode, setMode] = useState<"login" | "new">("login");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [kassa, setKassa] = useState(false);
@@ -77,55 +79,65 @@ export function DoorGate({ children }: { children: ReactNode }) {
             onSubmit={(event) => {
               event.preventDefault();
               void (async () => {
-                if (phase === "lock") {
-                  const row = await door({ action: "enter", password });
-                  if (!row.ok) {
-                    toast.error(row.error || "Пароль не тот.");
-                    return;
-                  }
-                  setPassword("");
-                  await sync();
-                  return;
-                }
-                const row = await door({ action: "join", name });
+                const row = await door({
+                  action: mode === "new" ? "register" : "login",
+                  login,
+                  password,
+                  name,
+                });
                 if (!row.ok) {
-                  toast.error(row.error || "Имя не встало.");
+                  toast.error(row.error || "Не пустило.");
                   return;
                 }
+                setPassword("");
                 await sync();
               })();
             }}
           >
             <p className="font-display text-3xl">XXV Kadr</p>
             {phase === "load" ? <p className="mt-3 text-sm">Открываю калитку…</p> : null}
-            {phase === "lock" ? (
+            {phase === "lock" || phase === "name" ? (
               <>
-                <p className="mt-3 text-sm text-[#f4e4c4]/70">Двор закрыт. Пароль знают свои.</p>
+                <p className="mt-3 text-sm text-[#f4e4c4]/70">
+                  Вход по своему логину или через VK ID. Пароль кассы по-прежнему только у хозяина.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button type="button" variant={mode === "login" ? "default" : "secondary"} className="rounded-xl" onClick={() => setMode("login")}>
+                    Вход
+                  </Button>
+                  <Button type="button" variant={mode === "new" ? "default" : "secondary"} className="rounded-xl" onClick={() => setMode("new")}>
+                    Новый
+                  </Button>
+                </div>
                 <Input
-                  className="mt-4 bg-black/40 text-white"
+                  className="mt-3 bg-black/40 text-white"
+                  placeholder="Логин"
+                  value={login}
+                  onChange={(event) => setLogin(event.target.value)}
+                  autoComplete="username"
+                />
+                <Input
+                  className="mt-2 bg-black/40 text-white"
                   type="password"
-                  placeholder="Пароль двора"
+                  placeholder="Пароль"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
+                  autoComplete={mode === "new" ? "new-password" : "current-password"}
                 />
+                {mode === "new" ? (
+                  <Input
+                    className="mt-2 bg-black/40 text-white"
+                    placeholder="Как писать на дворе"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                ) : null}
                 <Button className="mt-3 w-full rounded-xl" type="submit">
-                  Войти
+                  {mode === "new" ? "Создать" : "Войти"}
                 </Button>
-              </>
-            ) : null}
-            {phase === "name" ? (
-              <>
-                <p className="mt-3 text-sm text-[#f4e4c4]/70">Как тебя писать на дворе. Это имя увидит касса.</p>
-                <Input
-                  className="mt-4 bg-black/40 text-white"
-                  placeholder="Псевдоним"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
-                <Button className="mt-3 w-full rounded-xl" type="submit">
-                  Зайти
-                </Button>
+                <a className="mt-3 block text-center text-sm underline" href="/api/vk-id">
+                  Войти через VK ID
+                </a>
               </>
             ) : null}
           </form>

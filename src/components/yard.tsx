@@ -10,7 +10,9 @@ import { HostChat } from "@/components/host-chat";
 import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
+import { LandCard } from "@/components/land-card";
 import { useStage } from "@/lib/stage";
+import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
 import { uid } from "@/lib/utils";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -132,6 +134,8 @@ export function Yard() {
   const stage = useStage();
   const yardMap = stage === "phone" ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE } : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const [guide, setGuide] = useState(false);
+  const [lands, setLands] = useState(false);
+  const [faces, setFaces] = useState<YardSpot[]>([]);
 
   useEffect(() => {
     const saved = readRoles();
@@ -144,6 +148,25 @@ export function Yard() {
     } catch {
       /* без памяти проводник просто молчит */
     }
+  }, []);
+
+  useEffect(() => {
+    void yardBoard({ data: { action: "spot", tier: house || "yard" } });
+  }, [house]);
+
+  useEffect(() => {
+    let stop = false;
+    const pull = () => {
+      void yardBoard({ data: { action: "list" } }).then((res) => {
+        if (!stop && res.ok) setFaces(res.spots || []);
+      });
+    };
+    pull();
+    const timer = window.setInterval(pull, 8000);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   function open(id: HouseId) {
@@ -185,6 +208,19 @@ export function Yard() {
               >
                 {zone.label}
               </span>
+              {faces
+                .filter((person) => person.spot === zone.id)
+                .slice(0, 3)
+                .map((person, index) => (
+                  <span
+                    key={person.id}
+                    title={person.name}
+                    className="pointer-events-none absolute top-0.5 flex size-6 items-center justify-center overflow-hidden rounded-full border border-white/80 bg-[#2a1a0c] text-xs"
+                    style={{ left: `${2 + index * 18}px` }}
+                  >
+                    {person.photo ? <img src={person.photo} alt="" className="h-full w-full object-cover" /> : "🪆"}
+                  </span>
+                ))}
             </button>
           ))}
       </MapStage>
@@ -199,6 +235,9 @@ export function Yard() {
           </button>
           <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setChat(true)}>
             Чат
+          </button>
+          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setLands(true)}>
+            Карта
           </button>
           <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
             Слава
@@ -228,6 +267,7 @@ export function Yard() {
       </div>
       {chat ? <YardChat onClose={() => setChat(false)} /> : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
+      {lands ? <LandCard onClose={() => setLands(false)} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}

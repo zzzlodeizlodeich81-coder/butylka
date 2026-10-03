@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiClipRouteImport } from './routes/api/clip'
 import { Route as ApiDoorRouteImport } from './routes/api/door'
+import { Route as ApiHostRouteImport } from './routes/api/host'
 import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
 import { Route as ApiPaintRouteImport } from './routes/api/paint'
 import { Route as ApiSunoAudioRouteImport } from './routes/api/suno-audio'
 import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
+import { Route as ApiVkIdRouteImport } from './routes/api/vk-id'
 import { Route as ApiVkPayRouteImport } from './routes/api/vk-pay'
 import { Route as ApiVkSessionRouteImport } from './routes/api/vk-session'
 
@@ -23,9 +26,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiClipRoute = ApiClipRouteImport.update({
+  id: '/api/clip',
+  path: '/api/clip',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDoorRoute = ApiDoorRouteImport.update({
   id: '/api/door',
   path: '/api/door',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHostRoute = ApiHostRouteImport.update({
+  id: '/api/host',
+  path: '/api/host',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHostAudioRoute = ApiHostAudioRouteImport.update({
@@ -48,6 +61,11 @@ const ApiSunoHookRoute = ApiSunoHookRouteImport.update({
   path: '/api/suno-hook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVkIdRoute = ApiVkIdRouteImport.update({
+  id: '/api/vk-id',
+  path: '/api/vk-id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVkPayRoute = ApiVkPayRouteImport.update({
   id: '/api/vk-pay',
   path: '/api/vk-pay',
@@ -61,32 +79,41 @@ const ApiVkSessionRoute = ApiVkSessionRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/clip': typeof ApiClipRoute
   '/api/door': typeof ApiDoorRoute
+  '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/paint': typeof ApiPaintRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
+  '/api/vk-id': typeof ApiVkIdRoute
   '/api/vk-pay': typeof ApiVkPayRoute
   '/api/vk-session': typeof ApiVkSessionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/clip': typeof ApiClipRoute
   '/api/door': typeof ApiDoorRoute
+  '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/paint': typeof ApiPaintRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
+  '/api/vk-id': typeof ApiVkIdRoute
   '/api/vk-pay': typeof ApiVkPayRoute
   '/api/vk-session': typeof ApiVkSessionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/clip': typeof ApiClipRoute
   '/api/door': typeof ApiDoorRoute
+  '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/paint': typeof ApiPaintRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
+  '/api/vk-id': typeof ApiVkIdRoute
   '/api/vk-pay': typeof ApiVkPayRoute
   '/api/vk-session': typeof ApiVkSessionRoute
 }
@@ -94,42 +121,54 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/clip'
     | '/api/door'
+    | '/api/host'
     | '/api/host-audio'
     | '/api/paint'
     | '/api/suno-audio'
     | '/api/suno-hook'
+    | '/api/vk-id'
     | '/api/vk-pay'
     | '/api/vk-session'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/clip'
     | '/api/door'
+    | '/api/host'
     | '/api/host-audio'
     | '/api/paint'
     | '/api/suno-audio'
     | '/api/suno-hook'
+    | '/api/vk-id'
     | '/api/vk-pay'
     | '/api/vk-session'
   id:
     | '__root__'
     | '/'
+    | '/api/clip'
     | '/api/door'
+    | '/api/host'
     | '/api/host-audio'
     | '/api/paint'
     | '/api/suno-audio'
     | '/api/suno-hook'
+    | '/api/vk-id'
     | '/api/vk-pay'
     | '/api/vk-session'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiClipRoute: typeof ApiClipRoute
   ApiDoorRoute: typeof ApiDoorRoute
+  ApiHostRoute: typeof ApiHostRoute
   ApiHostAudioRoute: typeof ApiHostAudioRoute
   ApiPaintRoute: typeof ApiPaintRoute
   ApiSunoAudioRoute: typeof ApiSunoAudioRoute
   ApiSunoHookRoute: typeof ApiSunoHookRoute
+  ApiVkIdRoute: typeof ApiVkIdRoute
   ApiVkPayRoute: typeof ApiVkPayRoute
   ApiVkSessionRoute: typeof ApiVkSessionRoute
 }
@@ -143,11 +182,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/clip': {
+      id: '/api/clip'
+      path: '/api/clip'
+      fullPath: '/api/clip'
+      preLoaderRoute: typeof ApiClipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/door': {
       id: '/api/door'
       path: '/api/door'
       fullPath: '/api/door'
       preLoaderRoute: typeof ApiDoorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/host': {
+      id: '/api/host'
+      path: '/api/host'
+      fullPath: '/api/host'
+      preLoaderRoute: typeof ApiHostRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/host-audio': {
@@ -178,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSunoHookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/vk-id': {
+      id: '/api/vk-id'
+      path: '/api/vk-id'
+      fullPath: '/api/vk-id'
+      preLoaderRoute: typeof ApiVkIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/vk-pay': {
       id: '/api/vk-pay'
       path: '/api/vk-pay'
@@ -197,11 +257,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiClipRoute: ApiClipRoute,
   ApiDoorRoute: ApiDoorRoute,
+  ApiHostRoute: ApiHostRoute,
   ApiHostAudioRoute: ApiHostAudioRoute,
   ApiPaintRoute: ApiPaintRoute,
   ApiSunoAudioRoute: ApiSunoAudioRoute,
   ApiSunoHookRoute: ApiSunoHookRoute,
+  ApiVkIdRoute: ApiVkIdRoute,
   ApiVkPayRoute: ApiVkPayRoute,
   ApiVkSessionRoute: ApiVkSessionRoute,
 }

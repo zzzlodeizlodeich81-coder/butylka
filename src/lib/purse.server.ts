@@ -1,9 +1,9 @@
-import { createHmac, createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getRequest } from "@tanstack/react-start/server";
 
-type Row = { id: string; name: string; notes: number; photo?: string };
+type Row = { id: string; name: string; notes: number; photo?: string; login?: string; pass?: string; vk?: string };
 type Book = { rows: Row[] };
 
 const DOOR = "kadr_door";
@@ -111,6 +111,65 @@ export async function joinPurse(name: string) {
     const row = { id: randomUUID(), name: clean, notes: 0 };
     book.rows.push(row);
     await writeBook(book);
+    return row;
+  });
+}
+
+function hashPass(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 32).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function passOk(password: string, stored: string) {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const next = scryptSync(password, salt, 32);
+  const prev = Buffer.from(hash, "hex");
+  if (next.length !== prev.length) return false;
+  return timingSafeEqual(next, prev);
+}
+
+function cleanLogin(login: string) {
+  return login.trim().toLowerCase().slice(0, 20);
+}
+
+export async function registerAccount(login: string, password: string, name: string) {
+  const user = cleanLogin(login);
+  const shown = name.replace(/[|\n\r]/g, "").trim().slice(0, 24);
+  if (!/^[\p{L}\p{N}_-]{3,20}$/u.test(user)) return { ok: false as const, error: "Логин: 3–20 букв или цифр." };
+  if (password.trim().length < 4) return { ok: false as const, error: "Пароль хотя бы из 4 знаков." };
+  if (shown.length < 2) return { ok: false as const, error: "Имя хотя бы из двух букв." };
+  return locked(async () => {
+    const book = await readBook();
+    if (book.rows.some((row) => row.login === user)) return { ok: false as const, error: "Такой логин уже занят." };
+    const row: Row = { id: randomUUID(), name: shown, notes: 0, login: user, pass: hashPass(password.trim()) };
+    book.rows.push(row);
+    await writeBook(book);
+    return { ok: true as const, row };
+  });
+}
+
+export async function loginAccount(login: string, password: string) {
+  const user = cleanLogin(login);
+  const book = await readBook();
+  const row = book.rows.find((item) => item.login === user && item.pass);
+  if (!row || !row.pass || !passOk(password, row.pass)) return { ok: false as const, error: "Логин или пароль не тот." };
+  return { ok: true as const, row };
+}
+
+export async function loginVk(vkId: string, name: string) {
+  const id = vkId.replace(/\D/g, "").slice(0, 20);
+  if (!id) return null;
+  const shown = name.replace(/[|\n\r]/g, "").trim().slice(0, 24) || `vk${id}`;
+  return locked(async () => {
+    const book = await readBook();
+    let row = book.rows.find((item) => item.vk === id);
+    if (!row) {
+      row = { id: randomUUID(), name: shown, notes: 0, vk: id, login: `vk${id}` };
+      book.rows.push(row);
+      await writeBook(book);
+    }
     return row;
   });
 }
