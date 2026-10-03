@@ -11,6 +11,7 @@ import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
 import { LandCard } from "@/components/land-card";
+import { landDesk } from "@/lib/lands.server";
 import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
@@ -34,6 +35,17 @@ import {
 
 type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" | "market" | "gate" | "organ";
 type SpotId = "yard" | "sferoom" | "needle" | "yourtunes" | "kadr";
+type Layer = "world" | "city" | "yard";
+
+const WORLD = [
+  { id: "city", label: "Город", left: "2%", top: "22%", width: "50%", height: "62%" },
+  { id: "buy", label: "Купить", left: "58%", top: "44%", width: "26%", height: "34%" },
+];
+
+const WORLD_PHONE = [
+  { id: "city", label: "Город", left: "4%", top: "12%", width: "92%", height: "42%" },
+  { id: "buy", label: "Купить", left: "14%", top: "58%", width: "72%", height: "22%" },
+];
 
 function MapStage({
   src,
@@ -119,7 +131,7 @@ export function Yard() {
   const localNotes = useGame((s) => s.players.find((p) => p.id === s.youId)?.notes ?? 0);
   const shownNotes = vkId ? notes : localNotes;
   const [house, setHouse] = useState<HouseId | null>(null);
-  const [city, setCity] = useState(false);
+  const [layer, setLayer] = useState<Layer>("world");
   const [spot, setSpot] = useState<SpotId | null>(null);
   const [roles, setRoles] = useState<RoleId[]>([]);
   const [frames, setFrames] = useState(0);
@@ -151,8 +163,8 @@ export function Yard() {
   }, []);
 
   useEffect(() => {
-    void yardBoard({ data: { action: "spot", tier: house || "yard" } });
-  }, [house]);
+    void yardBoard({ data: { action: "spot", tier: layer === "yard" ? house || "yard" : layer } });
+  }, [house, layer]);
 
   useEffect(() => {
     let stop = false;
@@ -178,14 +190,29 @@ export function Yard() {
     setHouse(id);
   }
 
-  if (city) {
+  if (layer === "world") {
+    return (
+      <>
+        <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} />
+        {lands ? <LandCard onClose={() => setLands(false)} /> : null}
+        {splash ? (
+          <button type="button" className="fixed inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
+            <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
+          </button>
+        ) : null}
+      </>
+    );
+  }
+
+  if (layer === "city") {
     return (
       <District
         spot={spot}
         onSpot={setSpot}
+        onMap={() => setLayer("world")}
         onYard={() => {
           setSpot(null);
-          setCity(false);
+          setLayer("yard");
         }}
       />
     );
@@ -229,7 +256,7 @@ export function Yard() {
           <button
             type="button"
             className="rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
-            onClick={() => setCity(true)}
+            onClick={() => setLayer("city")}
           >
             В город
           </button>
@@ -271,11 +298,6 @@ export function Yard() {
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
-      {splash ? (
-        <button type="button" className="absolute inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
-          <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
-        </button>
-      ) : null}
       {!splash && guide ? (
         <Guide
           onDone={() => {
@@ -344,13 +366,55 @@ const CITY_PHONE: typeof CITY = [
   { id: "yard", label: "Наш двор", left: "10%", top: "64%", width: "80%", height: "30%" },
 ];
 
+function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
+  const stage = useStage();
+  const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
+  const [plots, setPlots] = useState<{ id: string; name: string; kind: string }[]>([]);
+  useEffect(() => {
+    void landDesk({ data: { action: "look" } }).then((res) => {
+      if (res.ok && Array.isArray(res.plots)) setPlots(res.plots);
+    });
+  }, []);
+  return (
+    <div className="relative h-dvh w-full overflow-hidden bg-[#1c2830]">
+      <MapStage src={map.src} alt="Большая карта" aspect={map.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
+        {map.zones.map((zone) => (
+          <button
+            key={zone.id}
+            type="button"
+            aria-label={zone.label}
+            className="absolute rounded-xl hover:bg-white/10"
+            style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
+            onClick={() => (zone.id === "buy" ? onBuy() : onCity())}
+          >
+            <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-2 py-0.5 text-[12px] font-medium text-[#f4e4c4] shadow">
+              {zone.label}
+            </span>
+          </button>
+        ))}
+        {plots.map((plot, index) => (
+          <span
+            key={plot.id}
+            className="pointer-events-none absolute rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white"
+            style={{ right: "4%", top: `${8 + index * 6}%` }}
+          >
+            {plot.name}
+          </span>
+        ))}
+      </MapStage>
+    </div>
+  );
+}
+
 function District({
   spot,
   onSpot,
+  onMap,
   onYard,
 }: {
   spot: SpotId | null;
   onSpot: (id: SpotId | null) => void;
+  onMap: () => void;
   onYard: () => void;
 }) {
   const stage = useStage();
@@ -374,8 +438,8 @@ function District({
           ))}
       </MapStage>
       <div className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onYard}>
-          Во двор
+        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onMap}>
+          На карту
         </button>
       </div>
       {spot === "kadr" ? <Manor onClose={() => onSpot(null)} /> : null}
