@@ -421,9 +421,9 @@ function FaceDot({ photo, name }: { photo?: string; name?: string }) {
 
 function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
   return (
-    <div className="mt-2 flex flex-wrap gap-1">
+    <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
       {SMILES.map((smile) => (
-        <button key={smile} type="button" className="rounded-lg bg-surface px-2 py-1 text-lg" onClick={() => onPick(smile)}>
+        <button key={smile} type="button" className="shrink-0 rounded-lg bg-surface px-2 py-1 text-2xl" onClick={() => onPick(smile)}>
           {smile}
         </button>
       ))}
@@ -455,7 +455,6 @@ function PrivatePane({
   const [lines, setLines] = useState<WhisperLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
-  const [smiles, setSmiles] = useState(false);
   const mine = people.find((person) => person.id === me);
   const box = useStick(lines);
 
@@ -501,7 +500,6 @@ function PrivatePane({
     }
     setText("");
     setShot("");
-    setSmiles(false);
     setLines(row.lines || []);
   }
 
@@ -569,13 +567,10 @@ function PrivatePane({
             })}
             {lines.length === 0 ? <p className="text-sm text-muted">Это видите только вы двое. {talk ? talk.name : ""}</p> : null}
           </div>
-          {smiles ? <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} /> : null}
           {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
-          <div className="mt-3 flex gap-2">
-            <Button type="button" variant="secondary" className="rounded-xl px-3" onClick={() => setSmiles((open) => !open)}>
-              😊
-            </Button>
-            <label className="inline-flex cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
+          <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} />
+          <div className="mt-2 flex gap-2">
+            <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
               фото
               <input
                 className="hidden"
@@ -618,7 +613,6 @@ export function YardChat({
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
-  const [smiles, setSmiles] = useState(false);
   const [tab, setTab] = useState<"yard" | "private">(focusId ? "private" : "yard");
   const box = useStick(tab === "yard" ? lines : tab);
 
@@ -642,7 +636,7 @@ export function YardChat({
 
   return (
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
-      <div className="max-h-[70%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="flex max-h-[78%] w-full flex-col overflow-hidden rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-2xl text-fg">Чат</h2>
           <Button variant="ghost" onClick={onClose}>
@@ -664,7 +658,7 @@ export function YardChat({
         {tab === "private" ? <PrivatePane focusId={focusId} pingPeople={pingPeople} onOpenPerson={onOpenPerson} /> : null}
         {tab === "yard" ? (
           <>
-            <div ref={box} className="flex max-h-64 flex-col gap-2 overflow-auto text-sm">
+            <div ref={box} className="flex min-h-0 max-h-48 flex-col gap-2 overflow-auto text-sm">
               {lines.map((line) => {
                 const own = Boolean(myId && line.who === myId);
                 return (
@@ -680,13 +674,10 @@ export function YardChat({
                 );
               })}
             </div>
-            {smiles ? <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} /> : null}
             {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
-            <div className="mt-3 flex gap-2">
-              <Button type="button" variant="secondary" className="rounded-xl px-3" onClick={() => setSmiles((open) => !open)}>
-                😊
-              </Button>
-              <label className="inline-flex cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
+            <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} />
+            <div className="mt-2 flex gap-2">
+              <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
                 фото
                 <input
                   className="hidden"
@@ -711,7 +702,6 @@ export function YardChat({
                     }
                     setText("");
                     setShot("");
-                    setSmiles(false);
                     const next = res.chat || [];
                     setLines(next);
                     const last = next[next.length - 1];
