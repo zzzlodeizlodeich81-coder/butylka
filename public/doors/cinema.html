@@ -34,10 +34,12 @@
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      display: none;
+      display: block;
+      opacity: 0;
+      pointer-events: none;
     }
     .player-screen video.active {
-      display: block;
+      opacity: 1;
     }
     .text-overlay-layer {
       position: absolute;
@@ -83,66 +85,88 @@
     }
     .timeline-tracks {
       position: relative;
-      height: 70px;
       background: #151515;
       margin-top: 10px;
       border-radius: 4px;
-      overflow-x: auto;
-      overflow-y: hidden;
+      padding: 8px;
+    }
+    .lane-caption {
+      font-size: 11px;
+      color: #bbb;
+      margin: 6px 0 4px;
+    }
+    .lane {
+      position: relative;
+      height: 72px;
+      background: #101010;
+      border-radius: 4px;
     }
     .track {
       position: absolute;
-      top: 0; left: 0; height: 100%; width: 100%;
+      inset: 0;
     }
     .clip {
       position: absolute;
-      top: 5px; height: 60px;
-      background: #333;
-      border: 2px solid #555;
-      border-radius: 4px;
+      top: 6px;
+      height: 60px;
+      background: #2c3a4a;
+      border: 2px solid #6f8ea8;
+      border-radius: 6px;
       box-sizing: border-box;
       cursor: pointer;
       overflow: hidden;
       display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .clip.selected { border-color: #4fc3f7; }
-    .clip-thumbnails {
-      display: flex;
-      height: 38px;
-      width: 100%;
-      background: #000;
-    }
-    .clip-thumbnails img {
-      height: 100%;
-      flex: 1;
-      object-fit: cover;
-    }
-    .clip-footer {
-      display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 0 4px;
-      font-size: 11px;
-      background: rgba(0,0,0,0.7);
-      height: 22px;
+      gap: 6px;
+      padding: 4px;
+      color: #fff;
+    }
+    .clip:nth-child(even) { background: #3a3328; border-color: #a8906f; }
+    .clip.selected { border-color: #4fc3f7; }
+    .clip-poster {
+      width: 72px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #000;
+      flex: 0 0 auto;
+    }
+    .clip-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .clip-meta b {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .transition-badge {
-      background: #555;
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      background: #222;
       padding: 1px 4px;
       border-radius: 2px;
       cursor: pointer;
+      font-size: 11px;
     }
     .audio-clip {
       position: absolute;
-      top: 15px; height: 40px;
+      top: 16px;
+      height: 40px;
       background: #1b5e20;
-      border: 1px solid #2e7d32;
-      border-radius: 4px;
+      border: 1px solid #8bc34a;
+      border-radius: 6px;
       box-sizing: border-box;
-      padding: 5px;
+      padding: 6px 8px;
       font-size: 12px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .playhead {
@@ -251,7 +275,7 @@
       <option value="30" selected>30 FPS</option>
       <option value="60">60 FPS</option>
     </select>
-    <button id="exportBtn" disabled>✨ Экспорт (WebM)</button>
+    <button id="exportBtn" disabled>Скачать со звуком</button>
   </div>
 
   <!-- Панель настроек текста -->
@@ -278,9 +302,11 @@
   <div class="timeline-container">
     <div id="timeDisplay">00:00.0 / 00:00.0</div>
     <div class="timeline-tracks" id="timelineTracks">
+      <div class="lane-caption">Видео — куски по порядку, слева направо</div>
+      <div class="lane"><div class="track" id="videoTrack"></div></div>
+      <div class="lane-caption">Музыка</div>
+      <div class="lane"><div class="track" id="audioTrack"></div></div>
       <div class="playhead" id="playhead"></div>
-      <div class="track" id="videoTrack" style="z-index: 2;"></div>
-      <div class="track" id="audioTrack" style="z-index: 1;"></div>
     </div>
   </div>
 </div>
@@ -394,38 +420,31 @@
   });
 
   async function generateThumbnails(clip) {
-    if (clip.thumbnails) return;
-    clip.thumbnails = [];
+    if (clip.poster) return;
     const v = document.createElement('video');
-    v.src = clip.src; v.muted = true; v.preload = 'metadata';
-    await new Promise(r => { v.onloadedmetadata = r; });
-
-    const count = 4;
-    const clipLen = clip.end - clip.start;
-    const step = clipLen / (count + 1);
+    v.src = clip.src; v.muted = true; v.preload = 'auto';
+    await new Promise(r => { v.onloadedmetadata = r; setTimeout(r, 800); });
     const canvas = document.createElement('canvas');
-    canvas.width = 60; canvas.height = 36;
+    canvas.width = 160; canvas.height = 90;
     const ctx = canvas.getContext('2d');
+    const clipLen = Math.max(0.2, clip.end - clip.start);
+    v.currentTime = Math.min(clip.start + Math.min(0.4, clipLen / 2), Math.max(0, (clip.duration || clipLen) - 0.05));
+    await new Promise(r => {
+      const onSeeked = () => { v.removeEventListener('seeked', onSeeked); requestAnimationFrame(r); };
+      v.addEventListener('seeked', onSeeked);
+      setTimeout(r, 500);
+    });
+    try {
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      clip.poster = canvas.toDataURL('image/jpeg', 0.7);
+      renderVideoTrack();
+    } catch (e) { /* кадр не обязателен */ }
+  }
 
-    for (let i = 1; i <= count; i++) {
-      const time = clip.start + (i * step);
-      v.currentTime = Math.min(time, clip.duration - 0.1);
-      
-      await new Promise(r => {
-        const onSeeked = () => {
-          v.removeEventListener('seeked', onSeeked);
-          requestAnimationFrame(r);
-        };
-        v.addEventListener('seeked', onSeeked);
-        setTimeout(r, 300);
-      });
-
-      try {
-        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-        clip.thumbnails.push(canvas.toDataURL('image/jpeg', 0.4));
-        renderVideoTrack();
-      } catch (e) { break; }
-    }
+  function shortTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   }
 
   function updatePlayerAspect() {
@@ -456,6 +475,7 @@
       const clip = {
         id: 'v_' + Date.now() + Math.random(),
         file, src: url,
+        name: file.name || 'Ролик',
         start: 0, end: duration,
         duration: duration,
         transition: 'none',
@@ -489,7 +509,7 @@
       let duration = tempAud.duration;
       if (!duration || isNaN(duration) || !isFinite(duration)) duration = 5.0;
 
-      audioClips.push({ id: 'a_' + Date.now() + Math.random(), file, src: url, start: 0, end: duration, duration: duration, timelineOffset: 0 });
+      audioClips.push({ id: 'a_' + Date.now() + Math.random(), name: file.name || 'Музыка', file, src: url, start: 0, end: duration, duration: duration, timelineOffset: 0 });
     }
 
     isMuted = true;
@@ -618,22 +638,22 @@
       el.className = `clip ${selectedObject?.id === clip.id ? 'selected' : ''}`;
       el.style.left = `${totalDuration ? (currentPos / totalDuration) * 100 : 0}%`;
       el.style.width = `${totalDuration ? (len / totalDuration) * 100 : 0}%`;
-      
-      const thumbsContainer = document.createElement('div');
-      thumbsContainer.className = 'clip-thumbnails';
-      if (clip.thumbnails) {
-        clip.thumbnails.forEach(src => {
-          const img = document.createElement('img'); img.src = src;
-          thumbsContainer.appendChild(img);
-        });
+      if (clip.poster) {
+        const img = document.createElement('img');
+        img.className = 'clip-poster';
+        img.src = clip.poster;
+        img.alt = '';
+        el.appendChild(img);
       }
-      el.appendChild(thumbsContainer);
-
-      const footer = document.createElement('div');
-      footer.className = 'clip-footer';
-      const title = document.createElement('span');
-      title.innerText = `${len.toFixed(1)}s`;
-      footer.appendChild(title);
+      const meta = document.createElement('div');
+      meta.className = 'clip-meta';
+      const title = document.createElement('b');
+      title.innerText = `${index + 1}. ${clip.name || 'Ролик'}`;
+      const time = document.createElement('span');
+      time.innerText = shortTime(len);
+      meta.appendChild(title);
+      meta.appendChild(time);
+      el.appendChild(meta);
 
       if (index < videoClips.length - 1) {
         const btn = document.createElement('span');
@@ -645,9 +665,8 @@
           clip.transition = modes[(modes.indexOf(clip.transition) + 1) % modes.length];
           renderVideoTrack();
         });
-        footer.appendChild(btn);
+        el.appendChild(btn);
       }
-      el.appendChild(footer);
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -668,7 +687,7 @@
       el.className = 'audio-clip';
       el.style.left = `${totalDuration ? (clip.timelineOffset / totalDuration) * 100 : 0}%`;
       el.style.width = `${totalDuration ? (len / totalDuration) * 100 : 0}%`;
-      el.innerText = `🎵 ${len.toFixed(1)}s`;
+      el.innerText = `${clip.name || 'Музыка'} · ${shortTime(len)}`;
       audioTrack.appendChild(el);
     });
   }
@@ -696,9 +715,16 @@
   }
 
   function swapVideos() {
-    activeVideo.classList.remove('active'); activeVideo.pause();
-    const temp = activeVideo; activeVideo = nextVideo; nextVideo = temp;
+    activeVideo.classList.remove('active');
+    activeVideo.pause();
+    activeVideo.style.opacity = '';
+    const temp = activeVideo;
+    activeVideo = nextVideo;
+    nextVideo = temp;
     activeVideo.classList.add('active');
+    activeVideo.style.opacity = '';
+    nextVideo.style.opacity = '0';
+    nextVideo.classList.remove('active');
     updatePlayerAspect();
   }
 
@@ -744,6 +770,24 @@
     
     currentGlobalTime = elapsed + (activeVideo.currentTime - clip.start);
     syncAudio(currentGlobalTime, false);
+
+    const remain = clip.end - activeVideo.currentTime;
+    const next = videoClips[currentClipIndex + 1];
+    if (clip.transition === 'fade' && next && remain < 0.45 && remain > 0) {
+      if (nextVideo.src !== next.src) nextVideo.src = next.src;
+      if (nextVideo.paused) {
+        nextVideo.currentTime = next.start;
+        nextVideo.play().catch(() => {});
+      }
+      const mix = 1 - remain / 0.45;
+      activeVideo.style.opacity = String(1 - mix);
+      nextVideo.style.opacity = String(mix);
+      nextVideo.classList.add('active');
+    } else if (nextVideo.style.opacity !== '0') {
+      nextVideo.style.opacity = '0';
+      nextVideo.classList.remove('active');
+      activeVideo.style.opacity = '';
+    }
 
     if (activeVideo.currentTime >= clip.end - 0.05) {
       if (currentClipIndex < videoClips.length - 1) {
@@ -900,8 +944,8 @@
       const origEnd = st.clip.end;
       st.clip.end = st.localTime;
       const newClip = {
-        id: 'v_' + Date.now(), file: st.clip.file, src: st.clip.src,
-        start: st.localTime, end: origEnd, duration: st.clip.duration, transition: 'none', thumbnails: null,
+        id: 'v_' + Date.now(), file: st.clip.file, src: st.clip.src, name: st.clip.name,
+        start: st.localTime, end: origEnd, duration: st.clip.duration, transition: 'none', poster: null,
         width: st.clip.width, height: st.clip.height
       };
       generateThumbnails(st.clip); generateThumbnails(newClip);
@@ -926,88 +970,139 @@
     const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `snapshot_${Date.now()}.png`; a.click();
   });
 
-  exportBtn.addEventListener('click', async () => {
-    if (!videoClips.length) return;
-    pause(); 
-    exportBtn.disabled = true;
-    exportBtn.innerText = '⏳ Рендер...';
+  function paintVideo(ctx, video, w, h, alpha) {
+    if (!video.videoWidth) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const ratio = Math.min(w / video.videoWidth, h / video.videoHeight);
+    const dw = video.videoWidth * ratio;
+    const dh = video.videoHeight * ratio;
+    ctx.drawImage(video, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    ctx.restore();
+  }
 
-    let w, h;
+  exportBtn.addEventListener('click', async () => {
+    if (!videoClips.length || !totalDuration) return;
+    pause();
+    exportBtn.disabled = true;
+    exportBtn.innerText = 'Пишу, не закрывай…';
+    let w;
+    let h;
     if (exportRes.value === 'original') {
-      w = videoClips[0].width || 1080;
-      h = videoClips[0].height || 1920;
+      w = videoClips[0].width || 1280;
+      h = videoClips[0].height || 720;
     } else {
       [w, h] = exportRes.value.split('x').map(Number);
     }
-
-    const fps = parseInt(exportFps.value);
+    if (!w || !h) { w = 1280; h = 720; }
     const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d', { alpha: false });
-
+    const v1 = document.createElement('video');
+    const v2 = document.createElement('video');
+    v1.playsInline = true;
+    v2.playsInline = true;
+    const music = document.createElement('audio');
+    const audioCtx = new AudioContext();
+    await audioCtx.resume();
+    const dest = audioCtx.createMediaStreamDestination();
+    audioCtx.createMediaElementSource(v1).connect(dest);
+    audioCtx.createMediaElementSource(v2).connect(dest);
+    audioCtx.createMediaElementSource(music).connect(dest);
+    const fps = parseInt(exportFps.value, 10) || 30;
     const stream = canvas.captureStream(fps);
-    let recorder;
-    try {
-      recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' });
-    } catch (e) {
-      try { recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
-      catch (err) { recorder = new MediaRecorder(stream); }
-    }
-
+    dest.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
+    const types = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+    const mime = types.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+    const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
     const chunks = [];
-    recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `export_${Date.now()}.webm`;
-      a.click();
-      exportBtn.disabled = false;
-      exportBtn.innerText = '✨ Экспорт (WebM)';
-    };
-
-    recorder.start();
-
-    const exportVid = document.createElement('video');
-    exportVid.muted = true; exportVid.playsInline = true;
-
-    for (let i = 0; i < videoClips.length; i++) {
-      const clip = videoClips[i];
-      exportVid.src = clip.src;
-      await new Promise(r => exportVid.onloadedmetadata = r);
-
-      let t = clip.start;
-      const step = 1 / fps;
-
-      while (t <= clip.end) {
-        exportVid.currentTime = t;
-        await new Promise(r => {
-          const seekCheck = () => { exportVid.removeEventListener('seeked', seekCheck); r(); };
-          exportVid.addEventListener('seeked', seekCheck);
-          setTimeout(r, 100);
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+    recorder.ondataavailable = (event) => { if (event.data && event.data.size) chunks.push(event.data); };
+    const saved = new Promise((resolve) => {
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mime || 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rolik_${Date.now()}.${ext}`;
+        a.click();
+        resolve();
+      };
+    });
+    const arm = async (video, clip) => {
+      if (video.getAttribute('src') !== clip.src) video.src = clip.src;
+      if (video.readyState < 1) {
+        await new Promise((resolve) => {
+          video.onloadedmetadata = () => resolve();
+          setTimeout(resolve, 1500);
         });
-
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, w, h);
-
-        const vw = exportVid.videoWidth || w;
-        const vh = exportVid.videoHeight || h;
-        
-        const hRatio = w / vw;
-        const vRatio = h / vh;
-        const ratio = Math.max(hRatio, vRatio);
-        const centerShiftX = (w - vw * ratio) / 2;
-        const centerShiftY = (h - vh * ratio) / 2;
-
-        ctx.drawImage(exportVid, 0, 0, vw, vh, centerShiftX, centerShiftY, vw * ratio, vh * ratio);
-        textElements.forEach(item => drawTextOnCanvas(ctx, w, h, item));
-
-        await new Promise(r => setTimeout(r, 1000 / fps));
-        t += step;
       }
+      video.currentTime = clip.start;
+      await new Promise((resolve) => {
+        const done = () => { video.removeEventListener('seeked', done); resolve(); };
+        video.addEventListener('seeked', done);
+        setTimeout(resolve, 700);
+      });
+    };
+    let index = 0;
+    try {
+      await arm(v1, videoClips[0]);
+      recorder.start();
+      await v1.play();
+      await new Promise((resolve) => {
+        const tick = () => {
+          const clip = videoClips[index];
+          if (!clip) { resolve(); return; }
+          const local = Number.isFinite(v1.currentTime) ? v1.currentTime : clip.start;
+          const remain = clip.end - local;
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, w, h);
+          const next = videoClips[index + 1];
+          if (clip.transition === 'fade' && next && remain < 0.45 && remain > 0 && v2.readyState >= 2) {
+            paintVideo(ctx, v1, w, h, 1 - (1 - remain / 0.45));
+            paintVideo(ctx, v2, w, h, 1 - remain / 0.45);
+          } else {
+            paintVideo(ctx, v1, w, h, 1);
+          }
+          textElements.forEach((item) => drawTextOnCanvas(ctx, w, h, item));
+          let passed = 0;
+          for (let i = 0; i < index; i++) passed += videoClips[i].end - videoClips[i].start;
+          const heard = getAudioStateAtTime(passed + Math.max(0, local - clip.start));
+          if (heard) {
+            if (music.src !== heard.clip.src) music.src = heard.clip.src;
+            if (music.paused) music.play().catch(() => {});
+            if (Math.abs(music.currentTime - heard.audioTime) > 0.35) music.currentTime = heard.audioTime;
+          } else if (!music.paused) music.pause();
+          if (clip.transition === 'fade' && next && remain < 0.55 && remain > 0 && v2.paused) {
+            v2.src = next.src;
+            v2.currentTime = next.start;
+            v2.play().catch(() => {});
+          }
+          if (local >= clip.end - 0.04) {
+            index += 1;
+            if (index >= videoClips.length) { resolve(); return; }
+            v1.pause();
+            arm(v1, videoClips[index]).then(() => v1.play()).then(() => requestAnimationFrame(tick)).catch(() => resolve());
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      v1.pause();
+      v2.pause();
+      music.pause();
+      recorder.stop();
+      await saved;
+    } catch (err) {
+      alert('Не собралось: ' + (err && err.message ? err.message : 'ошибка'));
+      if (recorder.state !== 'inactive') recorder.stop();
+    } finally {
+      audioCtx.close().catch(() => {});
+      exportBtn.disabled = false;
+      exportBtn.innerText = 'Скачать со звуком';
     }
-    recorder.stop();
   });
 </script>
 
