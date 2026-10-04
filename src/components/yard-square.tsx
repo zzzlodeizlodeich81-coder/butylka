@@ -68,6 +68,7 @@ type ContestRow = {
   mine: boolean;
   place: number;
   passed: boolean;
+  url?: string;
   lyrics?: string;
 };
 
@@ -139,7 +140,7 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
   }, []);
 
   async function send() {
-    if (!audio || !cover || busy) return;
+    if (!cover || busy) return;
     if (!deal || !free || !rights || !court) {
       toast.error("Нужны все четыре согласия.");
       return;
@@ -151,7 +152,8 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
       body.set("artist", artist);
       body.set("lyrics", lyrics);
       body.set("songId", song.id);
-      body.set("audio", audio);
+      body.set("url", song.url);
+      if (audio) body.set("audio", audio);
       body.set("cover", cover, "cover.jpg");
       body.set("deal", deal ? "1" : "");
       body.set("free", free ? "1" : "");
@@ -182,8 +184,8 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
           </Button>
         </div>
         <p className="mt-1 text-sm text-[#c4a574]">
-          Твой трек у шарманщика: {song.author}
-          {song.title ? ` — ${song.title}` : ""}. Чужой отправить нельзя. Подать можно сколько угодно, в сборник месяца проходят 10 лучших по голосам. Сейчас подано {taken}. Твой статус {rank}.
+          На конкурс уходит этот трек: {song.author}
+          {song.title ? ` — ${song.title}` : ""}. Ссылку заново не кидай. В сборник месяца проходят 10 лучших. Сейчас подано {taken}. Твой статус {rank}.
         </p>
         <p className="mt-2 text-xs text-[#c4a574]">
           80% роялти всего альбома делится между артистами по прослушиваниям из статистики Needle Music. 10% дистрибьютору. 10% на развитие игры «Музыкальный город».
@@ -199,16 +201,7 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
           onChange={(e) => setLyrics(e.target.value)}
         />
         <label className="mt-2 block text-xs">
-          Файл трека, формат любой
-          <input
-            className="mt-1 block w-full text-sm"
-            type="file"
-            accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg,.aac"
-            onChange={(e) => setAudio(e.target.files?.[0] || null)}
-          />
-        </label>
-        <label className="mt-2 block text-xs">
-          Квадратная картинка
+          Квадратная картинка на сборник
           <input
             className="mt-1 block w-full text-sm"
             type="file"
@@ -250,7 +243,13 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
                 <span className="text-xs text-[#c4a574]">{row.passed ? `проходит · ${row.place}` : "на конкурсе"}</span>
               </p>
               <img src={`/api/contest?id=${row.id}&part=cover`} alt="" className="mt-2 size-16 rounded-lg object-cover" />
-              <audio className="mt-2 w-full" controls src={`/api/contest?id=${row.id}&part=audio`} />
+              {row.url ? (
+                <a className="mt-2 block text-xs underline" href={row.url} target="_blank" rel="noreferrer">
+                  Слушать трек
+                </a>
+              ) : (
+                <audio className="mt-2 w-full" controls src={`/api/contest?id=${row.id}&part=audio`} />
+              )}
               <p className="mt-1 text-xs">голосов {row.votes}</p>
               {admin && row.lyrics ? <p className="mt-1 whitespace-pre-wrap text-xs text-[#c4a574]">{row.lyrics}</p> : null}
               {admin ? (
@@ -384,17 +383,17 @@ function DraftRow({
   ] as const;
   return (
     <div className="rounded-xl border border-border bg-surface px-3 py-2">
+      {mine ? (
+        <Button variant="secondary" className="mb-2 w-full rounded-xl" disabled={sent} onClick={onContest}>
+          {sent ? "Уже на конкурсе" : `Отправить на конкурс · ${NOTE_PRICE.contest} нот`}
+        </Button>
+      ) : null}
       <div className="flex items-center justify-between gap-2">
         <a className="font-medium text-fg underline" href={song.url} target="_blank" rel="noreferrer">
           {song.title || song.author}
         </a>
         {sent ? <span className="shrink-0 text-xs text-muted">на конкурсе</span> : null}
       </div>
-      {mine ? (
-        <Button variant="secondary" className="mt-2 w-full rounded-xl" disabled={sent} onClick={onContest}>
-          {sent ? "Уже на конкурсе" : `На конкурс · ${NOTE_PRICE.contest} нот`}
-        </Button>
-      ) : null}
       <p className="mt-1 text-xs">
         хук {avg(song.hook, song.n)} · текст {avg(song.lyric, song.n)} · музыка {avg(song.music, song.n)} · ориг.{" "}
         {avg(song.orig, song.n)} · {song.n}

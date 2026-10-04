@@ -46,18 +46,19 @@ export const Route = createFileRoute("/api/contest")({
         }
         const audio = form.get("audio");
         const cover = form.get("cover");
-        if (!(audio instanceof Blob) || !(cover instanceof Blob)) {
-          return Response.json({ ok: false, error: "Нужны трек и картинка." }, { status: 400 });
+        if (!(cover instanceof Blob)) {
+          return Response.json({ ok: false, error: "Нужна квадратная картинка." }, { status: 400 });
         }
-        const name = audio instanceof File ? audio.name : "track.bin";
+        const named = audio instanceof File ? audio.name : "track.bin";
         const hit = await submitContest({
           guestId: guest.id,
           artist: String(form.get("artist") || ""),
           title: String(form.get("title") || ""),
           lyrics: String(form.get("lyrics") || ""),
           songId: String(form.get("songId") || ""),
-          audio: Buffer.from(await audio.arrayBuffer()),
-          ext: extOf(name),
+          url: String(form.get("url") || ""),
+          audio: audio instanceof Blob ? Buffer.from(await audio.arrayBuffer()) : Buffer.alloc(0),
+          ext: extOf(named),
           cover: Buffer.from(await cover.arrayBuffer()),
         });
         return Response.json(hit, { status: hit.ok ? 200 : hit.error?.includes("нот") ? 402 : 400 });

@@ -15,6 +15,7 @@ type Entry = {
   at: number;
   month: string;
   ext: string;
+  url: string;
   votes: string[];
   songId?: string;
 };
@@ -94,6 +95,7 @@ function viewOf(book: Book, me: string, admin: boolean) {
         place: spot.place,
         passed: spot.passed,
         songId: row.songId || "",
+        url: row.url || "",
         lyrics: admin ? row.lyrics : "",
       };
     })
@@ -115,7 +117,7 @@ export async function contestView(me: string, admin: boolean) {
 export async function contestFile(id: string, part: "audio" | "cover") {
   const book = await readBook();
   const row = book.entries.find((item) => item.id === id);
-  if (!row) return null;
+  if (!row || part === "audio" && !row.ext) return null;
   const name = part === "cover" ? `${id}.jpg` : `${id}${row.ext}`;
   try {
     const body = await readFile(join(dir(), name));
@@ -146,13 +148,17 @@ export async function submitContest(input: {
   ext: string;
   cover: Buffer;
   songId?: string;
+  url?: string;
 }) {
   return locked(async () => {
     const artist = input.artist.replace(/\s+/g, " ").trim().slice(0, 60);
     const title = input.title.replace(/\s+/g, " ").trim().slice(0, 80);
     const lyrics = input.lyrics.trim().slice(0, 8000);
     if (!artist || !title || lyrics.length < 2) return { ok: false as const, error: "Нужны имя, название и текст." };
-    if (input.audio.length < 800 || input.audio.length > AUDIO_MAX) return { ok: false as const, error: "Трек пустой или больше 25 МБ." };
+    if (input.audio.length > AUDIO_MAX) return { ok: false as const, error: "Трек больше 25 МБ." };
+    const link = (input.url || "").trim().slice(0, 300);
+    const hasFile = input.audio.length >= 800;
+    if (!hasFile && !/^https:\/\//i.test(link)) return { ok: false as const, error: "У трека нет ссылки." };
     if (input.cover.length < 80) return { ok: false as const, error: "Нужна квадратная картинка." };
     const book = await readBook();
     const songId = (input.songId || "").slice(0, 80);
@@ -178,9 +184,21 @@ export async function submitContest(input: {
     const ext = /^\.(mp3|wav|flac|m4a|ogg|aac|wma|aiff|aif)$/i.test(input.ext) ? input.ext.toLowerCase() : ".bin";
     try {
       await mkdir(dir(), { recursive: true });
-      await writeFile(join(dir(), `${id}${ext}`), input.audio);
+      if (hasFile) await writeFile(join(dir(), `${id}${ext}`), input.audio);
       await writeFile(join(dir(), `${id}.jpg`), input.cover);
-      book.entries.push({ id, owner: input.guestId, artist, title, lyrics, at: Date.now(), month, ext, votes: [], songId });
+      book.entries.push({
+        id,
+        owner: input.guestId,
+        artist,
+        title,
+        lyrics,
+        at: Date.now(),
+        month,
+        ext: hasFile ? ext : "",
+        url: link,
+        votes: [],
+        songId,
+      });
       await writeBook(book);
     } catch {
       const back = await addPurse(input.guestId, NOTE_PRICE.contest);

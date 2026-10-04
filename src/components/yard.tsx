@@ -231,12 +231,29 @@ export function Yard() {
     setLayer("yard");
   }
 
+  const menuItems = [
+    { label: "Карта", onClick: () => setLands(true) },
+    { label: "Слава", onClick: () => setFame(true) },
+    { label: "Дом", onClick: () => setPlot(true) },
+    { label: "Прайс", onClick: () => setPrice(true) },
+    { label: "Радио", onClick: () => { setRadioOn(true); setRadioOpen(true); } },
+  ];
+  const desk = (
+    <>
+      {field ? <PresaveSheet onClose={() => setField(false)} /> : null}
+      {fame ? <FameCard onClose={() => setFame(false)} /> : null}
+      {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
+      {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
+      {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
+      {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
+    </>
+  );
+
   if (layer === "world") {
     return (
       <>
-        <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} onField={() => setField(true)} />
-        {field ? <PresaveSheet onClose={() => setField(false)} /> : null}
-        {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
+        <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} onField={() => setField(true)} menu={menuItems} />
+        {desk}
         {splash ? (
           <button type="button" className="fixed inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
             <img src="/xxv-kadr.jpg" alt="XXV Kadr" className="h-full w-full object-contain" />
@@ -248,15 +265,19 @@ export function Yard() {
 
   if (layer === "city") {
     return (
-      <District
-        spot={spot}
-        onSpot={setSpot}
-        onMap={() => setLayer("world")}
-        onYard={() => {
-          setSpot(null);
-          setLayer("yard");
-        }}
-      />
+      <>
+        <District
+          spot={spot}
+          menu={menuItems}
+          onSpot={setSpot}
+          onMap={() => setLayer("world")}
+          onYard={() => {
+            setSpot(null);
+            setLayer("yard");
+          }}
+        />
+        {desk}
+      </>
     );
   }
   const here =
@@ -308,33 +329,49 @@ export function Yard() {
           })}
       </MapStage>
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <div className="pointer-events-auto flex max-w-[62vw] flex-nowrap gap-2 overflow-x-auto">
-          <button
-            type="button"
-            className="rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
-            onClick={() => setLayer("city")}
-          >
-            В город
-          </button>
-          <button
-            type="button"
-            className={`rounded-full px-3 py-1 text-sm text-white ${pingYard || pingPeople.length ? "kadr-blink" : "bg-black/45"}`}
-            onClick={() => {
-              setChatWho("");
-              setChat(true);
-            }}
-          >
-            Чат
-          </button>
-          <MoreMenu
-            items={[
-              { label: "Карта", onClick: () => setLands(true) },
-              { label: "Слава", onClick: () => setFame(true) },
-              { label: "Дом", onClick: () => setPlot(true) },
-              { label: "Прайс", onClick: () => setPrice(true) },
-              { label: "Радио", onClick: () => { setRadioOn(true); setRadioOpen(true); } },
-            ]}
-          />
+        <div className="pointer-events-auto flex min-w-0 flex-1 items-start gap-2">
+          <div className="flex flex-nowrap gap-2 overflow-x-auto">
+            <button
+              type="button"
+              className="shrink-0 rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
+              onClick={() => setLayer("city")}
+            >
+              В город
+            </button>
+            <button
+              type="button"
+              className={`shrink-0 rounded-full px-3 py-1 text-sm text-white ${pingYard || pingPeople.length ? "kadr-blink" : "bg-black/45"}`}
+              onClick={() => {
+                setChatWho("");
+                setChat(true);
+              }}
+            >
+              Чат
+            </button>
+            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setLands(true)}>
+              Карта
+            </button>
+            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
+              Слава
+            </button>
+            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
+              Дом
+            </button>
+            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPrice(true)}>
+              Прайс
+            </button>
+            <button
+              type="button"
+              className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white"
+              onClick={() => {
+                setRadioOn(true);
+                setRadioOpen(true);
+              }}
+            >
+              Радио
+            </button>
+          </div>
+          <MoreMenu items={menuItems} />
         </div>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
@@ -441,11 +478,7 @@ export function Yard() {
           onOpenPerson={(id) => setPingPeople((list) => list.filter((item) => item !== id))}
         />
       ) : null}
-      {fame ? <FameCard onClose={() => setFame(false)} /> : null}
-      {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
-      {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
-      {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
-      {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
+      {desk}
       {!splash && guide ? (
         <Guide
           onDone={() => {
@@ -562,6 +595,8 @@ function Heckler({ phone }: { phone: boolean }) {
 
 function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
   const [open, setOpen] = useState(false);
+  const [at, setAt] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const admin = useWallet((s) => s.admin);
   const rows = [
     ...items,
@@ -575,12 +610,21 @@ function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }
     { label: "Выйти", onClick: () => window.dispatchEvent(new Event("kadr-leave")) },
   ];
   return (
-    <div className="relative">
-      <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setOpen((v) => !v)}>
+    <div>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="rounded-full bg-black/45 px-3 py-1 text-sm text-white"
+        onClick={() => {
+          const box = buttonRef.current?.getBoundingClientRect();
+          if (box) setAt({ top: box.bottom + 6, left: Math.max(8, Math.min(box.left, window.innerWidth - 168)) });
+          setOpen((v) => !v);
+        }}
+      >
         Ещё
       </button>
       {open ? (
-        <div className="absolute left-0 top-9 z-50 flex min-w-36 flex-col overflow-hidden rounded-2xl bg-[#1a120c] py-1 text-left text-sm text-[#f4e4c4] shadow-lg">
+        <div className="fixed z-[80] flex min-w-40 flex-col overflow-hidden rounded-2xl bg-[#1a120c] py-1 text-left text-sm text-[#f4e4c4] shadow-lg" style={{ top: at.top, left: at.left }}>
           {rows.map((row) => (
             <button
               key={row.label}
@@ -600,7 +644,17 @@ function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }
   );
 }
 
-function World({ onCity, onBuy, onField }: { onCity: () => void; onBuy: () => void; onField: () => void }) {
+function World({
+  onCity,
+  onBuy,
+  onField,
+  menu,
+}: {
+  onCity: () => void;
+  onBuy: () => void;
+  onField: () => void;
+  menu: { label: string; onClick: () => void }[];
+}) {
   const stage = useStage();
   const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
   return (
@@ -628,7 +682,7 @@ function World({ onCity, onBuy, onField }: { onCity: () => void; onBuy: () => vo
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onField}>
           Посеять пресейв
         </button>
-        <MoreMenu items={[]} />
+        <MoreMenu items={menu} />
       </div>
     </div>
   );
@@ -639,11 +693,13 @@ function District({
   onSpot,
   onMap,
   onYard,
+  menu,
 }: {
   spot: SpotId | null;
   onSpot: (id: SpotId | null) => void;
   onMap: () => void;
   onYard: () => void;
+  menu: { label: string; onClick: () => void }[];
 }) {
   const stage = useStage();
   const cityMap = stage === "phone" ? { src: "/m/district.jpg", aspect: "9 / 16", zones: CITY_PHONE } : { src: "/district.jpg", aspect: "16 / 9", zones: CITY };
@@ -669,7 +725,7 @@ function District({
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onMap}>
           На карту
         </button>
-        <MoreMenu items={[]} />
+        <MoreMenu items={menu} />
       </div>
       {spot === "kadr" ? <Manor onClose={() => onSpot(null)} /> : null}
       {spot && spot !== "kadr" ? <PromoSheet spot={spot} onClose={() => onSpot(null)} /> : null}
