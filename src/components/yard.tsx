@@ -11,6 +11,8 @@ import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
 import { LandCard } from "@/components/land-card";
+import { GollumCave } from "@/components/gollum-cave";
+import { gollumDesk } from "@/lib/gollum-desk";
 import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
@@ -116,6 +118,9 @@ export function Yard() {
   const yardMap = stage === "phone" ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE } : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const [guide, setGuide] = useState(false);
   const [lands, setLands] = useState(false);
+  const [bog, setBog] = useState(false);
+  const [pile, setPile] = useState(false);
+  const [mess, setMess] = useState(false);
   const [field, setField] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
   const [lock, setLock] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member: boolean } | null>(null);
@@ -199,6 +204,17 @@ export function Yard() {
     };
   }, [lock?.id]);
 
+  useEffect(() => {
+    if (layer !== "yard") return;
+    void gollumDesk({ data: { action: "pile", room: lock?.id || "" } }).then((res) => {
+      if (res.ok) {
+        const on = Boolean((res as { pile?: boolean }).pile);
+        setPile(on);
+        setMess(on);
+      }
+    });
+  }, [layer, lock?.id]);
+
   function open(id: HouseId) {
     if (lock && (id === "organ" || id === "market")) {
       toast.message("Шарманщик и рынок только на общем дворе.");
@@ -257,8 +273,10 @@ export function Yard() {
           onEnter={enterPlot}
           onBuy={() => setLands(true)}
           onField={() => setField(true)}
+          onBog={() => setBog(true)}
           menu={menuItems}
         />
+        {bog ? <GollumCave onClose={() => setBog(false)} /> : null}
         {desk}
         {splash ? (
           <button type="button" className="fixed inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
@@ -334,6 +352,62 @@ export function Yard() {
             );
           })}
       </MapStage>
+      {mess ? (
+          <div className="absolute top-16 right-3 left-3 z-30 rounded-2xl bg-black/75 px-3 py-2 text-sm text-[#f4e4c4]">
+            <p>У вас во дворе нагадил Голум.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-full bg-white px-3 py-1 text-xs text-black"
+                onClick={() => {
+                  void gollumDesk({ data: { action: "clean", room: lock?.id || "" } }).then((res) => {
+                    if (typeof res.notes === "number") useWallet.getState().apply({ notes: res.notes });
+                    if (!res.ok) {
+                      toast.error(res.error || "Не убралось.");
+                      return;
+                    }
+                    setPile(false);
+                    setMess(false);
+                  });
+                }}
+              >
+                Убрать · 2 ноты
+              </button>
+              <button
+                type="button"
+                className="rounded-full bg-white/15 px-3 py-1 text-xs text-white"
+                onClick={() => {
+                  void gollumDesk({ data: { action: "fence", room: lock?.id || "" } }).then((res) => {
+                    if (typeof res.notes === "number") useWallet.getState().apply({ notes: res.notes });
+                    if (!res.ok) {
+                      toast.error(res.error || "Ограда не встала.");
+                      return;
+                    }
+                    setPile(false);
+                    setMess(false);
+                    toast.message("Ограда на месяц. Потом он опять придёт.");
+                  });
+                }}
+              >
+                Ограда · 10 нот
+              </button>
+              <button type="button" className="rounded-full px-3 py-1 text-xs text-white/70" onClick={() => setMess(false)}>
+                Оставить
+              </button>
+            </div>
+          </div>
+      ) : null}
+      {pile ? (
+        <>
+          <style>{`@keyframes gnat{0%{transform:translate(0,0)}50%{transform:translate(8px,-10px)}100%{transform:translate(-4px,-2px)}}`}</style>
+          <div className="pointer-events-none absolute bottom-20 left-1/2 z-20 -translate-x-1/2">
+            <span className="absolute -top-3 left-0 size-1 rounded-full bg-black" style={{ animation: "gnat 0.7s infinite" }} />
+            <span className="absolute -top-4 left-3 size-1 rounded-full bg-black" style={{ animation: "gnat 0.9s infinite" }} />
+            <span className="absolute -top-2 left-6 size-1 rounded-full bg-black" style={{ animation: "gnat 0.6s infinite" }} />
+            <span className="block h-3 w-10 rounded-[50%] bg-[#2a1c0e]" />
+          </div>
+        </>
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex min-w-0 flex-1 items-start gap-2">
           <div className="flex flex-nowrap gap-2 overflow-x-auto">
@@ -555,52 +629,6 @@ const CITY_PHONE: typeof CITY = [
   { id: "yard", label: "Наш двор", left: "10%", top: "64%", width: "80%", height: "30%" },
 ];
 
-const HECKLER = [
-  "Вы все говно.",
-  "Вашу музыку никто не слушает.",
-  "Ты бездарность.",
-  "Брось писать стихи, это не твоё.",
-  "Пошлятина!",
-  "Вы ничего не понимаете в искусстве.",
-  "Кто это назвал песней?",
-  "Слух оставь там, где нашёл.",
-  "Опять этот двор. Уши вянут.",
-  "Талант кончился на первой строчке.",
-  "Иди мимо. И молча.",
-  "Даже ворона поёт честнее.",
-];
-
-function Heckler({ phone, side }: { phone: boolean; side?: boolean }) {
-  const [line, setLine] = useState("");
-  const last = useRef(0);
-  function poke() {
-    const now = Date.now();
-    if (now - last.current < 350) return;
-    last.current = now;
-    setLine((prev) => {
-      const pool = HECKLER.filter((row) => row !== prev);
-      return pool[Math.floor(Math.random() * pool.length)] || prev;
-    });
-  }
-  return (
-    <button
-      type="button"
-      aria-label="Злой прохожий"
-      className="absolute z-20"
-      style={side ? { right: "4%", top: "58%", width: phone ? "18%" : "8%" } : phone ? { left: "72%", top: "70%", width: "22%" } : { left: "30%", top: "68%", width: "7%" }}
-      onMouseEnter={poke}
-      onPointerDown={poke}
-    >
-      <img src="/heckler.png" alt="" className="pointer-events-none h-auto w-full" />
-      {line ? (
-        <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 w-max max-w-[11rem] -translate-x-1/2 rounded bg-[#1a100c]/92 px-2 py-1 text-left text-[11px] leading-snug text-[#f4e4c4]">
-          {line}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
 function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState({ top: 0, left: 0 });
@@ -658,6 +686,7 @@ function World({
   onEnter,
   onBuy,
   onField,
+  onBog,
   menu,
 }: {
   onCity: () => void;
@@ -665,6 +694,7 @@ function World({
   onEnter: (plot: { id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean }) => void;
   onBuy: () => void;
   onField: () => void;
+  onBog: () => void;
   menu: { label: string; onClick: () => void }[];
 }) {
   const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
@@ -674,7 +704,6 @@ function World({
       if (res.ok) setRows((res.plots as typeof rows) || []);
     });
   }, []);
-  const stage = useStage();
   const mine = rows.find((row) => row.owner);
   const board = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
@@ -761,7 +790,15 @@ function World({
               <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
             </button>
           ))}
-          <Heckler phone={stage === "phone"} side />
+          <button
+            type="button"
+            className="absolute max-w-[9rem] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
+            style={{ left: "30%", top: "16%" }}
+            onClick={onBog}
+          >
+            <span className="block text-[12px] font-medium">болота голума</span>
+            <span className="text-[10px] text-[#c4a574]">пещеры</span>
+          </button>
         </div>
       </div>
       <div className="pointer-events-none absolute top-[max(4.6rem,calc(env(safe-area-inset-top)+4.2rem))] left-3 z-20 max-w-[16rem] rounded-xl bg-black/55 px-3 py-2 text-[#f4e4c4]">
