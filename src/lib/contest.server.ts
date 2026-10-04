@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { NOTE_PRICE } from "@/lib/notes";
 import { addPurse, isAdminLogin, readPurse, spendPurse } from "@/lib/purse.server";
 
-export const CONTEST_CAP = 10;
+const PASS = 10;
 const AUDIO_MAX = 25 * 1024 * 1024;
 
 type Entry = {
@@ -59,23 +59,49 @@ async function writeBook(book: Book) {
   await writeFile(bookFile(), JSON.stringify(book));
 }
 
+function places(entries: Entry[]) {
+  const months = new Map<string, Entry[]>();
+  for (const row of entries) {
+    const list = months.get(row.month) || [];
+    list.push(row);
+    months.set(row.month, list);
+  }
+  const flag = new Map<string, { place: number; passed: boolean }>();
+  for (const list of months.values()) {
+    const ranked = [...list].sort((a, b) => b.votes.length - a.votes.length || a.at - b.at);
+    ranked.forEach((row, index) => {
+      flag.set(row.id, { place: index + 1, passed: index < PASS && row.votes.length > 0 });
+    });
+  }
+  return flag;
+}
+
 function viewOf(book: Book, me: string, admin: boolean) {
   const month = monthKey();
+  const flag = places(book.entries);
+  const entries = [...book.entries]
+    .map((row) => {
+      const spot = flag.get(row.id) || { place: 0, passed: false };
+      return {
+        id: row.id,
+        artist: row.artist,
+        title: row.title,
+        votes: row.votes.length,
+        voted: row.votes.includes(me),
+        mine: row.owner === me,
+        month: row.month,
+        place: spot.place,
+        passed: spot.passed,
+        lyrics: admin ? row.lyrics : "",
+      };
+    })
+    .sort((a, b) => Number(b.month === month) - Number(a.month === month) || a.place - b.place);
   return {
     month,
     taken: book.entries.filter((row) => row.month === month).length,
-    cap: CONTEST_CAP,
     rank: book.ranks[me] || 0,
     price: NOTE_PRICE.contest,
-    entries: [...book.entries].reverse().map((row) => ({
-      id: row.id,
-      artist: row.artist,
-      title: row.title,
-      votes: row.votes.length,
-      voted: row.votes.includes(me),
-      mine: row.owner === me,
-      lyrics: admin ? row.lyrics : "",
-    })),
+    entries,
   };
 }
 
@@ -127,9 +153,6 @@ export async function submitContest(input: {
     if (input.cover.length < 80) return { ok: false as const, error: "Нужна квадратная картинка." };
     const book = await readBook();
     const month = monthKey();
-    if (book.entries.filter((row) => row.month === month).length >= CONTEST_CAP) {
-      return { ok: false as const, error: "В этом месяце уже 10 треков. Жди следующего." };
-    }
     const paid = await spendPurse(input.guestId, NOTE_PRICE.contest);
     if (!paid.ok) return { ok: false as const, error: paid.error, notes: paid.notes };
     const id = crypto.randomUUID();

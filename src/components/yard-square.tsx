@@ -59,7 +59,17 @@ function blip() {
   }
 }
 
-type ContestRow = { id: string; artist: string; title: string; votes: number; voted: boolean; mine: boolean; lyrics?: string };
+type ContestRow = {
+  id: string;
+  artist: string;
+  title: string;
+  votes: number;
+  voted: boolean;
+  mine: boolean;
+  place: number;
+  passed: boolean;
+  lyrics?: string;
+};
 
 function squareShot(file: File) {
   return new Promise<Blob>((resolve, reject) => {
@@ -180,7 +190,7 @@ function ContestSheet({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         <p className="mt-1 text-sm text-[#c4a574]">
-          Сборник HoldingMusic Матрёшка (лучшее). В месяц 10 треков, сейчас {taken} из 10. Твой статус {rank}. Голос за чужой трек даёт +1.
+          Сборник HoldingMusic Матрёшка (лучшее). Подать можно сколько угодно, в сборник месяца проходят 10 лучших по голосам. Сейчас подано {taken}. Твой статус {rank}. Голос за чужой трек даёт +1.
         </p>
         <p className="mt-2 text-xs text-[#c4a574]">
           80% роялти всего альбома делится между артистами по прослушиваниям из статистики Needle Music. 10% дистрибьютору. 10% на развитие игры «Музыкальный город».
@@ -236,14 +246,15 @@ function ContestSheet({ onClose }: { onClose: () => void }) {
             <span>{label}</span>
           </label>
         ))}
-        <Button className="mt-3 w-full rounded-xl" disabled={busy || taken >= 10} onClick={() => void send()}>
-          {busy ? "Кладёт…" : taken >= 10 ? "В этом месяце мест нет" : `Подать · ${NOTE_PRICE.contest} нот`}
+        <Button className="mt-3 w-full rounded-xl" disabled={busy} onClick={() => void send()}>
+          {busy ? "Кладёт…" : `Подать · ${NOTE_PRICE.contest} нот`}
         </Button>
         <div className="mt-4 flex flex-col gap-2">
           {rows.map((row) => (
             <div key={row.id} className="rounded-xl bg-black/30 px-3 py-2">
               <p className="font-medium">
-                {row.artist} — {row.title} <span className="text-xs text-[#c4a574]">на конкурсе</span>
+                {row.artist} — {row.title}{" "}
+                <span className="text-xs text-[#c4a574]">{row.passed ? `проходит · ${row.place}` : "на конкурсе"}</span>
               </p>
               <img src={`/api/contest?id=${row.id}&part=cover`} alt="" className="mt-2 size-16 rounded-lg object-cover" />
               <audio className="mt-2 w-full" controls src={`/api/contest?id=${row.id}&part=audio`} />
