@@ -149,7 +149,13 @@ export function Yard() {
   }, []);
 
   useEffect(() => {
-    void yardBoard({ data: { action: "spot", tier: layer === "yard" ? house || "yard" : layer } });
+    const tier = layer === "yard" ? house || "yard" : layer;
+    const ping = () => {
+      void yardBoard({ data: { action: "spot", tier } });
+    };
+    ping();
+    const timer = window.setInterval(ping, 20000);
+    return () => window.clearInterval(timer);
   }, [house, layer]);
 
   useEffect(() => {
@@ -251,6 +257,10 @@ export function Yard() {
       />
     );
   }
+  const here =
+    layer === "yard"
+      ? faces.filter((person) => person.spot === "yard" || ZONES.some((zone) => zone.id === person.spot))
+      : [];
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#24301c]">
@@ -343,6 +353,31 @@ export function Yard() {
           <NotesButton />
         </div>
       </div>
+      {layer === "yard" ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-20 flex items-center gap-2 px-3"
+          style={{ top: "max(3.15rem, calc(env(safe-area-inset-top) + 2.75rem))" }}
+        >
+          <span className="shrink-0 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">Во дворе {here.length}</span>
+          <div className="pointer-events-auto flex min-w-0 gap-1 overflow-x-auto">
+            {here.map((person) => (
+              <button
+                key={person.id}
+                type="button"
+                className="flex shrink-0 items-center gap-1 rounded-full bg-black/60 py-0.5 pr-2 pl-0.5 text-xs text-white"
+                onClick={() => {
+                  if (person.id === myId) return;
+                  setChatWho(person.id);
+                  setChat(true);
+                }}
+              >
+                {person.photo ? <img src={person.photo} alt="" className="size-5 rounded-full object-cover" /> : <span>🪆</span>}
+                {person.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {!chat && (pingYard || pingPeople.length) ? (
         <button
           type="button"

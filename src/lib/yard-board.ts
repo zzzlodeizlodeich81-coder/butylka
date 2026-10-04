@@ -57,10 +57,18 @@ type Stall = { id: string; owner: string; name: string; about: string; url: stri
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
 const stalls: Stall[] = [];
 const spots: (YardSpot & { at: number })[] = [];
+const typing = new Map<string, { id: string; name: string; room: string; at: number }>();
 
 function liveSpots(): YardSpot[] {
   const now = Date.now();
-  return spots.filter((row) => now - row.at < 45000).map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
+  return spots.filter((row) => now - row.at < 90000).map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
+}
+
+function liveTyping(room: string, except = "") {
+  const now = Date.now();
+  return [...typing.values()]
+    .filter((row) => row.room === room && row.id !== except && now - row.at < 4000)
+    .map(({ id, name }) => ({ id, name }));
 }
 const heroes = new Map<string, Hero>();
 let boardReady: Promise<void> | null = null;
@@ -226,6 +234,7 @@ type BoardRes = {
   chat?: YardLine[];
   heroes?: Hero[];
   spots?: YardSpot[];
+  typing?: { id: string; name: string }[];
   room?: string;
   notes?: number;
   credit?: number;
@@ -243,7 +252,7 @@ export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent";
+      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent" | "type";
       kind?: "draft" | "release";
       url?: string;
       title?: string;
@@ -302,6 +311,13 @@ export const yardBoard = createServerFn({ method: "POST" })
       return { ok: true, notes: paid.notes, stalls: live() };
     }
 
+    if (data.action === "type") {
+      const on = Boolean((data.text || "").trim());
+      if (!on) typing.delete(vkId);
+      else typing.set(vkId, { id: vkId, name, room, at: Date.now() });
+      return { ok: true, typing: liveTyping(room, vkId) };
+    }
+
     const remote = await sheetCall({ ...data, vkId, name });
     if (remote?.ok) {
       if (data.action === "hear" && vk && remote.credit) {
@@ -319,7 +335,7 @@ export const yardBoard = createServerFn({ method: "POST" })
 
     if (data.action === "list") {
       const listed = listMem();
-      return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots() };
+      return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(), typing: liveTyping(room, vkId) };
     }
 
     if (data.action === "spot") {
@@ -484,7 +500,8 @@ export const yardBoard = createServerFn({ method: "POST" })
     }
     mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now(), room, who: vkId, photo, ...(image ? { image } : {}) });
     if (mem.chat.length > 80) mem.chat.shift();
+    typing.delete(vkId);
     await saveBoardFile();
     const listed = listMem();
-    return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots() };
+    return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(), typing: liveTyping(room, vkId) };
   });

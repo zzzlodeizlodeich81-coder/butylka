@@ -22,7 +22,7 @@ import {
   setCookie,
   setFace,
 } from "@/lib/purse.server";
-import { postWhisper, threadFor, unreadFrom } from "@/lib/mail.server";
+import { postWhisper, setTyping, threadFor, typingName, unreadFrom } from "@/lib/mail.server";
 import { forgetName } from "@/lib/yard-board";
 
 export const Route = createFileRoute("/api/door")({
@@ -119,7 +119,7 @@ export const Route = createFileRoute("/api/door")({
           return Response.json({ ok: true, players });
         }
 
-        if (body.action === "people" || body.action === "face" || body.action === "whisper" || body.action === "thread" || body.action === "inbox") {
+        if (body.action === "people" || body.action === "face" || body.action === "whisper" || body.action === "thread" || body.action === "inbox" || body.action === "type") {
           if (!doorFromRequest(request)) {
             return Response.json({ ok: false, error: "Сначала зайди во двор." }, { status: 401 });
           }
@@ -136,6 +136,10 @@ export const Route = createFileRoute("/api/door")({
             if (!saved) return Response.json({ ok: false, error: "Лицо не встало. Возьми фото поменьше." }, { status: 400 });
             return Response.json({ ok: true });
           }
+          if (body.action === "type") {
+            setTyping(guest.id, guest.name, body.to || "", Boolean((body.text || "").trim()));
+            return Response.json({ ok: true });
+          }
           const other = body.action === "whisper" ? body.to || "" : body.with || "";
           const people = await peoplePurse();
           if (!people.some((person) => person.id === other)) {
@@ -144,8 +148,9 @@ export const Route = createFileRoute("/api/door")({
           if (body.action === "whisper") {
             const sent = await postWhisper(guest.id, other, body.text || "", body.image || "");
             if (!sent) return Response.json({ ok: false, error: "Пусто." }, { status: 400 });
+            setTyping(guest.id, guest.name, other, false);
           }
-          return Response.json({ ok: true, lines: await threadFor(guest.id, other) });
+          return Response.json({ ok: true, lines: await threadFor(guest.id, other), typing: typingName(guest.id, other) });
         }
 
         return Response.json({ ok: false, error: "Не понял." }, { status: 400 });

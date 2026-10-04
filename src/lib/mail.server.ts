@@ -36,6 +36,22 @@ async function readAll(): Promise<Whisper[]> {
   }
 }
 
+const fingers = new Map<string, { name: string; to: string; at: number }>();
+
+export function setTyping(from: string, name: string, to: string, on: boolean) {
+  if (!from || !to || from === to || !on) {
+    fingers.delete(from);
+    return;
+  }
+  fingers.set(from, { name: name.slice(0, 32), to, at: Date.now() });
+}
+
+export function typingName(me: string, withId: string) {
+  const row = fingers.get(withId);
+  if (!row || row.to !== me || Date.now() - row.at > 4000) return "";
+  return row.name;
+}
+
 export async function postWhisper(from: string, to: string, text: string, image = "") {
   const clean = text.replace(/\s+/g, " ").trim().slice(0, 300);
   const pic = image.startsWith("data:image/jpeg;base64,") && image.length <= 160000 ? image : "";

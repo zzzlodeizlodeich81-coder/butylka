@@ -31,8 +31,31 @@ function avg(sum: number, n: number) {
 
 async function loadBoard() {
   const res = await yardBoard({ data: { action: "list" } });
-  if (!res.ok) return { songs: [] as YardSong[], chat: [] as YardLine[], shared: false };
-  return { songs: res.songs || [], chat: res.chat || [], shared: Boolean(res.shared) };
+  if (!res.ok) return { songs: [] as YardSong[], chat: [] as YardLine[], shared: false, typing: [] as { id: string; name: string }[] };
+  return { songs: res.songs || [], chat: res.chat || [], shared: Boolean(res.shared), typing: res.typing || [] };
+}
+
+function blip() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 740;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.14);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    void ctx.resume();
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+    osc.onended = () => void ctx.close();
+  } catch {
+    /* телефон без звука */
+  }
 }
 
 export function OrganCard() {
@@ -106,19 +129,23 @@ function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]
         хук {avg(song.hook, song.n)} · текст {avg(song.lyric, song.n)} · музыка {avg(song.music, song.n)} · ориг.{" "}
         {avg(song.orig, song.n)} · {song.n}
       </p>
-      <div className="mt-2 grid grid-cols-2 gap-1">
+      <div className="mt-2 flex flex-col gap-1">
         {axes.map(([key, label]) => (
-          <label key={key} className="flex items-center justify-between gap-2 text-xs">
-            {label}
-            <input
-              className="w-14 rounded border border-border bg-surface-2 px-1 py-0.5"
-              type="number"
-              min={1}
-              max={5}
-              value={score[key]}
-              onChange={(e) => setScore((cur) => ({ ...cur, [key]: Number(e.target.value) }))}
-            />
-          </label>
+          <div key={key} className="flex items-center justify-between gap-2 text-xs">
+            <span>{label}</span>
+            <span className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`size-8 rounded-lg ${score[key] === n ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg"}`}
+                  onClick={() => setScore((cur) => ({ ...cur, [key]: n }))}
+                >
+                  {n}
+                </button>
+              ))}
+            </span>
+          </div>
         ))}
       </div>
       <Button
@@ -352,6 +379,7 @@ async function postDoor(body: Record<string, unknown>) {
     from?: string[];
     people?: Face[];
     lines?: WhisperLine[];
+    typing?: string;
   };
 }
 
@@ -455,8 +483,20 @@ function PrivatePane({
   const [lines, setLines] = useState<WhisperLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
+  const [typing, setTyping] = useState("");
   const mine = people.find((person) => person.id === me);
   const box = useStick(lines);
+  const typedAt = useRef(0);
+
+  function poke(value: string, to: string) {
+    const now = Date.now();
+    if (value.trim()) {
+      if (now - typedAt.current < 2000) return;
+      typedAt.current = now;
+    } else if (!typedAt.current) return;
+    else typedAt.current = 0;
+    void postDoor({ action: "type", to, text: value.trim() ? "1" : "" });
+  }
 
   async function loadPeople() {
     const row = await postDoor({ action: "people" });
@@ -470,7 +510,10 @@ function PrivatePane({
 
   async function loadThread(id: string) {
     const row = await postDoor({ action: "thread", with: id });
-    if (row.ok) setLines(row.lines || []);
+    if (row.ok) {
+      setLines(row.lines || []);
+      setTyping(row.typing || "");
+    }
   }
 
   useEffect(() => {
@@ -500,6 +543,9 @@ function PrivatePane({
     }
     setText("");
     setShot("");
+    setTyping("");
+    typedAt.current = 0;
+    blip();
     setLines(row.lines || []);
   }
 
@@ -567,6 +613,7 @@ function PrivatePane({
             })}
             {lines.length === 0 ? <p className="text-sm text-muted">Это видите только вы двое. {talk ? talk.name : ""}</p> : null}
           </div>
+          {typing ? <p className="mt-1 text-xs text-muted">{typing} печатает…</p> : null}
           {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
           <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} />
           <div className="mt-2 flex gap-2">
@@ -584,7 +631,14 @@ function PrivatePane({
                 }}
               />
             </label>
-            <Input value={text} placeholder="Только ему" onChange={(e) => setText(e.target.value)} />
+            <Input
+              value={text}
+              placeholder="Только ему"
+              onChange={(e) => {
+                setText(e.target.value);
+                poke(e.target.value, withId);
+              }}
+            />
             <Button onClick={() => void send()}>Сказать</Button>
           </div>
         </>
@@ -613,12 +667,25 @@ export function YardChat({
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
+  const [typers, setTypers] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<"yard" | "private">(focusId ? "private" : "yard");
   const box = useStick(tab === "yard" ? lines : tab);
+  const typedAt = useRef(0);
+
+  function poke(value: string) {
+    const now = Date.now();
+    if (value.trim()) {
+      if (now - typedAt.current < 2000) return;
+      typedAt.current = now;
+    } else if (!typedAt.current) return;
+    else typedAt.current = 0;
+    void yardBoard({ data: { action: "type", text: value.trim() ? "1" : "", ...caller() } });
+  }
 
   async function pull() {
     const row = await loadBoard();
     setLines(row.chat);
+    setTypers(row.typing);
     const last = row.chat[row.chat.length - 1];
     if (last) onSeenYard(last.id);
   }
@@ -674,6 +741,7 @@ export function YardChat({
                 );
               })}
             </div>
+            {typers.length ? <p className="mt-1 text-xs text-muted">{typers.map((person) => person.name).join(", ")} печатает…</p> : null}
             {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
             <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} />
             <div className="mt-2 flex gap-2">
@@ -691,7 +759,14 @@ export function YardChat({
                   }}
                 />
               </label>
-              <Input value={text} placeholder="Реплика двору" onChange={(e) => setText(e.target.value)} />
+              <Input
+                value={text}
+                placeholder="Реплика двору"
+                onChange={(e) => {
+                  setText(e.target.value);
+                  poke(e.target.value);
+                }}
+              />
               <Button
                 onClick={() => {
                   void (async () => {
@@ -702,6 +777,8 @@ export function YardChat({
                     }
                     setText("");
                     setShot("");
+                    typedAt.current = 0;
+                    blip();
                     const next = res.chat || [];
                     setLines(next);
                     const last = next[next.length - 1];
