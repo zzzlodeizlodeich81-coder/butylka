@@ -18,6 +18,7 @@ type Entry = {
   url: string;
   votes: string[];
   songId?: string;
+  guest?: boolean;
 };
 
 type Book = { entries: Entry[]; ranks: Record<string, number> };
@@ -97,6 +98,7 @@ function viewOf(book: Book, me: string, admin: boolean) {
         songId: row.songId || "",
         url: row.url || "",
         lyrics: admin ? row.lyrics : "",
+        guest: Boolean(row.guest),
       };
     })
     .sort((a, b) => Number(b.month === month) - Number(a.month === month) || a.place - b.place);
@@ -198,6 +200,7 @@ export async function submitContest(input: {
         url: link,
         votes: [],
         songId,
+        guest: await (await import("@/lib/lands.server")).hasHome(input.guestId),
       });
       await writeBook(book);
     } catch {

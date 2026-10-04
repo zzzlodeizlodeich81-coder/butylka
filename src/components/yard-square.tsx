@@ -30,8 +30,8 @@ function avg(sum: number, n: number) {
   return (sum / n).toFixed(1);
 }
 
-async function loadBoard() {
-  const res = await yardBoard({ data: { action: "list" } });
+async function loadBoard(plot = "") {
+  const res = await yardBoard({ data: { action: "list", plot } });
   if (!res.ok) return { songs: [] as YardSong[], chat: [] as YardLine[], shared: false, typing: [] as { id: string; name: string }[] };
   return { songs: res.songs || [], chat: res.chat || [], shared: Boolean(res.shared), typing: res.typing || [] };
 }
@@ -70,6 +70,7 @@ type ContestRow = {
   passed: boolean;
   url?: string;
   lyrics?: string;
+  guest?: boolean;
 };
 
 function squareShot(file: File) {
@@ -240,7 +241,10 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
             <div key={row.id} className="rounded-xl bg-black/30 px-3 py-2">
               <p className="font-medium">
                 {row.artist} — {row.title}{" "}
-                <span className="text-xs text-[#c4a574]">{row.passed ? `проходит · ${row.place}` : "на конкурсе"}</span>
+                <span className="text-xs text-[#c4a574]">
+                  {row.passed ? `проходит · ${row.place}` : "на конкурсе"}
+                  {row.guest ? " · гость" : ""}
+                </span>
               </p>
               <img src={`/api/contest?id=${row.id}&part=cover`} alt="" className="mt-2 size-16 rounded-lg object-cover" />
               {row.url ? (
@@ -975,6 +979,7 @@ export function YardChat({
   myId,
   onSeenYard,
   onOpenPerson,
+  plot = "",
 }: {
   onClose: () => void;
   focusId?: string;
@@ -983,6 +988,7 @@ export function YardChat({
   myId: string;
   onSeenYard: (id: string) => void;
   onOpenPerson: (id: string) => void;
+  plot?: string;
 }) {
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
@@ -1000,11 +1006,11 @@ export function YardChat({
       typedAt.current = now;
     } else if (!typedAt.current) return;
     else typedAt.current = 0;
-    void yardBoard({ data: { action: "type", text: value.trim() ? "1" : "", ...caller() } });
+    void yardBoard({ data: { action: "type", text: value.trim() ? "1" : "", plot, ...caller() } });
   }
 
   async function pull() {
-    const row = await loadBoard();
+    const row = await loadBoard(plot);
     setLines(row.chat);
     setTypers(row.typing);
     const last = row.chat[row.chat.length - 1];
@@ -1020,7 +1026,7 @@ export function YardChat({
     void pull();
     const timer = window.setInterval(() => void pull(), 4000);
     return () => window.clearInterval(timer);
-  }, [tab]);
+  }, [tab, plot]);
 
   return (
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
@@ -1094,7 +1100,7 @@ export function YardChat({
               <Button
                 onClick={() => {
                   void (async () => {
-                    const res = await yardBoard({ data: { action: "say", text, image: shot, audio: voice, ...caller() } });
+                    const res = await yardBoard({ data: { action: "say", text, image: shot, audio: voice, plot, ...caller() } });
                     if (!res.ok) {
                       toast.error(res.error || "Не ушло.");
                       return;

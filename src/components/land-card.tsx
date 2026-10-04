@@ -6,7 +6,7 @@ import { PLOT_LABEL, PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, type PlotKind } fr
 import { landDesk } from "@/lib/land-desk";
 import { useWallet } from "@/lib/wallet";
 
-type Plot = { id: string; name: string; kind: PlotKind; tools: string[]; code: string; state: string; owner: boolean };
+type Plot = { id: string; name: string; kind: PlotKind; tools: string[]; code: string; state: string; owner: boolean; member?: boolean };
 type War = {
   id: string;
   a: string;
@@ -79,27 +79,18 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
           <p className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Наш двор</p>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          {plots.map((plot) => {
-            const enter = plot.owner || commune?.id === plot.id;
-            return (
-              <button
-                key={plot.id}
-                type="button"
-                className="rounded-full bg-[#2a1a0c] px-2 py-1 text-xs text-[#f4e4c4]"
-                onClick={() => {
-                  if (!enter) {
-                    toast.message("Чужой участок. Войти можно только в свой или в своё сообщество.");
-                    return;
-                  }
-                  onEnter?.(plot);
-                }}
-              >
-                {PLOT_LABEL[plot.kind]} · {plot.name}
-                {plot.state ? " · государство" : ""}
-                {enter ? " · войти" : ""}
-              </button>
-            );
-          })}
+          {plots.map((plot) => (
+            <button
+              key={plot.id}
+              type="button"
+              className="rounded-full bg-[#2a1a0c] px-2 py-1 text-xs text-[#f4e4c4]"
+              onClick={() => onEnter?.(plot)}
+            >
+              {PLOT_LABEL[plot.kind]} · {plot.name}
+              {plot.state ? " · государство" : ""}
+              {plot.owner || plot.member ? " · твой" : " · в гости"}
+            </button>
+          ))}
         </div>
         {!mine ? (
           <div className="mt-3 flex flex-col gap-2">
@@ -112,7 +103,7 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted">
-            Твоё место: {PLOT_LABEL[mine.kind]} {mine.name}. {mine.code ? `Код для своих: ${mine.code}` : ""}
+            Твоё место: {PLOT_LABEL[mine.kind]} {mine.name}. {mine.code ? `Код жильцам: ${mine.code}` : ""}
           </p>
         )}
         {homeName ? <p className="mt-3 text-sm text-muted">Ты в сообществе {homeName}. Дома там ставит хозяин, войти можно по метке.</p> : null}
@@ -140,7 +131,7 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
           </div>
         ) : null}
         <div className="mt-4 flex gap-2">
-          <Input placeholder="Код сообщества" value={code} onChange={(e) => setCode(e.target.value)} />
+          <Input placeholder="Код двора, если зовут жить" value={code} onChange={(e) => setCode(e.target.value)} />
           <Button variant="secondary" disabled={busy} onClick={() => void run({ action: "join", code })}>
             Войти
           </Button>

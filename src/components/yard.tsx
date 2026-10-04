@@ -128,7 +128,7 @@ export function Yard() {
   const [lands, setLands] = useState(false);
   const [field, setField] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
-  const [lock, setLock] = useState<{ name: string; kind: PlotKind; tools: string[]; owner: boolean } | null>(null);
+  const [lock, setLock] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member: boolean } | null>(null);
   const [ask, setAsk] = useState<(typeof TOOLS)[number] | null>(null);
   const [pingYard, setPingYard] = useState(false);
   const [pingPeople, setPingPeople] = useState<string[]>([]);
@@ -151,18 +151,19 @@ export function Yard() {
 
   useEffect(() => {
     const tier = layer === "yard" ? house || "yard" : layer;
+    const plot = lock?.id || "";
     const ping = () => {
-      void yardBoard({ data: { action: "spot", tier } });
+      void yardBoard({ data: { action: "spot", tier, plot } });
     };
     ping();
     const timer = window.setInterval(ping, 20000);
     return () => window.clearInterval(timer);
-  }, [house, layer]);
+  }, [house, layer, lock?.id]);
 
   useEffect(() => {
     let stop = false;
     const pull = () => {
-      void yardBoard({ data: { action: "list" } }).then((res) => {
+      void yardBoard({ data: { action: "list", plot: lock?.id || "" } }).then((res) => {
         if (!stop && res.ok) {
           setFaces(res.spots || []);
           const last = (res.chat || [])[(res.chat || []).length - 1];
@@ -206,9 +207,13 @@ export function Yard() {
       stop = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [lock?.id]);
 
   function open(id: HouseId) {
+    if (lock && (id === "organ" || id === "market")) {
+      toast.message("Шарманщик и рынок только на общем дворе.");
+      return;
+    }
     const tool = TOOLS.find((item) => item.id === id);
     if (lock && tool && !lock.tools.includes(tool.id)) {
       setAsk(tool);
@@ -222,8 +227,8 @@ export function Yard() {
     setHouse(id);
   }
 
-  function enterPlot(plot: { name: string; kind: PlotKind; tools: string[]; owner: boolean }) {
-    setLock({ name: plot.name, kind: plot.kind, tools: plot.tools || [], owner: plot.owner });
+  function enterPlot(plot: { id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean }) {
+    setLock({ id: plot.id, name: plot.name, kind: plot.kind, tools: plot.tools || [], owner: plot.owner, member: Boolean(plot.owner || plot.member) });
     setAsk(null);
     setHouse(null);
     setSpot(null);
@@ -416,7 +421,7 @@ export function Yard() {
       {lock ? (
         <div className="absolute top-14 left-3 z-20 max-w-[70vw] rounded-2xl bg-black/70 px-3 py-2 text-sm text-white">
           <p>
-            Твой двор · {PLOT_LABEL[lock.kind]} · {lock.name}
+            {lock.owner ? "Твой двор" : lock.member ? "Ты здесь живёшь" : "Гость"} · {lock.name}
           </p>
           <button type="button" className="mt-1 text-xs text-white/80" onClick={() => setLock(null)}>
             Общий двор
@@ -476,6 +481,7 @@ export function Yard() {
             setPingYard(false);
           }}
           onOpenPerson={(id) => setPingPeople((list) => list.filter((item) => item !== id))}
+          plot={lock?.id || ""}
         />
       ) : null}
       {desk}
@@ -525,6 +531,7 @@ export function Yard() {
           onStudio={() => {
             toStudio();
           }}
+          plotId={lock?.id || ""}
         />
       ) : null}
     </div>
@@ -875,6 +882,7 @@ function HouseSheet(props: {
   onHouseTake: (n: number) => void;
   onStage: () => void;
   onStudio: () => void;
+  plotId?: string;
 }) {
   const title = ZONES.find((z) => z.id === props.house)?.label ?? "";
   return (
@@ -888,7 +896,7 @@ function HouseSheet(props: {
             </Button>
           ) : null}
         </div>
-        {props.house === "gate" ? <GateCard roles={props.roles} onSave={props.onRoles} /> : null}
+        {props.house === "gate" ? <GateCard roles={props.roles} onSave={props.onRoles} plotId={props.plotId || ""} /> : null}
         {props.house === "stage" ? <ReleaseCard onStage={props.onStage} /> : null}
         {props.house === "organ" ? <OrganCard /> : null}
         {props.house === "record" ? (
@@ -905,10 +913,61 @@ function HouseSheet(props: {
   );
 }
 
-function GateCard({ roles, onSave }: { roles: RoleId[]; onSave: (ids: RoleId[]) => void }) {
+function GateCard({ roles, onSave, plotId }: { roles: RoleId[]; onSave: (ids: RoleId[]) => void; plotId: string }) {
   const [picked, setPicked] = useState<RoleId[]>(roles);
+  const [people, setPeople] = useState<{ id: string; name: string; owner: boolean }[]>([]);
+  const [code, setCode] = useState("");
+  const [yardName, setYardName] = useState("");
+  const [owner, setOwner] = useState(false);
+  const me = useWallet((s) => s.vkId);
+  const listed = people.some((person) => person.id === me);
+
+  useEffect(() => {
+    if (!plotId) return;
+    void landDesk({ data: { action: "roster", plot: plotId } }).then((res) => {
+      if (!res.ok) return;
+      const row = res as { people?: { id: string; name: string; owner: boolean }[]; code?: string; name?: string; owner?: boolean };
+      setPeople(row.people || []);
+      setCode(row.code || "");
+      setYardName(row.name || "");
+      setOwner(Boolean(row.owner));
+    });
+  }, [plotId]);
+
   return (
     <div>
+      {plotId ? (
+        <div className="mb-4">
+          <p className="text-sm text-fg">Жители двора {yardName}</p>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {people.map((person) => (
+              <li key={person.id} className="flex items-center justify-between gap-2">
+                <span>{person.owner ? "Хозяин · " : ""}{person.name}</span>
+                {owner && !person.owner ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      void landDesk({ data: { action: "kick", plot: plotId, who: person.id } }).then(() => {
+                        setPeople((list) => list.filter((item) => item.id !== person.id));
+                      });
+                    }}
+                  >
+                    Убрать
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {owner && code ? <p className="mt-2 text-sm text-muted">Код, чтобы звать жить: {code}. Кто перейдёт в другой двор, отсюда пропадёт.</p> : null}
+          {!owner ? (
+            <p className="mt-2 text-sm text-muted">
+              {listed ? "Ты в книге этого двора." : "Ты здесь гость. Жить можно по коду хозяина, в гости — просто так."}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mb-3 text-sm text-muted">Общий двор. Конкурс и инструменты здесь открыты всем, с какого бы двора человек ни пришёл.</p>
+      )}
       <p className="text-sm leading-relaxed text-muted">
         Кто ты на дворе. Можно несколько. Прохожий просто заходит на рынок и не селится. Остальные роли — если живёшь и работаешь здесь.
       </p>

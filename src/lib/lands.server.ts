@@ -52,6 +52,18 @@ async function writeBook(book: Book) {
   await writeFile(path, JSON.stringify(book));
 }
 
+export async function plotRoom(id: string) {
+  const clean = id.trim().slice(0, 16);
+  if (!clean) return "";
+  const book = await readBook();
+  return book.plots.some((plot) => plot.id === clean) ? clean : "";
+}
+
+export async function hasHome(playerId: string) {
+  const book = await readBook();
+  return book.plots.some((plot) => plot.owner === playerId || plot.members.includes(playerId));
+}
+
 export async function communityOf(playerId: string) {
   const book = await readBook();
   const plot = book.plots.find((item) => item.kind === "commune" && (item.owner === playerId || item.members.includes(playerId)));
@@ -68,6 +80,8 @@ function pub(plot: Plot, viewer: string) {
     bank: plot.bank,
     state: plot.state,
     owner: plot.owner === viewer,
+    member: plot.owner === viewer || plot.members.includes(viewer),
+    heads: plot.members.length + 1,
   };
 }
 
@@ -76,7 +90,7 @@ function toolById(id: string) {
 }
 
 export async function runLand(data: {
-  action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle";
+  action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle" | "roster" | "kick";
   kind?: PlotKind;
   title?: string;
   tool?: string;
@@ -84,6 +98,7 @@ export async function runLand(data: {
   plot?: string;
   url?: string;
   how?: "paid" | "state";
+  who?: string;
 }) {
     const guest = currentGuest();
     if (!guest) return { ok: false as const, error: "Сначала зайди.", notes: 0 };
@@ -137,14 +152,48 @@ export async function runLand(data: {
         state: "",
       };
       book.plots.push(plot);
+      for (const other of book.plots) {
+        if (other.id !== plot.id) other.members = other.members.filter((id) => id !== guest.id);
+      }
       await writeBook(book);
       return { ok: true as const, notes: paid.notes, mine: pub(plot, guest.id) };
     }
 
     if (data.action === "join") {
-      const plot = book.plots.find((item) => item.kind === "commune" && item.code === (data.code || "").trim().toLowerCase());
+      const plot = book.plots.find((item) => item.code === (data.code || "").trim().toLowerCase());
       if (!plot) return { ok: false as const, error: "Кода нет." };
+      if (mine && mine.id !== plot.id) return { ok: false as const, error: "Свой двор уже есть. В чужой можно только в гости." };
+      for (const other of book.plots) {
+        if (other.id !== plot.id) other.members = other.members.filter((id) => id !== guest.id);
+      }
       if (plot.owner !== guest.id && !plot.members.includes(guest.id)) plot.members.push(guest.id);
+      await writeBook(book);
+      return { ok: true as const, notes: (await readPurse(guest.id))?.notes ?? 0 };
+    }
+
+    if (data.action === "roster") {
+      const plot = book.plots.find((item) => item.id === data.plot);
+      if (!plot) return { ok: false as const, error: "Двора нет." };
+      const ids = [plot.owner, ...plot.members];
+      const people = [];
+      for (const id of ids) {
+        const row = await readPurse(id);
+        people.push({ id, name: row?.name || "Житель", owner: id === plot.owner });
+      }
+      return {
+        ok: true as const,
+        notes: (await readPurse(guest.id))?.notes ?? 0,
+        name: plot.name,
+        owner: plot.owner === guest.id,
+        code: plot.owner === guest.id ? plot.code : "",
+        people,
+      };
+    }
+
+    if (data.action === "kick") {
+      const plot = book.plots.find((item) => item.id === data.plot && item.owner === guest.id);
+      if (!plot) return { ok: false as const, error: "Список только у хозяина двора." };
+      plot.members = plot.members.filter((id) => id !== data.who);
       await writeBook(book);
       return { ok: true as const, notes: (await readPurse(guest.id))?.notes ?? 0 };
     }

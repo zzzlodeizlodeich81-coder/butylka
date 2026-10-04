@@ -69,12 +69,14 @@ const presaves: Presave[] = [];
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
 type Stall = { id: string; owner: string; name: string; about: string; url: string; until: number };
 const stalls: Stall[] = [];
-const spots: (YardSpot & { at: number })[] = [];
+const spots: (YardSpot & { at: number; room?: string })[] = [];
 const typing = new Map<string, { id: string; name: string; room: string; at: number }>();
 
-function liveSpots(): YardSpot[] {
+function liveSpots(room = ""): YardSpot[] {
   const now = Date.now();
-  return spots.filter((row) => now - row.at < 90000).map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
+  return spots
+    .filter((row) => now - row.at < 90000 && (row.room || "") === room)
+    .map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
 }
 
 function presaveView(me: string) {
@@ -300,6 +302,7 @@ export const yardBoard = createServerFn({ method: "POST" })
       author?: string;
       heroId?: string;
       frames?: number;
+      plot?: string;
     }) => input,
   )
   .handler(async ({ data, context }): Promise<BoardRes> => {
@@ -307,8 +310,8 @@ export const yardBoard = createServerFn({ method: "POST" })
     const guest = (await import("@/lib/purse.server")).currentGuest();
     const vkId = guest?.id || vk?.vkId || String(data.heroId || "guest").slice(0, 48);
     const name = (guest?.name || vk?.name || data.author || "Гость").slice(0, 32);
-    const { communityOf } = await import("@/lib/lands.server");
-    const room = guest ? await communityOf(guest.id) : "";
+    const { plotRoom } = await import("@/lib/lands.server");
+    const room = await plotRoom(String(data.plot || ""));
     await loadBoardFile();
     const cut = Date.now() - 48 * 60 * 60 * 1000;
     if (mem.chat.some((line) => line.at < cut)) {
@@ -413,7 +416,7 @@ export const yardBoard = createServerFn({ method: "POST" })
 
     if (data.action === "list") {
       const listed = listMem();
-      return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(), typing: liveTyping(room, vkId) };
+      return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(room), typing: liveTyping(room, vkId) };
     }
 
     if (data.action === "spot") {
@@ -423,11 +426,11 @@ export const yardBoard = createServerFn({ method: "POST" })
         const row = await (await import("@/lib/purse.server")).readPurse(guest.id);
         photo = row?.photo || "";
       }
-      const next = { id: vkId, name, photo, spot, at: Date.now() };
+      const next = { id: vkId, name, photo, spot, at: Date.now(), room };
       const index = spots.findIndex((row) => row.id === vkId);
       if (index >= 0) spots[index] = next;
       else spots.push(next);
-      return { ok: true, spots: liveSpots() };
+      return { ok: true, spots: liveSpots(room) };
     }
 
     if (data.action === "add") {
@@ -582,5 +585,5 @@ export const yardBoard = createServerFn({ method: "POST" })
     typing.delete(vkId);
     await saveBoardFile();
     const listed = listMem();
-    return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(), typing: liveTyping(room, vkId) };
+    return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(room), typing: liveTyping(room, vkId) };
   });
