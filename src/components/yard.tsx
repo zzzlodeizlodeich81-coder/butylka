@@ -570,7 +570,7 @@ const HECKLER = [
   "Даже ворона поёт честнее.",
 ];
 
-function Heckler({ phone }: { phone: boolean }) {
+function Heckler({ phone, side }: { phone: boolean; side?: boolean }) {
   const [line, setLine] = useState("");
   const last = useRef(0);
   function poke() {
@@ -587,7 +587,7 @@ function Heckler({ phone }: { phone: boolean }) {
       type="button"
       aria-label="Злой прохожий"
       className="absolute z-20"
-      style={phone ? { left: "72%", top: "70%", width: "22%" } : { left: "30%", top: "68%", width: "7%" }}
+      style={side ? { right: "4%", top: "58%", width: phone ? "18%" : "8%" } : phone ? { left: "72%", top: "70%", width: "22%" } : { left: "30%", top: "68%", width: "7%" }}
       onMouseEnter={poke}
       onPointerDown={poke}
     >
@@ -652,12 +652,6 @@ function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }
   );
 }
 
-function pinAt(id: string) {
-  let hash = 0;
-  for (const ch of id) hash = (hash * 33 + ch.charCodeAt(0)) >>> 0;
-  return { left: `${16 + (hash % 62)}%`, top: `${24 + ((hash >> 6) % 46)}%` };
-}
-
 function World({
   onCity,
   onHome,
@@ -680,41 +674,11 @@ function World({
       if (res.ok) setRows((res.plots as typeof rows) || []);
     });
   }, []);
+  const stage = useStage();
   const mine = rows.find((row) => row.owner);
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#2a1812]">
-      <MapStage src="/world.jpg" alt="Карта музыкального мира" aspect="16 / 9" top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
-        <div className="pointer-events-none absolute top-2 left-1/2 w-[90%] -translate-x-1/2 rounded-xl bg-black/55 px-3 py-2 text-center text-[#f4e4c4]">
-          <p className="text-sm">карта музыкального мира</p>
-          <p className="text-xl leading-none">😏</p>
-          <p className="text-xs">а вы думали вы на земле? как бы не так!</p>
-        </div>
-        <button
-          type="button"
-          className="absolute max-w-[34%] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
-          style={{ left: "8%", top: "58%" }}
-          onClick={onHome}
-        >
-          <span className="block text-[12px] font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
-          <span className="text-[10px] text-[#c4a574]">государство</span>
-        </button>
-        {rows.map((plot) => {
-          const at = pinAt(plot.id);
-          return (
-            <button
-              key={plot.id}
-              type="button"
-              className="absolute max-w-[28%] -translate-x-1/2 rounded-xl bg-black/75 px-2 py-1 text-left text-[#f4e4c4] shadow"
-              style={at}
-              onClick={() => onEnter(plot)}
-            >
-              <span className="block truncate text-[12px] font-medium">{plot.name}</span>
-              <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
-            </button>
-          );
-        })}
-        <Heckler phone={false} />
-      </MapStage>
+    <div className="relative h-dvh w-full overflow-hidden bg-[#6a341c]">
+      <img src="/world.jpg" alt="Карта музыкального мира" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute top-0 left-0 z-30 flex flex-wrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onField}>
           Посеять пресейв
@@ -727,13 +691,38 @@ function World({
         </button>
         <MoreMenu items={menu} />
       </div>
+      <div className="relative z-20 flex h-full flex-col px-3 pt-[max(7.4rem,calc(env(safe-area-inset-top)+6.6rem))] pb-3">
+        <div className="pointer-events-none max-w-sm rounded-xl bg-black/55 px-3 py-2 text-center text-[#f4e4c4]">
+          <p className="text-sm">карта музыкального мира</p>
+          <p className="text-lg leading-none">😏</p>
+          <p className="text-xs">а вы думали вы на земле? как бы не так!</p>
+        </div>
+        <div className="mt-2 flex min-h-0 w-[min(16rem,72%)] flex-1 flex-col gap-2 overflow-auto pb-16">
+          <button type="button" className="rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow" onClick={onHome}>
+            <span className="block text-[12px] font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
+            <span className="text-[10px] text-[#c4a574]">государство</span>
+          </button>
+          {rows.map((plot) => (
+            <button
+              key={plot.id}
+              type="button"
+              className="shrink-0 rounded-xl bg-black/75 px-2 py-1 text-left text-[#f4e4c4] shadow"
+              onClick={() => onEnter(plot)}
+            >
+              <span className="block truncate text-[12px] font-medium">{plot.name}</span>
+              <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <Heckler phone={stage === "phone"} side />
       {!mine ? (
-        <p className="absolute bottom-3 left-3 z-30 max-w-[18rem] rounded-2xl bg-black/70 px-3 py-2 text-xs text-[#f4e4c4]">
+        <p className="absolute bottom-3 left-3 z-30 max-w-[14rem] rounded-2xl bg-black/70 px-3 py-2 text-xs text-[#f4e4c4]">
           Купи участок: частный двор или сообщество. Палатку на карту не ставят.
         </p>
       ) : !mine.liege && mine.badge !== "государство" ? (
         <form
-          className="absolute right-3 bottom-3 z-30 flex max-w-[16rem] flex-col gap-1 rounded-2xl bg-black/70 p-2"
+          className="absolute bottom-3 left-3 z-30 flex max-w-[16rem] flex-col gap-1 rounded-2xl bg-black/70 p-2"
           onSubmit={(event) => {
             event.preventDefault();
             void landDesk({ data: { action: "swear", code } }).then((res) => {
