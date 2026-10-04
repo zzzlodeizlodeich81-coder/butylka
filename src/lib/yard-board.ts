@@ -52,9 +52,21 @@ type Mem = {
   chat: YardLine[];
 };
 
-type Stall = { id: string; owner: string; name: string; about: string; url: string; until: number };
+type Presave = {
+  id: string;
+  owner: string;
+  name: string;
+  title: string;
+  url: string;
+  clicks: number;
+  heard: string[];
+  at: number;
+};
+
+const presaves: Presave[] = [];
 
 const mem: Mem = { songs: [], rates: new Set(), hears: new Set(), chat: [] };
+type Stall = { id: string; owner: string; name: string; about: string; url: string; until: number };
 const stalls: Stall[] = [];
 const spots: (YardSpot & { at: number })[] = [];
 const typing = new Map<string, { id: string; name: string; room: string; at: number }>();
@@ -62,6 +74,22 @@ const typing = new Map<string, { id: string; name: string; room: string; at: num
 function liveSpots(): YardSpot[] {
   const now = Date.now();
   return spots.filter((row) => now - row.at < 90000).map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
+}
+
+function presaveView(me: string) {
+  return [...presaves]
+    .slice()
+    .reverse()
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      title: row.title,
+      url: row.clicks < 10 || row.owner === me ? row.url : "",
+      clicks: row.clicks,
+      live: row.clicks < 10,
+      mine: row.owner === me,
+      heard: row.heard.includes(me),
+    }));
 }
 
 function liveTyping(room: string, except = "") {
@@ -84,12 +112,14 @@ function loadBoardFile() {
         songs?: YardSong[];
         chat?: YardLine[];
         stalls?: Stall[];
+        presaves?: Presave[];
       };
       if (Array.isArray(raw.songs)) {
         mem.songs = raw.songs.slice(-80).map((song) => ({ ...song, title: song.title || "" }));
       }
       if (Array.isArray(raw.chat)) mem.chat = raw.chat.slice(-80);
       if (Array.isArray(raw.stalls)) stalls.splice(0, stalls.length, ...raw.stalls);
+      if (Array.isArray(raw.presaves)) presaves.splice(0, presaves.length, ...raw.presaves.slice(-80));
     } catch {
       /* доски ещё нет */
     }
@@ -109,7 +139,7 @@ export async function forgetName(name: string, songs: boolean) {
 async function saveBoardFile() {
   const path = boardFile();
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify({ songs: mem.songs, chat: mem.chat, stalls }));
+  await writeFile(path, JSON.stringify({ songs: mem.songs, chat: mem.chat, stalls, presaves }));
 }
 
 function cleanUrl(raw: string) {
@@ -246,13 +276,14 @@ type BoardRes = {
   published?: boolean;
   ready?: string[];
   stalls?: { id: string; name: string; about: string; url: string; until: number; mine: boolean }[];
+  presaves?: { id: string; name: string; title: string; url: string; clicks: number; live: boolean; mine: boolean; heard: boolean }[];
 };
 
 export const yardBoard = createServerFn({ method: "POST" })
   .middleware([vkMiddleware])
   .validator(
     (input: {
-      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent" | "type";
+      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent" | "type" | "field" | "sow" | "tap" | "resow";
       kind?: "draft" | "release";
       url?: string;
       title?: string;
@@ -316,6 +347,46 @@ export const yardBoard = createServerFn({ method: "POST" })
       if (!on) typing.delete(vkId);
       else typing.set(vkId, { id: vkId, name, room, at: Date.now() });
       return { ok: true, typing: liveTyping(room, vkId) };
+    }
+
+    if (data.action === "field" || data.action === "sow" || data.action === "tap" || data.action === "resow") {
+      if (!guest) return { ok: false, error: "Сначала зайди во двор." };
+      if (data.action === "field") return { ok: true, presaves: presaveView(vkId) };
+      const { spendPurse, addPurse } = await import("@/lib/purse.server");
+      if (data.action === "sow") {
+        const title = (data.title || "").replace(/\s+/g, " ").trim().slice(0, 80);
+        const url = cleanUrl(data.url || "");
+        if (!title) return { ok: false, error: "Напиши, что сеешь." };
+        if (!url) return { ok: false, error: "Нужна ссылка https://…" };
+        const paid = await spendPurse(guest.id, 2);
+        if (!paid.ok) return { ok: false, error: paid.error, notes: paid.notes };
+        presaves.push({ id: crypto.randomUUID(), owner: guest.id, name, title, url, clicks: 0, heard: [], at: Date.now() });
+        if (presaves.length > 80) presaves.shift();
+        await saveBoardFile();
+        return { ok: true, notes: paid.notes, presaves: presaveView(vkId) };
+      }
+      const row = presaves.find((item) => item.id === data.songId);
+      if (!row) return { ok: false, error: "Карточки уже нет." };
+      if (data.action === "resow") {
+        if (row.owner !== vkId) return { ok: false, error: "Чужой посев не продлить." };
+        if (row.clicks < 10) return { ok: false, error: "Она ещё живая." };
+        const paid = await spendPurse(guest.id, 2);
+        if (!paid.ok) return { ok: false, error: paid.error, notes: paid.notes };
+        row.clicks = 0;
+        row.heard = [];
+        await saveBoardFile();
+        return { ok: true, notes: paid.notes, presaves: presaveView(vkId) };
+      }
+      if (row.clicks >= 10) return { ok: false, error: "Этот пресейв уже отсеялся." };
+      if (row.owner === vkId || row.heard.includes(vkId)) {
+        return { ok: true, presaves: presaveView(vkId) };
+      }
+      const credited = await addPurse(guest.id, 0.1);
+      if (!credited) return { ok: false, error: "0.1 ноты не легла." };
+      row.heard.push(vkId);
+      row.clicks += 1;
+      await saveBoardFile();
+      return { ok: true, notes: credited.notes, credit: 0.1, presaves: presaveView(vkId) };
     }
 
     const remote = await sheetCall({ ...data, vkId, name });

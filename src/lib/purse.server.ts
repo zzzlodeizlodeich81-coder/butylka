@@ -210,13 +210,13 @@ export async function deletePurse(id: string) {
 }
 
 export async function addPurse(id: string, amount: number) {
-  const delta = Math.round(Number(amount) * 2) / 2;
+  const delta = Math.round(Number(amount) * 10) / 10;
   if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > 100000) return null;
   return locked(async () => {
     const book = await readBook();
     const row = book.rows.find((item) => item.id === id);
     if (!row) return null;
-    row.notes = Math.max(0, row.notes + delta);
+    row.notes = Math.max(0, Math.round((row.notes + delta) * 10) / 10);
     await writeBook(book);
     return row;
   });

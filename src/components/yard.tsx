@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesButton, PriceSheet } from "@/components/notes-shop";
-import { FameCard, OrganCard, ReleaseCard, YardChat } from "@/components/yard-square";
+import { FameCard, OrganCard, PresaveSheet, ReleaseCard, YardChat } from "@/components/yard-square";
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HostChat } from "@/components/host-chat";
@@ -126,6 +126,7 @@ export function Yard() {
   const yardMap = stage === "phone" ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE } : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const [guide, setGuide] = useState(false);
   const [lands, setLands] = useState(false);
+  const [field, setField] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
   const [lock, setLock] = useState<{ name: string; kind: PlotKind; tools: string[]; owner: boolean } | null>(null);
   const [ask, setAsk] = useState<(typeof TOOLS)[number] | null>(null);
@@ -233,7 +234,8 @@ export function Yard() {
   if (layer === "world") {
     return (
       <>
-        <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} />
+        <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} onField={() => setField(true)} />
+        {field ? <PresaveSheet onClose={() => setField(false)} /> : null}
         {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
         {splash ? (
           <button type="button" className="fixed inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
@@ -571,7 +573,7 @@ function Heckler({ phone }: { phone: boolean }) {
   );
 }
 
-function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
+function World({ onCity, onBuy, onField }: { onCity: () => void; onBuy: () => void; onField: () => void }) {
   const stage = useStage();
   const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
   return (
@@ -595,6 +597,14 @@ function World({ onCity, onBuy }: { onCity: () => void; onBuy: () => void }) {
         ))}
         <Heckler phone={stage === "phone"} />
       </MapStage>
+      <button
+        type="button"
+        className="absolute right-3 z-30 rounded-full bg-[#2a1a0c]/92 px-3 py-1 text-sm text-[#f4e4c4]"
+        style={{ top: "max(0.7rem, env(safe-area-inset-top))" }}
+        onClick={onField}
+      >
+        Посеять пресейв
+      </button>
     </div>
   );
 }

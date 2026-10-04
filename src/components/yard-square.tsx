@@ -849,3 +849,146 @@ export function FameCard({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+
+type PresaveCard = {
+  id: string;
+  name: string;
+  title: string;
+  url: string;
+  clicks: number;
+  live: boolean;
+  mine: boolean;
+  heard: boolean;
+};
+
+export function PresaveSheet({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<PresaveCard[]>([]);
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [form, setForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  function take(notes?: number) {
+    if (typeof notes === "number") useWallet.getState().apply({ notes });
+  }
+
+  useEffect(() => {
+    void (async () => {
+      const res = await yardBoard({ data: { action: "field", ...caller() } });
+      if (!res.ok) {
+        toast.error(res.error || "Поле не открылось.");
+        return;
+      }
+      setRows(res.presaves || []);
+    })();
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end bg-black/45">
+      <div className="max-h-[82%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="font-display text-2xl text-fg">Поле</h2>
+          <Button variant="ghost" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+        <p className="text-sm text-muted">Посев стоит 2 ноты и живёт 10 чужих открытий. За открытие 0.1 ноты, один раз с человека. Свой посев нот не даёт.</p>
+        <Button className="mt-3 rounded-xl" variant="secondary" onClick={() => setForm((open) => !open)}>
+          Добавить пресейв · 2 ноты
+        </Button>
+        {form ? (
+          <div className="mt-3 flex flex-col gap-2">
+            <Input placeholder="Кто и что: Полина — Минорное" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input placeholder="https://band.link/…" value={url} onChange={(e) => setUrl(e.target.value)} />
+            <Button
+              disabled={busy}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true);
+                  try {
+                    const res = await yardBoard({ data: { action: "sow", title, url, ...caller() } });
+                    take(res.notes);
+                    if (!res.ok) {
+                      toast.error(res.error || "Не посеялось.");
+                      return;
+                    }
+                    setRows(res.presaves || []);
+                    setTitle("");
+                    setUrl("");
+                    setForm(false);
+                    toast.success("Посеяно. 10 открытий.");
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+            >
+              Посеять
+            </Button>
+          </div>
+        ) : null}
+        <div className="mt-4 flex flex-col gap-2">
+          {rows.map((card) => (
+            <div key={card.id} className={`rounded-xl border border-border px-3 py-2 text-sm ${card.live ? "bg-surface" : "bg-surface-2 opacity-70"}`}>
+              <p className="font-medium text-fg">{card.title}</p>
+              <p className="text-xs text-muted">
+                {card.name}
+                {card.mine ? " · твой" : ""} · {card.clicks}/10
+                {card.heard ? " · ты уже открывал" : ""}
+              </p>
+              {card.live ? (
+                <Button
+                  variant="secondary"
+                  className="mt-2 rounded-xl"
+                  onClick={() => {
+                    void (async () => {
+                      const res = await yardBoard({ data: { action: "tap", songId: card.id, ...caller() } });
+                      take(res.notes);
+                      if (!res.ok) {
+                        toast.error(res.error || "Не открылось.");
+                        return;
+                      }
+                      setRows(res.presaves || []);
+                      if (card.url) window.open(card.url, "_blank", "noopener,noreferrer");
+                      if (res.credit) toast.success("+0.1 ноты");
+                    })();
+                  }}
+                >
+                  {card.mine ? "Открыть свою" : card.heard ? "Открыть снова" : "Открыть · 0.1"}
+                </Button>
+              ) : card.mine ? (
+                <Button
+                  variant="secondary"
+                  className="mt-2 rounded-xl"
+                  disabled={busy}
+                  onClick={() => {
+                    void (async () => {
+                      setBusy(true);
+                      try {
+                        const res = await yardBoard({ data: { action: "resow", songId: card.id, ...caller() } });
+                        take(res.notes);
+                        if (!res.ok) {
+                          toast.error(res.error || "Не продлилось.");
+                          return;
+                        }
+                        setRows(res.presaves || []);
+                        toast.success("Ещё 10 открытий.");
+                      } finally {
+                        setBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  Оставить ещё · 2 ноты
+                </Button>
+              ) : (
+                <p className="mt-2 text-xs text-muted">Отсеялся</p>
+              )}
+            </div>
+          ))}
+          {!rows.length ? <p className="text-sm text-muted">Поле пустое. Первый посев за тобой.</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
