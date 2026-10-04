@@ -55,6 +55,7 @@ export const Route = createFileRoute("/api/contest")({
           artist: String(form.get("artist") || ""),
           title: String(form.get("title") || ""),
           lyrics: String(form.get("lyrics") || ""),
+          songId: String(form.get("songId") || ""),
           audio: Buffer.from(await audio.arrayBuffer()),
           ext: extOf(name),
           cover: Buffer.from(await cover.arrayBuffer()),

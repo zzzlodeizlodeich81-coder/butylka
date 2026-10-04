@@ -61,7 +61,26 @@ export function DoorGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     void sync().catch(() => setPhase("lock"));
     const timer = window.setInterval(() => void sync().catch(() => undefined), 15000);
-    return () => window.clearInterval(timer);
+    const leave = () => {
+      void (async () => {
+        await door({ action: "out" });
+        useWallet.getState().apply({ vkId: null, name: "", notes: 0, admin: false, inVk: false, shopOpen: false });
+        setKassa(false);
+        setPassword("");
+        setPhase("lock");
+      })();
+    };
+    const desk = () => {
+      setKassa(true);
+      void openKassa();
+    };
+    window.addEventListener("kadr-leave", leave);
+    window.addEventListener("kadr-desk", desk);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("kadr-leave", leave);
+      window.removeEventListener("kadr-desk", desk);
+    };
   }, []);
 
   async function openKassa() {
@@ -115,7 +134,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
             {phase === "lock" || phase === "name" ? (
               <>
                 <p className="mt-3 text-sm text-[#f4e4c4]/70">
-                  Вход по своему логину. Касса для покупки нот — кнопка внизу. Админка открывается только у хозяина.
+                  Вход по своему логину. Касса и выход — в меню «Ещё» наверху. Админка открывается только у хозяина.
                 </p>
                 <div className="mt-3 flex gap-2">
                   <Button type="button" variant={mode === "login" ? "default" : "secondary"} className="rounded-xl" onClick={() => setMode("login")}>
@@ -159,37 +178,6 @@ export function DoorGate({ children }: { children: ReactNode }) {
           </form>
         </div>
       ) : null}
-      {phase === "in" ? (
-        <button
-          type="button"
-          className="fixed left-3 bottom-[max(0.8rem,env(safe-area-inset-bottom))] z-[60] rounded-full bg-black/55 px-3 py-1 text-xs text-white"
-          onClick={() => {
-            void (async () => {
-              await door({ action: "out" });
-              useWallet.getState().apply({ vkId: null, name: "", notes: 0, admin: false, inVk: false, shopOpen: false });
-              setKassa(false);
-              setPassword("");
-              setPhase("lock");
-            })();
-          }}
-        >
-          Выйти
-        </button>
-      ) : null}
-      <button
-        type="button"
-        className="fixed right-3 bottom-[max(0.8rem,env(safe-area-inset-bottom))] z-[60] rounded-full bg-black/55 px-3 py-1 text-xs text-white"
-        onClick={() => {
-          if (admin) {
-            setKassa(true);
-            void openKassa();
-            return;
-          }
-          useWallet.getState().setShop(true);
-        }}
-      >
-        {admin ? "Админка" : "Касса"}
-      </button>
       {kassa && admin ? (
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="max-h-[80dvh] w-full max-w-md overflow-auto rounded-2xl bg-[#1a120c] p-4 text-[#f4e4c4]">

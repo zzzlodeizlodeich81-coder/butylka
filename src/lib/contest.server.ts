@@ -16,6 +16,7 @@ type Entry = {
   month: string;
   ext: string;
   votes: string[];
+  songId?: string;
 };
 
 type Book = { entries: Entry[]; ranks: Record<string, number> };
@@ -92,6 +93,7 @@ function viewOf(book: Book, me: string, admin: boolean) {
         month: row.month,
         place: spot.place,
         passed: spot.passed,
+        songId: row.songId || "",
         lyrics: admin ? row.lyrics : "",
       };
     })
@@ -143,6 +145,7 @@ export async function submitContest(input: {
   audio: Buffer;
   ext: string;
   cover: Buffer;
+  songId?: string;
 }) {
   return locked(async () => {
     const artist = input.artist.replace(/\s+/g, " ").trim().slice(0, 60);
@@ -152,6 +155,22 @@ export async function submitContest(input: {
     if (input.audio.length < 800 || input.audio.length > AUDIO_MAX) return { ok: false as const, error: "Трек пустой или больше 25 МБ." };
     if (input.cover.length < 80) return { ok: false as const, error: "Нужна квадратная картинка." };
     const book = await readBook();
+    const songId = (input.songId || "").slice(0, 80);
+    if (!songId) return { ok: false as const, error: "Сначала выбери свой трек у шарманщика." };
+    let foreign = false;
+    try {
+      const board = JSON.parse(await readFile(join(process.cwd(), "data", "yard-board.json"), "utf8")) as {
+        songs?: { id?: string; vk?: string }[];
+      };
+      const song = board.songs?.find((row) => row.id === songId);
+      foreign = Boolean(song?.vk && song.vk !== input.guestId);
+    } catch {
+      foreign = false;
+    }
+    if (foreign) return { ok: false as const, error: "Чужой трек на конкурс не отправить." };
+    if (book.entries.some((row) => row.songId === songId)) {
+      return { ok: false as const, error: "Этот трек уже на конкурсе." };
+    }
     const month = monthKey();
     const paid = await spendPurse(input.guestId, NOTE_PRICE.contest);
     if (!paid.ok) return { ok: false as const, error: paid.error, notes: paid.notes };
@@ -161,7 +180,7 @@ export async function submitContest(input: {
       await mkdir(dir(), { recursive: true });
       await writeFile(join(dir(), `${id}${ext}`), input.audio);
       await writeFile(join(dir(), `${id}.jpg`), input.cover);
-      book.entries.push({ id, owner: input.guestId, artist, title, lyrics, at: Date.now(), month, ext, votes: [] });
+      book.entries.push({ id, owner: input.guestId, artist, title, lyrics, at: Date.now(), month, ext, votes: [], songId });
       await writeBook(book);
     } catch {
       const back = await addPurse(input.guestId, NOTE_PRICE.contest);

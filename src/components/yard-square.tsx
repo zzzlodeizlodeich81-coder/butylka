@@ -98,13 +98,13 @@ function squareShot(file: File) {
   });
 }
 
-function ContestSheet({ onClose }: { onClose: () => void }) {
+function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () => void; onSent: () => void }) {
   const [rows, setRows] = useState<ContestRow[]>([]);
   const [taken, setTaken] = useState(0);
   const [rank, setRank] = useState(0);
   const [admin, setAdmin] = useState(false);
-  const [title, setTitle] = useState("");
-  const [artist, setArtist] = useState("");
+  const [title, setTitle] = useState(song.title || "");
+  const [artist, setArtist] = useState(song.author || "");
   const [lyrics, setLyrics] = useState("");
   const [audio, setAudio] = useState<File | null>(null);
   const [cover, setCover] = useState<Blob | null>(null);
@@ -150,6 +150,7 @@ function ContestSheet({ onClose }: { onClose: () => void }) {
       body.set("title", title);
       body.set("artist", artist);
       body.set("lyrics", lyrics);
+      body.set("songId", song.id);
       body.set("audio", audio);
       body.set("cover", cover, "cover.jpg");
       body.set("deal", deal ? "1" : "");
@@ -164,16 +165,7 @@ function ContestSheet({ onClose }: { onClose: () => void }) {
         return;
       }
       take(data);
-      setTitle("");
-      setArtist("");
-      setLyrics("");
-      setAudio(null);
-      setCover(null);
-      setCoverUrl("");
-      setDeal(false);
-      setFree(false);
-      setRights(false);
-      setCourt(false);
+      onSent();
       toast.success("Трек на конкурсе.");
     } finally {
       setBusy(false);
@@ -190,7 +182,8 @@ function ContestSheet({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         <p className="mt-1 text-sm text-[#c4a574]">
-          Сборник HoldingMusic Матрёшка (лучшее). Подать можно сколько угодно, в сборник месяца проходят 10 лучших по голосам. Сейчас подано {taken}. Твой статус {rank}. Голос за чужой трек даёт +1.
+          Твой трек у шарманщика: {song.author}
+          {song.title ? ` — ${song.title}` : ""}. Чужой отправить нельзя. Подать можно сколько угодно, в сборник месяца проходят 10 лучших по голосам. Сейчас подано {taken}. Твой статус {rank}.
         </p>
         <p className="mt-2 text-xs text-[#c4a574]">
           80% роялти всего альбома делится между артистами по прослушиваниям из статистики Needle Music. 10% дистрибьютору. 10% на развитие игры «Музыкальный город».
@@ -301,22 +294,33 @@ export function OrganCard() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [shared, setShared] = useState(true);
-  const [contest, setContest] = useState(false);
+  const [contest, setContest] = useState<YardSong | null>(null);
+  const [sent, setSent] = useState<string[]>([]);
 
   useEffect(() => {
     void loadBoard().then((row) => {
       setSongs(row.songs.filter((s) => s.kind === "draft"));
       setShared(row.shared);
     });
+    void fetch("/api/contest")
+      .then((res) => res.json())
+      .then((data) => {
+        const ids = Array.isArray(data?.entries) ? data.entries.map((row: { songId?: string }) => row.songId || "").filter(Boolean) : [];
+        setSent(ids);
+      })
+      .catch(() => undefined);
   }, []);
 
   return (
     <div className="text-sm text-muted">
-      <p>Неопубликованное кидают бесплатно. Слушатели ставят хук, текст, музыку и оригинальность от 1 до 5.</p>
-      <Button className="mt-3 w-full rounded-xl" onClick={() => setContest(true)}>
-        На конкурс · {NOTE_PRICE.contest} нот
-      </Button>
-      {contest ? <ContestSheet onClose={() => setContest(false)} /> : null}
+      <p>Неопубликованное кидают бесплатно. Слушатели ставят хук, текст, музыку и оригинальность от 1 до 5. На конкурс уходит только свой трек.</p>
+      {contest ? (
+        <ContestSheet
+          song={contest}
+          onClose={() => setContest(null)}
+          onSent={() => setSent((cur) => (cur.includes(contest.id) ? cur : [...cur, contest.id]))}
+        />
+      ) : null}
       <div className="mt-3 flex gap-2">
         <Input placeholder="https:// ссылка на черновик" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Button
@@ -344,14 +348,30 @@ export function OrganCard() {
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {songs.map((song) => (
-          <DraftRow key={song.id} song={song} onDone={(next) => setSongs(next.filter((s) => s.kind === "draft"))} />
+          <DraftRow
+            key={song.id}
+            song={song}
+            sent={sent.includes(song.id)}
+            onContest={() => setContest(song)}
+            onDone={(next) => setSongs(next.filter((s) => s.kind === "draft"))}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]) => void }) {
+function DraftRow({
+  song,
+  sent,
+  onContest,
+  onDone,
+}: {
+  song: YardSong;
+  sent: boolean;
+  onContest: () => void;
+  onDone: (songs: YardSong[]) => void;
+}) {
   const admin = useWallet((s) => s.admin);
   const who = caller();
   const mine = song.vk === who.heroId || song.author === who.author;
@@ -364,9 +384,17 @@ function DraftRow({ song, onDone }: { song: YardSong; onDone: (songs: YardSong[]
   ] as const;
   return (
     <div className="rounded-xl border border-border bg-surface px-3 py-2">
-      <a className="font-medium text-fg underline" href={song.url} target="_blank" rel="noreferrer">
-        {song.author}
-      </a>
+      <div className="flex items-center justify-between gap-2">
+        <a className="font-medium text-fg underline" href={song.url} target="_blank" rel="noreferrer">
+          {song.title || song.author}
+        </a>
+        {sent ? <span className="shrink-0 text-xs text-muted">на конкурсе</span> : null}
+      </div>
+      {mine ? (
+        <Button variant="secondary" className="mt-2 w-full rounded-xl" disabled={sent} onClick={onContest}>
+          {sent ? "Уже на конкурсе" : `На конкурс · ${NOTE_PRICE.contest} нот`}
+        </Button>
+      ) : null}
       <p className="mt-1 text-xs">
         хук {avg(song.hook, song.n)} · текст {avg(song.lyric, song.n)} · музыка {avg(song.music, song.n)} · ориг.{" "}
         {avg(song.orig, song.n)} · {song.n}

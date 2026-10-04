@@ -307,7 +307,7 @@ export function Yard() {
             );
           })}
       </MapStage>
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex max-w-[62vw] flex-nowrap gap-2 overflow-x-auto">
           <button
             type="button"
@@ -326,28 +326,15 @@ export function Yard() {
           >
             Чат
           </button>
-          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setLands(true)}>
-            Карта
-          </button>
-          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
-            Слава
-          </button>
-          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
-            Дом
-          </button>
-          <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPrice(true)}>
-            Прайс
-          </button>
-          <button
-            type="button"
-            className="rounded-full bg-black/45 px-3 py-1 text-sm text-white"
-            onClick={() => {
-              setRadioOn(true);
-              setRadioOpen(true);
-            }}
-          >
-            Радио
-          </button>
+          <MoreMenu
+            items={[
+              { label: "Карта", onClick: () => setLands(true) },
+              { label: "Слава", onClick: () => setFame(true) },
+              { label: "Дом", onClick: () => setPlot(true) },
+              { label: "Прайс", onClick: () => setPrice(true) },
+              { label: "Радио", onClick: () => { setRadioOn(true); setRadioOpen(true); } },
+            ]}
+          />
         </div>
         <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white">
           <span className="tabular-nums">{frames} кадров</span>
@@ -573,6 +560,46 @@ function Heckler({ phone }: { phone: boolean }) {
   );
 }
 
+function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
+  const [open, setOpen] = useState(false);
+  const admin = useWallet((s) => s.admin);
+  const rows = [
+    ...items,
+    {
+      label: admin ? "Админка" : "Касса",
+      onClick: () => {
+        if (admin) window.dispatchEvent(new Event("kadr-desk"));
+        else useWallet.getState().setShop(true);
+      },
+    },
+    { label: "Выйти", onClick: () => window.dispatchEvent(new Event("kadr-leave")) },
+  ];
+  return (
+    <div className="relative">
+      <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setOpen((v) => !v)}>
+        Ещё
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-9 z-50 flex min-w-36 flex-col overflow-hidden rounded-2xl bg-[#1a120c] py-1 text-left text-sm text-[#f4e4c4] shadow-lg">
+          {rows.map((row) => (
+            <button
+              key={row.label}
+              type="button"
+              className="px-3 py-2 text-left hover:bg-white/10"
+              onClick={() => {
+                setOpen(false);
+                row.onClick();
+              }}
+            >
+              {row.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function World({ onCity, onBuy, onField }: { onCity: () => void; onBuy: () => void; onField: () => void }) {
   const stage = useStage();
   const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
@@ -597,14 +624,12 @@ function World({ onCity, onBuy, onField }: { onCity: () => void; onBuy: () => vo
         ))}
         <Heckler phone={stage === "phone"} />
       </MapStage>
-      <button
-        type="button"
-        className="absolute right-3 z-30 rounded-full bg-[#2a1a0c]/92 px-3 py-1 text-sm text-[#f4e4c4]"
-        style={{ top: "max(0.7rem, env(safe-area-inset-top))" }}
-        onClick={onField}
-      >
-        Посеять пресейв
-      </button>
+      <div className="absolute top-0 left-0 z-30 flex gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
+        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onField}>
+          Посеять пресейв
+        </button>
+        <MoreMenu items={[]} />
+      </div>
     </div>
   );
 }
@@ -640,10 +665,11 @@ function District({
             </button>
           ))}
       </MapStage>
-      <div className="absolute top-0 left-0 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
+      <div className="absolute top-0 left-0 z-30 flex gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onMap}>
           На карту
         </button>
+        <MoreMenu items={[]} />
       </div>
       {spot === "kadr" ? <Manor onClose={() => onSpot(null)} /> : null}
       {spot && spot !== "kadr" ? <PromoSheet spot={spot} onClose={() => onSpot(null)} /> : null}
