@@ -67,7 +67,18 @@
     .helper-log p { margin: 0 0 8px; white-space: pre-wrap; }
     .helper-log .me { color: #555; }
     .helper-log .him { color: #1a1a1a; }
-    .btn-ghost { background: #2c2d2e; margin-top: 0; }
+    .btn-ghost { background: transparent; color: #2787f5; width: auto; margin: 0; padding: 6px 0; font-size: 14px; }
+    .listen {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #f4f8ff;
+      border: 1px solid #d5e6ff;
+    }
+    .listen audio { display: block; margin-top: 8px; }
+    .listen-row { display: flex; gap: 8px; }
+    .listen-row button { flex: 1; margin-top: 0; }
     input[type="file"], input[type="text"], input[type="number"], select {
       width: 100%;
       padding: 9px;
@@ -76,7 +87,6 @@
       border-radius: 8px;
       font-size: 14px;
       background: white;
-    }
     }
     .row { display: flex; gap: 10px; }
     .row .group { flex: 1; }
@@ -94,6 +104,7 @@
       transition: background 0.2s, opacity 0.2s;
     }
     .btn:hover { background: #2276d7; }
+    .btn.btn-ghost { width: auto; margin: 0 0 0 8px; padding: 4px 0; background: transparent; color: #2787f5; font-size: 14px; }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-download { background: #4bb34b; display: none; margin-top: 10px; }
     .btn-download:hover { background: #3ec13e; }
@@ -204,7 +215,9 @@
 <body>
 
 <div class="card">
-  <h2>Мастеринг & Очистка <span class="version-tag">v1.0.1</span></h2>
+  <h2>Мастеринг & Очистка <span class="version-tag">v1.0.1</span>
+    <button id="helperBtn" class="btn btn-ghost" type="button">Помощник</button>
+  </h2>
   <div class="info-badge">Чистый звук без мусора Suno</div>
 
   <div class="group">
@@ -282,7 +295,25 @@
     </select>
   </div>
 
-  <button id="helperBtn" class="btn btn-ghost" type="button">Помощник</button>
+  <button id="processBtn" class="btn">Очистить мусор & Обработать</button>
+  <div id="pacmanLoader" class="pacman-loader">
+    <div class="pacman"></div>
+    <div class="notes-track">
+      <span>🎵</span><span>🎶</span><span>🎵</span><span>🎶</span><span>🎵</span>
+    </div>
+  </div>
+  <div id="progressContainer" class="progress-bar-container">
+    <div id="progressBar" class="progress-bar-fill"></div>
+  </div>
+  <div id="status" class="status"></div>
+  <div id="listenBox" class="listen">
+    <div class="listen-row">
+      <button id="hearRaw" class="btn" type="button" style="background:#6b7280">Исходник</button>
+      <button id="hearDone" class="btn" type="button" style="background:#4bb34b">Готовое</button>
+    </div>
+    <audio id="audioPreview" controls playsinline></audio>
+    <button id="downloadBtn" class="btn btn-download" style="display:block">Скачать готовый файл</button>
+  </div>
 
   <div class="section-title">2. Чистые метаданные</div>
   <div class="row">
@@ -322,28 +353,6 @@
     <label>Обложка трека (JPG / PNG)</label>
     <input type="file" id="coverFile" accept="image/jpeg, image/png">
   </div>
-
-  <button id="processBtn" class="btn">Очистить мусор & Обработать</button>
-
-  <!-- Pacman Анимация & Индикатор -->
-  <div id="pacmanLoader" class="pacman-loader">
-    <div class="pacman"></div>
-    <div class="notes-track">
-      <span>🎵</span>
-      <span>🎶</span>
-      <span>🎵</span>
-      <span>🎶</span>
-      <span>🎵</span>
-    </div>
-  </div>
-  <div id="progressContainer" class="progress-bar-container">
-    <div id="progressBar" class="progress-bar-fill"></div>
-  </div>
-
-  <div id="status" class="status"></div>
-  <audio id="audioPreview" controls></audio>
-  
-  <button id="downloadBtn" class="btn btn-download">Скачать готовый файл</button>
 </div>
 
 <aside class="helper" id="helper">
@@ -358,10 +367,6 @@
 </aside>
 
 <div id="toast" class="toast"></div>
-
-<!-- Экранная консоль отладки Eruda -->
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
 
 <script>
   let isVk = false;
@@ -412,6 +417,7 @@
   let audioBuffer = null;
   let coverArrayBuffer = null;
   let finalBlob = null;
+  let sourceUrl = null;
   let rawFileName = 'master_track';
 
   outputFormatSelect.addEventListener('change', () => {
@@ -502,6 +508,8 @@
     const file = e.target.files[0];
     if (!file) return;
     rawFileName = file.name.replace(/\.[^/.]+$/, "");
+    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    sourceUrl = URL.createObjectURL(file);
     
     statusDiv.innerText = 'Декодирование аудио...';
     try {
@@ -567,6 +575,7 @@
     }
 
     processBtn.disabled = true;
+    document.getElementById('listenBox').style.display = 'none';
     downloadBtn.style.display = 'none';
     pacmanLoader.style.display = 'block';
     progressContainer.style.display = 'block';
@@ -736,10 +745,12 @@
         URL.revokeObjectURL(currentObjectUrl);
       }
       currentObjectUrl = URL.createObjectURL(finalBlob);
-      
+      const box = document.getElementById('listenBox');
+      box.style.display = 'block';
       audioPreview.src = currentObjectUrl;
       audioPreview.style.display = 'block';
       downloadBtn.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     } catch (err) {
       console.error(err);
@@ -884,6 +895,17 @@
   }
 
   // Скачивание файлов без вызова рекламы
+  document.getElementById('hearRaw').addEventListener('click', () => {
+    if (!sourceUrl) { showToast('Сначала выбери файл.'); return; }
+    audioPreview.src = sourceUrl;
+    audioPreview.play().catch(() => {});
+  });
+  document.getElementById('hearDone').addEventListener('click', () => {
+    if (!currentObjectUrl) { showToast('Сначала собери файл.'); return; }
+    audioPreview.src = currentObjectUrl;
+    audioPreview.play().catch(() => {});
+  });
+
   downloadBtn.addEventListener('click', () => {
     if (!finalBlob) return;
     saveProcessedFile();

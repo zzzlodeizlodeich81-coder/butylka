@@ -493,12 +493,12 @@ export function Yard() {
       ) : null}
       {house === "atelier" ? <Atelier onClose={() => setHouse(null)} /> : null}
       {house && DOORS[house] ? (
-        <div className="absolute inset-0 z-20 flex flex-col bg-black">
-          <div className="flex items-center justify-between gap-3 px-3 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1">
-            <button type="button" className="text-sm text-white" onClick={() => setHouse(null)}>
+        <div className="absolute inset-0 z-40 flex flex-col bg-black">
+          <div className="flex items-center justify-between gap-3 bg-black px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2">
+            <button type="button" className="rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setHouse(null)}>
               На двор
             </button>
-            <a className="text-sm text-white/80" href={DOORS[house]} target="_blank" rel="noreferrer">
+            <a className="rounded-full bg-white/15 px-3 py-1 text-sm text-white" href={DOORS[house]} target="_blank" rel="noreferrer">
               Открыть отдельно
             </a>
           </div>
