@@ -330,7 +330,7 @@ export function Yard() {
       </MapStage>
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex min-w-0 flex-1 items-start gap-2">
-          <div className="flex flex-nowrap gap-2 overflow-x-auto">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className="shrink-0 rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
@@ -382,7 +382,7 @@ export function Yard() {
       {layer === "yard" ? (
         <div
           className="pointer-events-none absolute inset-x-0 z-20 flex items-center gap-2 px-3"
-          style={{ top: "max(3.15rem, calc(env(safe-area-inset-top) + 2.75rem))" }}
+          style={{ top: "max(5.8rem, calc(env(safe-area-inset-top) + 5.4rem))" }}
         >
           <span className="shrink-0 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">Во дворе {here.length}</span>
           <div className="pointer-events-auto flex min-w-0 gap-1 overflow-x-auto">
