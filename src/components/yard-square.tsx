@@ -383,6 +383,11 @@ function DraftRow({
   ] as const;
   return (
     <div className="rounded-xl border border-border bg-surface px-3 py-2">
+      {mine ? (
+        <Button variant="secondary" className="mb-2 w-full rounded-xl" disabled={sent} onClick={onContest}>
+          {sent ? "Уже на конкурсе" : `Отправить на конкурс · ${NOTE_PRICE.contest} нот`}
+        </Button>
+      ) : null}
       <div className="flex items-center justify-between gap-2">
         <a className="font-medium text-fg underline" href={song.url} target="_blank" rel="noreferrer">
           {song.title || song.author}
@@ -412,38 +417,22 @@ function DraftRow({
           </div>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          className="rounded-xl"
-          onClick={() => {
-            void (async () => {
-              const res = await yardBoard({ data: { action: "rate", songId: song.id, ...score, ...caller() } });
-              if (!res.ok) {
-                toast.error(res.error || "Не зачлось.");
-                return;
-              }
-              onDone(res.songs || []);
-            })();
-          }}
-        >
-          Оценить
-        </Button>
-        <Button
-          variant="secondary"
-          className="rounded-xl"
-          disabled={sent}
-          onClick={() => {
-            if (!mine) {
-              toast.error("На конкурс уходит только свой трек.");
+      <Button
+        variant="secondary"
+        className="mt-2 rounded-xl"
+        onClick={() => {
+          void (async () => {
+            const res = await yardBoard({ data: { action: "rate", songId: song.id, ...score, ...caller() } });
+            if (!res.ok) {
+              toast.error(res.error || "Не зачлось.");
               return;
             }
-            onContest();
-          }}
-        >
-          {sent ? "Уже на конкурсе" : "На конкурс"}
-        </Button>
-      </div>
+            onDone(res.songs || []);
+          })();
+        }}
+      >
+        Оценить
+      </Button>
       {mine || admin ? (
         <Button
           variant="secondary"
