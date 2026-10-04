@@ -676,9 +676,99 @@ function World({
   }, []);
   const stage = useStage();
   const mine = rows.find((row) => row.owner);
+  const board = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const [pan, setPan] = useState({ x: -40, y: -30 });
+  const spots = [
+    { left: "14%", top: "46%" },
+    { left: "33%", top: "24%" },
+    { left: "61%", top: "30%" },
+    { left: "82%", top: "42%" },
+    { left: "24%", top: "70%" },
+    { left: "48%", top: "58%" },
+    { left: "74%", top: "68%" },
+    { left: "18%", top: "84%" },
+    { left: "44%", top: "82%" },
+    { left: "68%", top: "86%" },
+    { left: "88%", top: "74%" },
+    { left: "52%", top: "18%" },
+  ];
+
+  function clamp(x: number, y: number) {
+    const frame = board.current?.parentElement;
+    if (!frame) return { x, y };
+    return {
+      x: Math.min(40, Math.max(frame.clientWidth - frame.clientWidth * 1.85, x)),
+      y: Math.min(20, Math.max(frame.clientHeight - frame.clientHeight * 1.7, y)),
+    };
+  }
+
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#6a341c]">
-      <img src="/world.jpg" alt="Карта музыкального мира" className="absolute inset-0 h-full w-full object-cover" />
+      <div
+        className="absolute inset-0 z-10 cursor-grab touch-none active:cursor-grabbing"
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest("button")) return;
+          drag.current = { x: event.clientX, y: event.clientY, px: pan.x, py: pan.y };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (!drag.current) return;
+          setPan(clamp(drag.current.px + event.clientX - drag.current.x, drag.current.py + event.clientY - drag.current.y));
+        }}
+        onPointerUp={() => {
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+        }}
+      >
+        <div ref={board} className="absolute h-[170%] w-[185%]" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
+          <img src="/world.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <button
+            type="button"
+            className="absolute max-w-[11rem] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
+            style={{ left: "8%", top: "40%" }}
+            onClick={onHome}
+          >
+            <span className="block text-[12px] font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
+            <span className="text-[10px] text-[#c4a574]">государство</span>
+          </button>
+          {[
+            { left: "70%", top: "22%" },
+            { left: "40%", top: "72%" },
+          ].map((spot) => (
+            <button
+              key={spot.left}
+              type="button"
+              className="absolute rounded-xl bg-white/90 px-2 py-1 text-left text-[#1a120c] shadow"
+              style={spot}
+              onClick={onBuy}
+            >
+              <span className="block text-[12px] font-medium">продаётся</span>
+              <span className="text-[10px]">участок и дома</span>
+            </button>
+          ))}
+          {rows.map((plot, index) => (
+            <button
+              key={plot.id}
+              type="button"
+              className="absolute max-w-[9rem] rounded-xl bg-black/75 px-2 py-1 text-left text-[#f4e4c4] shadow"
+              style={spots[index % spots.length]}
+              onClick={() => onEnter(plot)}
+            >
+              <span className="block truncate text-[12px] font-medium">{plot.name}</span>
+              <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
+            </button>
+          ))}
+          <Heckler phone={stage === "phone"} side />
+        </div>
+      </div>
+      <div className="pointer-events-none absolute top-[max(4.6rem,calc(env(safe-area-inset-top)+4.2rem))] left-3 z-20 max-w-[16rem] rounded-xl bg-black/55 px-3 py-2 text-[#f4e4c4]">
+        <p className="text-sm">карта музыкального мира</p>
+        <p className="text-lg leading-none">😏</p>
+        <p className="text-xs">а вы думали вы на земле? как бы не так!</p>
+      </div>
       <div className="absolute top-0 left-0 z-30 flex flex-wrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onField}>
           Посеять пресейв
@@ -691,36 +781,7 @@ function World({
         </button>
         <MoreMenu items={menu} />
       </div>
-      <div className="relative z-20 flex h-full flex-col px-3 pt-[max(7.4rem,calc(env(safe-area-inset-top)+6.6rem))] pb-3">
-        <div className="pointer-events-none max-w-sm rounded-xl bg-black/55 px-3 py-2 text-center text-[#f4e4c4]">
-          <p className="text-sm">карта музыкального мира</p>
-          <p className="text-lg leading-none">😏</p>
-          <p className="text-xs">а вы думали вы на земле? как бы не так!</p>
-        </div>
-        <div className="mt-2 flex min-h-0 w-[min(16rem,72%)] flex-1 flex-col gap-2 overflow-auto pb-16">
-          <button type="button" className="rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow" onClick={onHome}>
-            <span className="block text-[12px] font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
-            <span className="text-[10px] text-[#c4a574]">государство</span>
-          </button>
-          {rows.map((plot) => (
-            <button
-              key={plot.id}
-              type="button"
-              className="shrink-0 rounded-xl bg-black/75 px-2 py-1 text-left text-[#f4e4c4] shadow"
-              onClick={() => onEnter(plot)}
-            >
-              <span className="block truncate text-[12px] font-medium">{plot.name}</span>
-              <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <Heckler phone={stage === "phone"} side />
-      {!mine ? (
-        <p className="absolute bottom-3 left-3 z-30 max-w-[14rem] rounded-2xl bg-black/70 px-3 py-2 text-xs text-[#f4e4c4]">
-          Купи участок: частный двор или сообщество. Палатку на карту не ставят.
-        </p>
-      ) : !mine.liege && mine.badge !== "государство" ? (
+      {!mine ? null : !mine.liege && mine.badge !== "государство" ? (
         <form
           className="absolute bottom-3 left-3 z-30 flex max-w-[16rem] flex-col gap-1 rounded-2xl bg-black/70 p-2"
           onSubmit={(event) => {

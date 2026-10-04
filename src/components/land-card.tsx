@@ -68,7 +68,7 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
       <div className="max-h-[86%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-2xl text-fg">Большая карта</h2>
+          <h2 className="font-display text-2xl text-fg">Участок и дома</h2>
           <Button variant="ghost" onClick={onClose}>
             Закрыть
           </Button>
