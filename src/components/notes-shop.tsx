@@ -160,6 +160,9 @@ export function NotesShop() {
           <li>
             {NOTE_LABEL.host} — {NOTE_PRICE.host} нот
           </li>
+          <li>
+            {NOTE_LABEL.contest} — {NOTE_PRICE.contest} нот
+          </li>
           <li>Стихи + два трека + минус — {cookCost()} нот</li>
         </ul>
         <Input

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiClipRouteImport } from './routes/api/clip'
+import { Route as ApiContestRouteImport } from './routes/api/contest'
 import { Route as ApiDoorRouteImport } from './routes/api/door'
 import { Route as ApiHostRouteImport } from './routes/api/host'
 import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiClipRoute = ApiClipRouteImport.update({
   id: '/api/clip',
   path: '/api/clip',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiContestRoute = ApiContestRouteImport.update({
+  id: '/api/contest',
+  path: '/api/contest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDoorRoute = ApiDoorRouteImport.update({
@@ -86,6 +92,7 @@ const ApiYookassaRoute = ApiYookassaRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/clip': typeof ApiClipRoute
+  '/api/contest': typeof ApiContestRoute
   '/api/door': typeof ApiDoorRoute
   '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/clip': typeof ApiClipRoute
+  '/api/contest': typeof ApiContestRoute
   '/api/door': typeof ApiDoorRoute
   '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/clip': typeof ApiClipRoute
+  '/api/contest': typeof ApiContestRoute
   '/api/door': typeof ApiDoorRoute
   '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/clip'
+    | '/api/contest'
     | '/api/door'
     | '/api/host'
     | '/api/host-audio'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api/clip'
+    | '/api/contest'
     | '/api/door'
     | '/api/host'
     | '/api/host-audio'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api/clip'
+    | '/api/contest'
     | '/api/door'
     | '/api/host'
     | '/api/host-audio'
@@ -174,6 +186,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiClipRoute: typeof ApiClipRoute
+  ApiContestRoute: typeof ApiContestRoute
   ApiDoorRoute: typeof ApiDoorRoute
   ApiHostRoute: typeof ApiHostRoute
   ApiHostAudioRoute: typeof ApiHostAudioRoute
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/api/clip'
       fullPath: '/api/clip'
       preLoaderRoute: typeof ApiClipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/contest': {
+      id: '/api/contest'
+      path: '/api/contest'
+      fullPath: '/api/contest'
+      preLoaderRoute: typeof ApiContestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/door': {
@@ -278,6 +298,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiClipRoute: ApiClipRoute,
+  ApiContestRoute: ApiContestRoute,
   ApiDoorRoute: ApiDoorRoute,
   ApiHostRoute: ApiHostRoute,
   ApiHostAudioRoute: ApiHostAudioRoute,

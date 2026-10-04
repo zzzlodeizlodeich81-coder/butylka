@@ -19,7 +19,7 @@
  */
 export const NOTES_PER_VOTE = 10;
 
-export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover" | "grok" | "art" | "video5" | "video10" | "video15" | "host";
+export type PaidKind = "lyrics" | "generate" | "minus" | "stems" | "cover" | "grok" | "art" | "video5" | "video10" | "video15" | "host" | "contest";
 
 export const NOTE_PRICE: Record<PaidKind, number> = {
   lyrics: 10,
@@ -33,6 +33,7 @@ export const NOTE_PRICE: Record<PaidKind, number> = {
   video10: 110,
   video15: 160,
   host: 10,
+  contest: 220,
 };
 
 export const NOTE_LABEL: Record<PaidKind, string> = {
@@ -47,6 +48,7 @@ export const NOTE_LABEL: Record<PaidKind, string> = {
   video10: "Ролик 10 сек",
   video15: "Ролик 15 сек",
   host: "Хозяин особняка",
+  contest: "Конкурс Матрёшка",
 };
 
 export type NotePack = {

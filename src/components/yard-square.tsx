@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useGame } from "@/lib/store";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
+import { NOTE_PRICE } from "@/lib/notes";
 import { yardBoard, type Hero, type YardLine, type YardSong } from "@/lib/yard-board";
 import { readFrames } from "@/lib/yard";
 
@@ -58,12 +59,238 @@ function blip() {
   }
 }
 
+type ContestRow = { id: string; artist: string; title: string; votes: number; voted: boolean; mine: boolean; lyrics?: string };
+
+function squareShot(file: File) {
+  return new Promise<Blob>((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800;
+      canvas.height = 800;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error("canvas"));
+        return;
+      }
+      const side = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 800, 800);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("blob"))), "image/jpeg", 0.82);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("img"));
+    };
+    img.src = url;
+  });
+}
+
+function ContestSheet({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<ContestRow[]>([]);
+  const [taken, setTaken] = useState(0);
+  const [rank, setRank] = useState(0);
+  const [admin, setAdmin] = useState(false);
+  const [title, setTitle] = useState("");
+  const [artist, setArtist] = useState("");
+  const [lyrics, setLyrics] = useState("");
+  const [audio, setAudio] = useState<File | null>(null);
+  const [cover, setCover] = useState<Blob | null>(null);
+  const [coverUrl, setCoverUrl] = useState("");
+  const [deal, setDeal] = useState(false);
+  const [free, setFree] = useState(false);
+  const [rights, setRights] = useState(false);
+  const [court, setCourt] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  function take(data: {
+    entries?: ContestRow[];
+    taken?: number;
+    rank?: number;
+    admin?: boolean;
+    notes?: number;
+  }) {
+    if (Array.isArray(data.entries)) setRows(data.entries);
+    if (typeof data.taken === "number") setTaken(data.taken);
+    if (typeof data.rank === "number") setRank(data.rank);
+    if (typeof data.admin === "boolean") setAdmin(data.admin);
+    if (typeof data.notes === "number") useWallet.getState().apply({ notes: data.notes });
+  }
+
+  useEffect(() => {
+    void fetch("/api/contest")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok) take(data);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  async function send() {
+    if (!audio || !cover || busy) return;
+    if (!deal || !free || !rights || !court) {
+      toast.error("Нужны все четыре согласия.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const body = new FormData();
+      body.set("title", title);
+      body.set("artist", artist);
+      body.set("lyrics", lyrics);
+      body.set("audio", audio);
+      body.set("cover", cover, "cover.jpg");
+      body.set("deal", deal ? "1" : "");
+      body.set("free", free ? "1" : "");
+      body.set("rights", rights ? "1" : "");
+      body.set("court", court ? "1" : "");
+      const res = await fetch("/api/contest", { method: "POST", body });
+      const data = await res.json().catch(() => null);
+      if (typeof data?.notes === "number") useWallet.getState().apply({ notes: data.notes });
+      if (!res.ok || !data?.ok) {
+        toast.error(data?.error || "Не приняли.");
+        return;
+      }
+      take(data);
+      setTitle("");
+      setArtist("");
+      setLyrics("");
+      setAudio(null);
+      setCover(null);
+      setCoverUrl("");
+      setDeal(false);
+      setFree(false);
+      setRights(false);
+      setCourt(false);
+      toast.success("Трек на конкурсе.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end bg-black/50">
+      <div className="max-h-[88%] w-full overflow-auto rounded-t-3xl bg-[#1a120c] px-3 pt-3 pb-[max(0.8rem,env(safe-area-inset-bottom))] text-[#f4e4c4]">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-2xl">Матрёшка (лучшее)</h2>
+          <Button variant="ghost" className="text-[#f4e4c4]" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+        <p className="mt-1 text-sm text-[#c4a574]">
+          Сборник HoldingMusic Матрёшка (лучшее). В месяц 10 треков, сейчас {taken} из 10. Твой статус {rank}. Голос за чужой трек даёт +1.
+        </p>
+        <p className="mt-2 text-xs text-[#c4a574]">
+          80% роялти всего альбома делится между артистами по прослушиваниям из статистики Needle Music. 10% дистрибьютору. 10% на развитие игры «Музыкальный город».
+        </p>
+        <Input className="mt-3" placeholder="Название трека" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input className="mt-2" placeholder="Имя артиста" value={artist} onChange={(e) => setArtist(e.target.value)} />
+        <textarea
+          className="mt-2 w-full rounded-xl bg-black/30 px-3 py-2 text-sm outline-none"
+          rows={4}
+          maxLength={8000}
+          placeholder="Текст трека"
+          value={lyrics}
+          onChange={(e) => setLyrics(e.target.value)}
+        />
+        <label className="mt-2 block text-xs">
+          Файл трека, формат любой
+          <input
+            className="mt-1 block w-full text-sm"
+            type="file"
+            accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg,.aac"
+            onChange={(e) => setAudio(e.target.files?.[0] || null)}
+          />
+        </label>
+        <label className="mt-2 block text-xs">
+          Квадратная картинка
+          <input
+            className="mt-1 block w-full text-sm"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              void squareShot(file)
+                .then((blob) => {
+                  setCover(blob);
+                  setCoverUrl(URL.createObjectURL(blob));
+                })
+                .catch(() => toast.error("Картинка не прочиталась."));
+            }}
+          />
+        </label>
+        {coverUrl ? <img src={coverUrl} alt="" className="mt-2 size-24 rounded-lg object-cover" /> : null}
+        {(
+          [
+            ["deal", deal, setDeal, "Согласен с дележом: 80% артистам по прослушиваниям, 10% Needle Music, 10% игре."],
+            ["free", free, setFree, "Трек не размещён у других дистрибьюторов."],
+            ["rights", rights, setRights, "Права на трек мои."],
+            ["court", court, setCourt, "Если будет спор в суде, ответственность несу я."],
+          ] as const
+        ).map(([key, on, set, label]) => (
+          <label key={key} className="mt-2 flex items-start gap-2 text-xs">
+            <input type="checkbox" className="mt-0.5" checked={on} onChange={(e) => set(e.target.checked)} />
+            <span>{label}</span>
+          </label>
+        ))}
+        <Button className="mt-3 w-full rounded-xl" disabled={busy || taken >= 10} onClick={() => void send()}>
+          {busy ? "Кладёт…" : taken >= 10 ? "В этом месяце мест нет" : `Подать · ${NOTE_PRICE.contest} нот`}
+        </Button>
+        <div className="mt-4 flex flex-col gap-2">
+          {rows.map((row) => (
+            <div key={row.id} className="rounded-xl bg-black/30 px-3 py-2">
+              <p className="font-medium">
+                {row.artist} — {row.title} <span className="text-xs text-[#c4a574]">на конкурсе</span>
+              </p>
+              <img src={`/api/contest?id=${row.id}&part=cover`} alt="" className="mt-2 size-16 rounded-lg object-cover" />
+              <audio className="mt-2 w-full" controls src={`/api/contest?id=${row.id}&part=audio`} />
+              <p className="mt-1 text-xs">голосов {row.votes}</p>
+              {admin && row.lyrics ? <p className="mt-1 whitespace-pre-wrap text-xs text-[#c4a574]">{row.lyrics}</p> : null}
+              {admin ? (
+                <a className="mt-1 block text-xs underline" href={`/api/contest?id=${row.id}&part=audio`}>
+                  Скачать файл
+                </a>
+              ) : null}
+              <Button
+                variant="secondary"
+                className="mt-2 rounded-xl"
+                disabled={row.voted || row.mine}
+                onClick={() => {
+                  void (async () => {
+                    const res = await fetch("/api/contest", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: row.id }),
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok || !data?.ok) {
+                      toast.error(data?.error || "Голос не зачёлся.");
+                      return;
+                    }
+                    take(data);
+                    if (data.gained) toast.success(`Статус ${data.rank}`);
+                  })();
+                }}
+              >
+                {row.mine ? "Твой трек" : row.voted ? "Голос есть" : "Голосовать · статус +1"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OrganCard() {
-  const name = useGame((s) => s.players.find((p) => p.id === s.youId)?.name || "Гость");
   const [songs, setSongs] = useState<YardSong[]>([]);
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [shared, setShared] = useState(true);
+  const [contest, setContest] = useState(false);
 
   useEffect(() => {
     void loadBoard().then((row) => {
@@ -75,6 +302,10 @@ export function OrganCard() {
   return (
     <div className="text-sm text-muted">
       <p>Неопубликованное кидают бесплатно. Слушатели ставят хук, текст, музыку и оригинальность от 1 до 5.</p>
+      <Button className="mt-3 w-full rounded-xl" onClick={() => setContest(true)}>
+        На конкурс · {NOTE_PRICE.contest} нот
+      </Button>
+      {contest ? <ContestSheet onClose={() => setContest(false)} /> : null}
       <div className="mt-3 flex gap-2">
         <Input placeholder="https:// ссылка на черновик" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Button
