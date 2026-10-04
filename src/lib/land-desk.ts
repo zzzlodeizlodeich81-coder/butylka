@@ -4,7 +4,7 @@ import type { PlotKind } from "@/lib/lands";
 export const landDesk = createServerFn({ method: "POST" })
   .validator(
     (input: {
-      action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle" | "roster" | "kick";
+      action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle" | "roster" | "kick" | "swear";
       kind?: PlotKind;
       title?: string;
       tool?: string;

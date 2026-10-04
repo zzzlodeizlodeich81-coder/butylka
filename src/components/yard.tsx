@@ -31,16 +31,6 @@ type HouseId = "stage" | "record" | "factory" | "frame" | "atelier" | "cinema" |
 type SpotId = "yard" | "sferoom" | "needle" | "yourtunes" | "kadr";
 type Layer = "world" | "city" | "yard";
 
-const WORLD = [
-  { id: "city", label: "Город", left: "2%", top: "22%", width: "50%", height: "62%" },
-  { id: "buy", label: "Купить", left: "58%", top: "44%", width: "26%", height: "34%" },
-];
-
-const WORLD_PHONE = [
-  { id: "city", label: "Город", left: "4%", top: "12%", width: "92%", height: "42%" },
-  { id: "buy", label: "Купить", left: "14%", top: "58%", width: "72%", height: "22%" },
-];
-
 function MapStage({
   src,
   alt,
@@ -257,7 +247,18 @@ export function Yard() {
   if (layer === "world") {
     return (
       <>
-        <World onCity={() => setLayer("city")} onBuy={() => setLands(true)} onField={() => setField(true)} menu={menuItems} />
+        <World
+          onCity={() => setLayer("city")}
+          onHome={() => {
+            setLock(null);
+            setSpot(null);
+            setLayer("yard");
+          }}
+          onEnter={enterPlot}
+          onBuy={() => setLands(true)}
+          onField={() => setField(true)}
+          menu={menuItems}
+        />
         {desk}
         {splash ? (
           <button type="button" className="fixed inset-0 z-40 bg-black" onClick={() => setSplash(false)}>
@@ -651,46 +652,120 @@ function MoreMenu({ items }: { items: { label: string; onClick: () => void }[] }
   );
 }
 
+function pinAt(id: string) {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 33 + ch.charCodeAt(0)) >>> 0;
+  return { left: `${16 + (hash % 62)}%`, top: `${24 + ((hash >> 6) % 46)}%` };
+}
+
 function World({
   onCity,
+  onHome,
+  onEnter,
   onBuy,
   onField,
   menu,
 }: {
   onCity: () => void;
+  onHome: () => void;
+  onEnter: (plot: { id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean }) => void;
   onBuy: () => void;
   onField: () => void;
   menu: { label: string; onClick: () => void }[];
 }) {
-  const stage = useStage();
-  const map = stage === "phone" ? { src: "/m/world.jpg", aspect: "9 / 16", zones: WORLD_PHONE } : { src: "/world.jpg", aspect: "16 / 9", zones: WORLD };
+  const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
+  const [code, setCode] = useState("");
+  useEffect(() => {
+    void landDesk({ data: { action: "look" } }).then((res) => {
+      if (res.ok) setRows((res.plots as typeof rows) || []);
+    });
+  }, []);
+  const mine = rows.find((row) => row.owner);
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#1c2830]">
-      <MapStage src={map.src} alt="Большая карта" aspect={map.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
-        {map.zones.map((zone) => (
-          <button
-            key={zone.id}
-            type="button"
-            aria-label={zone.label}
-            className="absolute rounded-xl hover:bg-white/10"
-            style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
-            onClick={() => (zone.id === "buy" ? onBuy() : onCity())}
-          >
-            <span
-              className={`pointer-events-none absolute left-1/2 -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-2 py-0.5 text-[12px] font-medium text-[#f4e4c4] shadow ${zone.id === "city" ? "top-2" : "bottom-1"}`}
+    <div className="relative h-dvh w-full overflow-hidden bg-[#2a1812]">
+      <MapStage src="/world.jpg" alt="Карта музыкального мира" aspect="16 / 9" top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
+        <div className="pointer-events-none absolute top-2 left-1/2 w-[90%] -translate-x-1/2 rounded-xl bg-black/55 px-3 py-2 text-center text-[#f4e4c4]">
+          <p className="text-sm">карта музыкального мира</p>
+          <p className="text-xl leading-none">😏</p>
+          <p className="text-xs">а вы думали вы на земле? как бы не так!</p>
+        </div>
+        <button
+          type="button"
+          className="absolute max-w-[34%] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
+          style={{ left: "8%", top: "58%" }}
+          onClick={onHome}
+        >
+          <span className="block text-[12px] font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
+          <span className="text-[10px] text-[#c4a574]">государство</span>
+        </button>
+        {rows.map((plot) => {
+          const at = pinAt(plot.id);
+          return (
+            <button
+              key={plot.id}
+              type="button"
+              className="absolute max-w-[28%] -translate-x-1/2 rounded-xl bg-black/75 px-2 py-1 text-left text-[#f4e4c4] shadow"
+              style={at}
+              onClick={() => onEnter(plot)}
             >
-              {zone.label}
-            </span>
-          </button>
-        ))}
-        <Heckler phone={stage === "phone"} />
+              <span className="block truncate text-[12px] font-medium">{plot.name}</span>
+              <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
+            </button>
+          );
+        })}
+        <Heckler phone={false} />
       </MapStage>
-      <div className="absolute top-0 left-0 z-30 flex gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
+      <div className="absolute top-0 left-0 z-30 flex flex-wrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onField}>
           Посеять пресейв
         </button>
+        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onCity}>
+          Город
+        </button>
+        <button type="button" className="rounded-full bg-white px-3 py-1 text-sm text-black" onClick={onBuy}>
+          Купить участок
+        </button>
         <MoreMenu items={menu} />
       </div>
+      {!mine ? (
+        <p className="absolute bottom-3 left-3 z-30 max-w-[18rem] rounded-2xl bg-black/70 px-3 py-2 text-xs text-[#f4e4c4]">
+          Купи участок: частный двор или сообщество. Палатку на карту не ставят.
+        </p>
+      ) : !mine.liege && mine.badge !== "государство" ? (
+        <form
+          className="absolute right-3 bottom-3 z-30 flex max-w-[16rem] flex-col gap-1 rounded-2xl bg-black/70 p-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void landDesk({ data: { action: "swear", code } }).then((res) => {
+              if (!res.ok) {
+                toast.error(res.error || "Не примкнул.");
+                return;
+              }
+              setCode("");
+              toast.success("Примкнул.");
+              setRows((list) => list.map((row) => (row.owner ? { ...row, liege: "1", badge: row.kind === "commune" ? "государство" : row.badge } : row)));
+            });
+          }}
+        >
+          <p className="text-xs text-[#f4e4c4]">
+            {mine.kind === "commune"
+              ? "Сообщество пристаёт только к государству."
+              : "Частный двор может примкнуть к одному сообществу или государству."}
+            {mine.stateCode ? ` Код твоего государства: ${mine.stateCode}` : ""}
+          </p>
+          <div className="flex gap-1">
+            <input
+              className="min-w-0 flex-1 rounded-lg bg-white/90 px-2 py-1 text-xs"
+              placeholder="Код"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+            />
+            <button type="submit" className="rounded-lg bg-white px-2 text-xs text-black">
+              Примкнуть
+            </button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,8 @@ type Plot = {
   members: string[];
   bank: number;
   state: string;
+  stateCode?: string;
+  liege?: string;
 };
 
 type Track = { side: "a" | "b"; by: string; url: string };
@@ -79,6 +81,9 @@ function pub(plot: Plot, viewer: string) {
     code: plot.owner === viewer ? plot.code : "",
     bank: plot.bank,
     state: plot.state,
+    stateCode: plot.owner === viewer ? plot.stateCode || "" : "",
+    liege: plot.liege || "",
+    badge: plot.kind === "commune" && plot.state ? "государство" : plot.kind === "commune" ? "сообщество" : "частный двор",
     owner: plot.owner === viewer,
     member: plot.owner === viewer || plot.members.includes(viewer),
     heads: plot.members.length + 1,
@@ -90,7 +95,7 @@ function toolById(id: string) {
 }
 
 export async function runLand(data: {
-  action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle" | "roster" | "kick";
+  action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle" | "roster" | "kick" | "swear";
   kind?: PlotKind;
   title?: string;
   tool?: string;
@@ -198,6 +203,30 @@ export async function runLand(data: {
       return { ok: true as const, notes: (await readPurse(guest.id))?.notes ?? 0 };
     }
 
+    if (data.action === "swear") {
+      if (!mine) return { ok: false as const, error: "Сначала купи свой двор." };
+      if (mine.liege || (mine.kind === "commune" && mine.state)) return { ok: false as const, error: "Уже примкнул. Место одно." };
+      const code = (data.code || "").trim().toLowerCase();
+      const commune = book.plots.find((item) => item.kind === "commune" && item.code === code && item.id !== mine.id);
+      const stateHost = book.plots.find((item) => item.stateCode && item.stateCode === code);
+      if (mine.kind === "commune") {
+        if (!stateHost?.state) return { ok: false as const, error: "Сообщество пристаёт только к государству." };
+        mine.state = stateHost.state;
+        mine.stateCode = stateHost.stateCode;
+        mine.liege = stateHost.state;
+      } else if (stateHost?.state) {
+        mine.liege = stateHost.state;
+      } else if (commune && !commune.state) {
+        mine.liege = commune.id;
+      } else if (commune?.state) {
+        return { ok: false as const, error: "Это сообщество уже в государстве. Нужен код государства." };
+      } else {
+        return { ok: false as const, error: "Кода нет." };
+      }
+      await writeBook(book);
+      return { ok: true as const, notes: (await readPurse(guest.id))?.notes ?? 0, mine: pub(mine, guest.id) };
+    }
+
     const sideOf = (plotId: string) => {
       const plot = book.plots.find((item) => item.id === plotId);
       if (!plot) return "";
@@ -283,16 +312,25 @@ export async function runLand(data: {
         return { ok: true as const, notes: (await readPurse(guest.id))?.notes ?? 0 };
       }
       if (data.how === "state" && loserId === mine.id) {
-        const state = randomBytes(3).toString("hex");
-        const a = book.plots.find((plot) => plot.id === open.a);
-        const b = book.plots.find((plot) => plot.id === open.b);
-        if (a) a.state = state;
-        if (b) b.state = state;
+        const winner = book.plots.find((plot) => plot.id === winnerId);
+        const loser = book.plots.find((plot) => plot.id === loserId);
+        const state = winner?.state || randomBytes(3).toString("hex");
+        const stateCode = winner?.stateCode || randomBytes(2).toString("hex");
+        if (winner) {
+          winner.state = state;
+          winner.stateCode = stateCode;
+          winner.liege = state;
+        }
+        if (loser) {
+          loser.state = state;
+          loser.stateCode = stateCode;
+          loser.liege = state;
+        }
         open.choice = "state";
         await writeBook(book);
         const half = Math.floor(open.pot / 2);
-        if (a) await addPurse(a.owner, half);
-        if (b) await addPurse(b.owner, open.pot - half);
+        if (winner) await addPurse(winner.owner, half);
+        if (loser) await addPurse(loser.owner, open.pot - half);
         return { ok: true as const, notes: (await readPurse(guest.id))?.notes ?? 0 };
       }
       if (data.how === "paid" && loserId === mine.id) {
