@@ -42,6 +42,7 @@ export const Route = createFileRoute("/api/door")({
           to?: string;
           text?: string;
           image?: string;
+          audio?: string;
           with?: string;
         } = {};
         try {
@@ -146,7 +147,7 @@ export const Route = createFileRoute("/api/door")({
             return Response.json({ ok: false, error: "Такого человека нет." }, { status: 400 });
           }
           if (body.action === "whisper") {
-            const sent = await postWhisper(guest.id, other, body.text || "", body.image || "");
+            const sent = await postWhisper(guest.id, other, body.text || "", body.image || "", body.audio || "");
             if (!sent) return Response.json({ ok: false, error: "Пусто." }, { status: 400 });
             setTyping(guest.id, guest.name, other, false);
           }

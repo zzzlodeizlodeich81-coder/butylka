@@ -630,7 +630,7 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
 }
 
 type Face = { id: string; name: string; photo: string };
-type WhisperLine = { id: string; from: string; to: string; text: string; at: number; image?: string; seen?: boolean };
+type WhisperLine = { id: string; from: string; to: string; text: string; at: number; image?: string; audio?: string; seen?: boolean };
 
 const SMILES = ["😊", "😂", "😉", "😍", "😎", "🤔", "😭", "😡", "👍", "🔥", "❤️", "💀", "🎵", "🎤", "🎸", "👏", "🙏", "⭐", "👀", "🪆"];
 
@@ -728,6 +728,52 @@ function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
   );
 }
 
+function VoiceButton({ onClip }: { onClip: (data: string) => void }) {
+  const recRef = useRef<MediaRecorder | null>(null);
+  const [on, setOn] = useState(false);
+  async function toggle() {
+    if (recRef.current && recRef.current.state === "recording") {
+      recRef.current.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data);
+      };
+      rec.onstop = () => {
+        setOn(false);
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        if (blob.size < 800) return;
+        if (blob.size > 130000) {
+          toast.error("Голос длиннее 15 секунд не влезает.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => onClip(String(reader.result || ""));
+        reader.readAsDataURL(blob);
+      };
+      recRef.current = rec;
+      rec.start();
+      setOn(true);
+      window.setTimeout(() => {
+        if (rec.state === "recording") rec.stop();
+      }, 15000);
+    } catch {
+      toast.error("Микрофон не дался.");
+    }
+  }
+  return (
+    <Button type="button" variant="secondary" className="shrink-0 rounded-xl" onClick={() => void toggle()}>
+      {on ? "Стоп" : "Голос"}
+    </Button>
+  );
+}
+
 function useStick(dep: unknown) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -752,6 +798,7 @@ function PrivatePane({
   const [lines, setLines] = useState<WhisperLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
+  const [voice, setVoice] = useState("");
   const [typing, setTyping] = useState("");
   const mine = people.find((person) => person.id === me);
   const box = useStick(lines);
@@ -805,13 +852,14 @@ function PrivatePane({
   const talk = people.find((person) => person.id === withId);
 
   async function send() {
-    const row = await postDoor({ action: "whisper", to: withId, text, image: shot });
+    const row = await postDoor({ action: "whisper", to: withId, text, image: shot, audio: voice });
     if (!row.ok) {
       toast.error(row.error || "Не ушло.");
       return;
     }
     setText("");
     setShot("");
+    setVoice("");
     setTyping("");
     typedAt.current = 0;
     blip();
@@ -874,6 +922,7 @@ function PrivatePane({
                   <FaceDot photo={face?.photo} name={face?.name} />
                   <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
                     {line.image ? <img src={line.image} alt="" className="mb-1 max-h-40 rounded-lg" /> : null}
+                    {line.audio ? <audio controls src={line.audio} className="mb-1 w-full" /> : null}
                     {line.text ? <p className="text-muted">{line.text}</p> : null}
                     {own ? <p className="text-xs text-accent">{line.seen ? "✓✓" : "✓"}</p> : null}
                   </div>
@@ -884,6 +933,7 @@ function PrivatePane({
           </div>
           {typing ? <p className="mt-1 text-xs text-muted">{typing} печатает…</p> : null}
           {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
+          {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
           <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} />
           <div className="mt-2 flex gap-2">
             <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
@@ -900,6 +950,7 @@ function PrivatePane({
                 }}
               />
             </label>
+            <VoiceButton onClip={setVoice} />
             <Input
               value={text}
               placeholder="Только ему"
@@ -936,6 +987,7 @@ export function YardChat({
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
+  const [voice, setVoice] = useState("");
   const [typers, setTypers] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<"yard" | "private">(focusId ? "private" : "yard");
   const box = useStick(tab === "yard" ? lines : tab);
@@ -1003,6 +1055,7 @@ export function YardChat({
                     <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
                       {!own ? <p className="text-xs font-medium text-fg">{line.name}</p> : null}
                       {line.image ? <img src={line.image} alt="" className="mb-1 max-h-40 rounded-lg" /> : null}
+                      {line.audio ? <audio controls src={line.audio} className="mb-1 w-full" /> : null}
                       {line.text ? <p className="text-muted">{line.text}</p> : null}
                       {own ? <p className="text-xs text-accent">✓</p> : null}
                     </div>
@@ -1012,6 +1065,7 @@ export function YardChat({
             </div>
             {typers.length ? <p className="mt-1 text-xs text-muted">{typers.map((person) => person.name).join(", ")} печатает…</p> : null}
             {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
+          {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
             <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} />
             <div className="mt-2 flex gap-2">
               <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
@@ -1028,6 +1082,7 @@ export function YardChat({
                   }}
                 />
               </label>
+              <VoiceButton onClip={setVoice} />
               <Input
                 value={text}
                 placeholder="Реплика двору"
@@ -1039,13 +1094,14 @@ export function YardChat({
               <Button
                 onClick={() => {
                   void (async () => {
-                    const res = await yardBoard({ data: { action: "say", text, image: shot, ...caller() } });
+                    const res = await yardBoard({ data: { action: "say", text, image: shot, audio: voice, ...caller() } });
                     if (!res.ok) {
                       toast.error(res.error || "Не ушло.");
                       return;
                     }
                     setText("");
                     setShot("");
+                    setVoice("");
                     typedAt.current = 0;
                     blip();
                     const next = res.chat || [];

@@ -312,6 +312,8 @@
       <button id="hearDone" class="btn" type="button" style="background:#4bb34b">Готовое</button>
     </div>
     <audio id="audioPreview" controls playsinline></audio>
+    <div id="meters" style="margin-top:10px;font-size:12px;color:#333;"></div>
+    <div id="liveBars" style="display:flex;align-items:flex-end;gap:3px;height:48px;margin-top:8px;"></div>
     <button id="downloadBtn" class="btn btn-download" style="display:block">Скачать готовый файл</button>
   </div>
 
@@ -364,6 +366,7 @@
   <div class="helper-log" id="helperLog"></div>
   <textarea id="helperText" rows="3" style="width:100%;box-sizing:border-box;margin-top:8px;border:1px solid #dce1e6;border-radius:8px;padding:8px;" placeholder="Что подкрутить?"></textarea>
   <button id="helperAsk" class="btn" type="button">Спросить · 10 нот</button>
+  <button id="helperApply" class="btn" type="button" style="background:#2c2d2e">Поставить эти ручки</button>
 </aside>
 
 <div id="toast" class="toast"></div>
@@ -445,6 +448,73 @@
   bindLabel('limitCeil', 'limitLabel', ' дБ');
   bindLabel('reverbMix', 'reverbLabel', '%');
 
+  function levelOf(buffer) {
+    let peak = 0;
+    let sum = 0;
+    let n = 0;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 8) {
+        const v = data[i];
+        const a = v < 0 ? -v : v;
+        if (a > peak) peak = a;
+        sum += v * v;
+        n++;
+      }
+    }
+    const rms = Math.sqrt(sum / Math.max(1, n));
+    return {
+      peakDb: 20 * Math.log10(Math.max(peak, 1e-8)),
+      rmsDb: 20 * Math.log10(Math.max(rms, 1e-8)),
+    };
+  }
+  function meterRow(title, before, after) {
+    const width = (db) => Math.max(4, Math.min(100, ((db + 36) / 36) * 100));
+    const delta = after - before;
+    const sign = delta >= 0 ? '+' : '';
+    return `<div style="margin-top:6px"><b>${title}</b> ${sign}${delta.toFixed(1)} дБ</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:42px">было</span><div style="flex:1;background:#e5e7eb;border-radius:4px;height:10px"><div style="width:${width(before)}%;height:10px;background:#9ca3af;border-radius:4px"></div></div><span>${before.toFixed(1)}</span></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:42px">стало</span><div style="flex:1;background:#e5e7eb;border-radius:4px;height:10px"><div style="width:${width(after)}%;height:10px;background:#2787f5;border-radius:4px"></div></div><span>${after.toFixed(1)}</span></div>`;
+  }
+  function paintMeters(before, after) {
+    document.getElementById('meters').innerHTML =
+      meterRow('Громкость', before.rmsDb, after.rmsDb) + meterRow('Пик', before.peakDb, after.peakDb);
+  }
+  let liveCtx = null;
+  let liveNode = null;
+  let liveTimer = 0;
+  function armLive() {
+    if (liveNode) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    liveCtx = new Ctx();
+    liveNode = liveCtx.createAnalyser();
+    liveNode.fftSize = 64;
+    const src = liveCtx.createMediaElementSource(audioPreview);
+    src.connect(liveNode);
+    src.connect(liveCtx.destination);
+    const box = document.getElementById('liveBars');
+    box.innerHTML = '';
+    for (let i = 0; i < 16; i++) {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'flex:1;background:#2787f5;height:4px;border-radius:2px';
+      box.appendChild(bar);
+    }
+  }
+  audioPreview.addEventListener('play', () => {
+    try { armLive(); } catch (err) { return; }
+    liveCtx.resume();
+    const bins = new Uint8Array(liveNode.frequencyBinCount);
+    window.clearInterval(liveTimer);
+    liveTimer = window.setInterval(() => {
+      if (audioPreview.paused) return;
+      liveNode.getByteFrequencyData(bins);
+      const bars = document.getElementById('liveBars').children;
+      for (let i = 0; i < bars.length; i++) {
+        const v = bins[Math.min(bins.length - 1, i + 1)] / 255;
+        bars[i].style.height = Math.max(4, Math.round(v * 48)) + 'px';
+      }
+    }, 80);
+  });
   function makeHall(ctx) {
     const rate = ctx.sampleRate;
     const length = Math.floor(rate * 1.5);
@@ -461,7 +531,15 @@
   const helperText = document.getElementById('helperText');
   const helperAsk = document.getElementById('helperAsk');
   let helperLines = [];
-  document.getElementById('helperBtn').addEventListener('click', () => helper.classList.add('open'));
+  document.getElementById('helperBtn').addEventListener('click', () => {
+    helper.classList.add('open');
+    if (!helperLog.childElementCount) {
+      const ask = document.createElement('p');
+      ask.className = 'him';
+      ask.innerText = 'Опиши трек одним сообщением: жанр, общее настроение и на какую известную песню похоже. Я сразу дам все ручки.';
+      helperLog.appendChild(ask);
+    }
+  });
   document.getElementById('helperClose').addEventListener('click', () => helper.classList.remove('open'));
   helperAsk.addEventListener('click', async () => {
     const text = helperText.value.trim();
@@ -478,7 +556,8 @@
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: helperLines.length ? text : 'Я на фабрике звука, кручу мастеринг. ' + text,
+          mode: 'master',
+          text,
           history: helperLines,
         }),
       });
@@ -503,6 +582,39 @@
       helperLog.scrollTop = helperLog.scrollHeight;
     }
   });
+
+  function pickNum(text, label) {
+    const hit = text.match(new RegExp(label + '\\s*[:=]\\s*(-?\\d+(?:[.,]\\d+)?)', 'i'));
+    return hit ? Number(hit[1].replace(',', '.')) : null;
+  }
+  function setKnob(id, value) {
+    if (value == null || Number.isNaN(value)) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = String(value);
+    el.dispatchEvent(new Event('input'));
+  }
+  document.getElementById('helperApply').addEventListener('click', () => {
+    const last = [...helperLog.querySelectorAll('.him')].pop();
+    const text = last ? last.innerText : '';
+    if (!/Громкость/.test(text)) {
+      showToast('Сначала пусть помощник выдаст цифры.');
+      return;
+    }
+    workMode.value = 'expert';
+    workMode.dispatchEvent(new Event('change'));
+    setKnob('gainDb', pickNum(text, 'Громкость'));
+    setKnob('compThr', pickNum(text, 'Компрессор порог'));
+    setKnob('compRatio', pickNum(text, 'Компрессор сила'));
+    setKnob('limitCeil', pickNum(text, 'Лимитер'));
+    setKnob('reverbMix', pickNum(text, 'Ревер'));
+    document.querySelectorAll('[data-eq]').forEach((band) => setKnobValue(band, pickNum(text, band.dataset.eq)));
+    showToast('Ручки стоят. Можно собирать.');
+  });
+  function setKnobValue(el, value) {
+    if (value == null || Number.isNaN(value)) return;
+    el.value = String(value);
+  }
 
   audioFileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -692,6 +804,7 @@
       await new Promise(r => setTimeout(r, 40));
 
       const renderedBuffer = await offlineCtx.startRendering();
+      paintMeters(levelOf(audioBuffer), levelOf(renderedBuffer));
 
       if (selectedFormat === 'wav') {
         setProgress(70, 'Сборка 16-bit PCM WAV...');

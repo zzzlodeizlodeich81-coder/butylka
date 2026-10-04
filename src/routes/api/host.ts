@@ -132,13 +132,32 @@ async function systemPrompt() {
   return FALLBACK;
 }
 
+const MASTER_PROMPT = `Ты звукорежиссёр фабрики звука. Говори по-русски и коротко.
+Если в переписке ещё нет жанра, настроения и похожей известной песни, не давай цифр. Одним сообщением спроси: какой жанр, какое общее настроение и на какую известную песню это похоже по настроению.
+Когда это уже сказано, выдай все ручки одним сообщением, строго так:
+Громкость: N дБ
+Компрессор порог: N дБ
+Компрессор сила: N
+Лимитер: N дБ
+Ревер: N%
+60: N
+150: N
+400: N
+1000: N
+2500: N
+6000: N
+12000: N
+Громкость от -12 до 6. Порог компрессора от -40 до -4. Сила от 1 до 8. Лимитер от -8 до -0.3. Ревер от 0 до 40. Полосы эквалайзера от -12 до 12.
+После цифр одна фраза: Если что-то не так, опиши, что ещё подкрутить.
+Не разбивай настройки на несколько сообщений.`;
+
 export const Route = createFileRoute("/api/host")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const guest = guestFromRequest(request);
         if (!guest) return Response.json({ error: "Сначала зайди во двор." }, { status: 401 });
-        const body = (await request.json().catch(() => null)) as { text?: string; image?: string; history?: Turn[] } | null;
+        const body = (await request.json().catch(() => null)) as { text?: string; image?: string; history?: Turn[]; mode?: string } | null;
         const image = cleanShot(body?.image || "");
         const typed = (body?.text || "").trim().slice(0, 4000);
         if (typed.length < 2 && !image) return Response.json({ error: "Скажи, о чём писать." }, { status: 400 });
@@ -151,7 +170,7 @@ export const Route = createFileRoute("/api/host")({
           : [];
         const paid = await spendPurse(guest.id, NOTE_PRICE.host);
         if (!paid.ok) return Response.json({ error: paid.error, notes: paid.notes }, { status: 402 });
-        const system = await systemPrompt();
+        const system = body?.mode === "master" ? MASTER_PROMPT : await systemPrompt();
         const hit = await askModel(system, history, text, image);
         if (!hit.ok) {
           const back = await addPurse(guest.id, NOTE_PRICE.host);

@@ -9,6 +9,7 @@ export type Whisper = {
   text: string;
   at: number;
   image?: string;
+  audio?: string;
   seen?: boolean;
 };
 
@@ -30,7 +31,14 @@ function filePath() {
 async function readAll(): Promise<Whisper[]> {
   try {
     const raw = JSON.parse(await readFile(filePath(), "utf8")) as { rows?: Whisper[] };
-    return Array.isArray(raw.rows) ? raw.rows : [];
+    const all = Array.isArray(raw.rows) ? raw.rows : [];
+    const cut = Date.now() - 48 * 60 * 60 * 1000;
+    const rows = all.filter((row) => row.at >= cut);
+    if (rows.length !== all.length) {
+      await mkdir(dirname(filePath()), { recursive: true });
+      await writeFile(filePath(), JSON.stringify({ rows }));
+    }
+    return rows;
   } catch {
     return [];
   }
@@ -52,14 +60,16 @@ export function typingName(me: string, withId: string) {
   return row.name;
 }
 
-export async function postWhisper(from: string, to: string, text: string, image = "") {
+export async function postWhisper(from: string, to: string, text: string, image = "", audio = "") {
   const clean = text.replace(/\s+/g, " ").trim().slice(0, 300);
   const pic = image.startsWith("data:image/jpeg;base64,") && image.length <= 160000 ? image : "";
-  if (!from || !to || from === to || (!clean && !pic)) return null;
+  const voice = audio.startsWith("data:audio/") && audio.length <= 180000 ? audio : "";
+  if (!from || !to || from === to || (!clean && !pic && !voice)) return null;
   return locked(async () => {
     const rows = await readAll();
     const row: Whisper = { id: randomUUID(), from, to, text: clean, at: Date.now(), seen: false };
     if (pic) row.image = pic;
+    if (voice) row.audio = voice;
     rows.push(row);
     const path = filePath();
     await mkdir(dirname(path), { recursive: true });

@@ -28,6 +28,7 @@ export type YardLine = {
   who?: string;
   photo?: string;
   image?: string;
+  audio?: string;
 };
 export type YardSpot = { id: string; name: string; photo: string; spot: string };
 
@@ -291,6 +292,7 @@ export const yardBoard = createServerFn({ method: "POST" })
       tier?: string;
       text?: string;
       image?: string;
+      audio?: string;
       hook?: number;
       lyric?: number;
       music?: number;
@@ -308,6 +310,11 @@ export const yardBoard = createServerFn({ method: "POST" })
     const { communityOf } = await import("@/lib/lands.server");
     const room = guest ? await communityOf(guest.id) : "";
     await loadBoardFile();
+    const cut = Date.now() - 48 * 60 * 60 * 1000;
+    if (mem.chat.some((line) => line.at < cut)) {
+      mem.chat = mem.chat.filter((line) => line.at >= cut);
+      await saveBoardFile();
+    }
 
     if (data.action === "stalls" || data.action === "rent") {
       const now = Date.now();
@@ -563,13 +570,14 @@ export const yardBoard = createServerFn({ method: "POST" })
 
     const text = (data.text || "").trim().slice(0, 200);
     const image = typeof data.image === "string" && data.image.startsWith("data:image/jpeg;base64,") && data.image.length <= 160000 ? data.image : "";
-    if (!text && !image) return { ok: false as const, error: "Пусто." };
+    const audio = typeof data.audio === "string" && data.audio.startsWith("data:audio/") && data.audio.length <= 180000 ? data.audio : "";
+    if (!text && !image && !audio) return { ok: false as const, error: "Пусто." };
     let photo = spots.find((row) => row.id === vkId)?.photo || "";
     if (!photo && guest) {
       const row = await (await import("@/lib/purse.server")).readPurse(guest.id);
       photo = row?.photo || "";
     }
-    mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now(), room, who: vkId, photo, ...(image ? { image } : {}) });
+    mem.chat.push({ id: crypto.randomUUID(), name, text, at: Date.now(), room, who: vkId, photo, ...(image ? { image } : {}), ...(audio ? { audio } : {}) });
     if (mem.chat.length > 80) mem.chat.shift();
     typing.delete(vkId);
     await saveBoardFile();
