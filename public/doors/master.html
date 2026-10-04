@@ -17,9 +17,12 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: #f5f5f5;
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       display: flex;
       justify-content: center;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
       position: relative;
     }
     .card {
@@ -43,6 +46,28 @@
     }
     .group { margin-bottom: 12px; }
     label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: #555; }
+    input[type="range"] { width: 100%; }
+    .eq-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; }
+    .eq-grid label { font-size: 10px; text-align: center; }
+    .eq-grid input { writing-mode: vertical-lr; direction: rtl; height: 110px; width: 28px; margin: 0 auto; display: block; }
+    .helper {
+      display: none;
+      background: white;
+      width: 100%;
+      max-width: 360px;
+      height: min(70vh, 640px);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 14px;
+      box-sizing: border-box;
+      flex-direction: column;
+    }
+    .helper.open { display: flex; }
+    .helper-log { flex: 1; overflow: auto; font-size: 14px; }
+    .helper-log p { margin: 0 0 8px; white-space: pre-wrap; }
+    .helper-log .me { color: #555; }
+    .helper-log .him { color: #1a1a1a; }
+    .btn-ghost { background: #2c2d2e; margin-top: 0; }
     input[type="file"], input[type="text"], input[type="number"], select {
       width: 100%;
       padding: 9px;
@@ -51,6 +76,7 @@
       border-radius: 8px;
       font-size: 14px;
       background: white;
+    }
     }
     .row { display: flex; gap: 10px; }
     .row .group { flex: 1; }
@@ -198,6 +224,54 @@
   </div>
 
   <div class="group">
+    <label>Режим</label>
+    <select id="workMode">
+      <option value="simple" selected>Обычный · бесплатно, готовый пресет</option>
+      <option value="expert">Эксперт · 10 нот (7 ₽), один файл</option>
+    </select>
+  </div>
+
+  <div id="expertBox" style="display:none">
+    <div class="section-title">Ручки эксперта</div>
+    <div class="group">
+      <label>Громкость <span id="gainLabel">0 дБ</span></label>
+      <input type="range" id="gainDb" min="-12" max="6" step="0.5" value="0">
+    </div>
+    <div class="row">
+      <div class="group">
+        <label>Компрессор, порог <span id="compThrLabel">-16 дБ</span></label>
+        <input type="range" id="compThr" min="-40" max="-4" step="1" value="-16">
+      </div>
+      <div class="group">
+        <label>Компрессор, сила <span id="compRatioLabel">3</span></label>
+        <input type="range" id="compRatio" min="1" max="8" step="0.5" value="3">
+      </div>
+    </div>
+    <div class="row">
+      <div class="group">
+        <label>Лимитер, потолок <span id="limitLabel">-1 дБ</span></label>
+        <input type="range" id="limitCeil" min="-8" max="-0.3" step="0.1" value="-1">
+      </div>
+      <div class="group">
+        <label>Ревер <span id="reverbLabel">0%</span></label>
+        <input type="range" id="reverbMix" min="0" max="40" step="1" value="0">
+      </div>
+    </div>
+    <div class="group">
+      <label>Эквалайзер, дБ</label>
+      <div class="eq-grid">
+        <label>60<input type="range" data-eq="60" min="-12" max="12" step="0.5" value="0"></label>
+        <label>150<input type="range" data-eq="150" min="-12" max="12" step="0.5" value="0"></label>
+        <label>400<input type="range" data-eq="400" min="-12" max="12" step="0.5" value="0"></label>
+        <label>1к<input type="range" data-eq="1000" min="-12" max="12" step="0.5" value="0"></label>
+        <label>2.5к<input type="range" data-eq="2500" min="-12" max="12" step="0.5" value="0"></label>
+        <label>6к<input type="range" data-eq="6000" min="-12" max="12" step="0.5" value="0"></label>
+        <label>12к<input type="range" data-eq="12000" min="-12" max="12" step="0.5" value="0"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" id="presetBox">
     <label>Стиль обработки (Пресет)</label>
     <select id="genrePreset">
       <option value="rock">Рок / Метал (Плотный низ, контроль верха)</option>
@@ -207,6 +281,8 @@
       <option value="neutral" selected>Нейтральный (Чистка мусора & Нормализация)</option>
     </select>
   </div>
+
+  <button id="helperBtn" class="btn btn-ghost" type="button">Помощник</button>
 
   <div class="section-title">2. Чистые метаданные</div>
   <div class="row">
@@ -270,6 +346,17 @@
   <button id="downloadBtn" class="btn btn-download">Скачать готовый файл</button>
 </div>
 
+<aside class="helper" id="helper">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <b>Помощник</b>
+    <button id="helperClose" type="button" style="border:none;background:transparent;font-size:18px;cursor:pointer;">×</button>
+  </div>
+  <p style="font-size:12px;color:#777;margin:6px 0 8px;">Тот же хозяин. Вопрос — 10 нот. Можно спросить, как крутить громкость, компрессор и эквалайзер.</p>
+  <div class="helper-log" id="helperLog"></div>
+  <textarea id="helperText" rows="3" style="width:100%;box-sizing:border-box;margin-top:8px;border:1px solid #dce1e6;border-radius:8px;padding:8px;" placeholder="Что подкрутить?"></textarea>
+  <button id="helperAsk" class="btn" type="button">Спросить · 10 нот</button>
+</aside>
+
 <div id="toast" class="toast"></div>
 
 <!-- Экранная консоль отладки Eruda -->
@@ -331,6 +418,86 @@
     coverGroup.style.display = outputFormatSelect.value === 'mp3' ? 'block' : 'none';
   });
 
+  const workMode = document.getElementById('workMode');
+  const expertBox = document.getElementById('expertBox');
+  const presetBox = document.getElementById('presetBox');
+  workMode.addEventListener('change', () => {
+    const expert = workMode.value === 'expert';
+    expertBox.style.display = expert ? 'block' : 'none';
+    presetBox.style.display = expert ? 'none' : 'block';
+    processBtn.innerText = expert ? 'Собрать один файл · 10 нот' : 'Очистить мусор & Обработать';
+  });
+  function bindLabel(id, labelId, suffix) {
+    const el = document.getElementById(id);
+    const label = document.getElementById(labelId);
+    const paint = () => { label.innerText = el.value + suffix; };
+    el.addEventListener('input', paint);
+  }
+  bindLabel('gainDb', 'gainLabel', ' дБ');
+  bindLabel('compThr', 'compThrLabel', ' дБ');
+  bindLabel('compRatio', 'compRatioLabel', '');
+  bindLabel('limitCeil', 'limitLabel', ' дБ');
+  bindLabel('reverbMix', 'reverbLabel', '%');
+
+  function makeHall(ctx) {
+    const rate = ctx.sampleRate;
+    const length = Math.floor(rate * 1.5);
+    const impulse = ctx.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.4);
+    }
+    return impulse;
+  }
+
+  const helper = document.getElementById('helper');
+  const helperLog = document.getElementById('helperLog');
+  const helperText = document.getElementById('helperText');
+  const helperAsk = document.getElementById('helperAsk');
+  let helperLines = [];
+  document.getElementById('helperBtn').addEventListener('click', () => helper.classList.add('open'));
+  document.getElementById('helperClose').addEventListener('click', () => helper.classList.remove('open'));
+  helperAsk.addEventListener('click', async () => {
+    const text = helperText.value.trim();
+    if (text.length < 2 || helperAsk.disabled) return;
+    helperText.value = '';
+    helperAsk.disabled = true;
+    const mine = document.createElement('p');
+    mine.className = 'me';
+    mine.innerText = text;
+    helperLog.appendChild(mine);
+    try {
+      const res = await fetch('/api/host', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: helperLines.length ? text : 'Я на фабрике звука, кручу мастеринг. ' + text,
+          history: helperLines,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (typeof data?.notes === 'number' && window.parent !== window) {
+        window.parent.postMessage({ type: 'kadr-notes', notes: data.notes }, location.origin);
+      }
+      if (!res.ok || !data?.text) {
+        showToast(data?.error || 'Помощник молчит.');
+      } else {
+        helperLines.push({ role: 'user', content: text }, { role: 'assistant', content: data.text });
+        helperLines = helperLines.slice(-6);
+        const his = document.createElement('p');
+        his.className = 'him';
+        his.innerText = data.text;
+        helperLog.appendChild(his);
+      }
+    } catch (err) {
+      showToast('Помощник молчит.');
+    } finally {
+      helperAsk.disabled = false;
+      helperLog.scrollTop = helperLog.scrollHeight;
+    }
+  });
+
   audioFileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -365,6 +532,27 @@
     if (!audioBuffer) {
       showToast('Сначала выберите аудиофайл!');
       return;
+    }
+
+    const expert = workMode.value === 'expert';
+    if (expert) {
+      processBtn.disabled = true;
+      try {
+        const pay = await fetch('/api/master', { method: 'POST', credentials: 'same-origin' });
+        const bill = await pay.json().catch(() => null);
+        if (typeof bill?.notes === 'number' && window.parent !== window) {
+          window.parent.postMessage({ type: 'kadr-notes', notes: bill.notes }, location.origin);
+        }
+        if (!pay.ok || !bill?.ok) {
+          showToast(bill?.error || 'Не хватило нот.');
+          processBtn.disabled = false;
+          return;
+        }
+      } catch (err) {
+        showToast('Касса не ответила.');
+        processBtn.disabled = false;
+        return;
+      }
     }
 
     if (isVk) {
@@ -407,12 +595,13 @@
       const compressor = offlineCtx.createDynamicsCompressor();
 
       const limiter = offlineCtx.createDynamicsCompressor();
-      limiter.threshold.value = -0.5;
+      limiter.threshold.value = expert ? Number(document.getElementById('limitCeil').value) : -0.5;
       limiter.knee.value = 0.0;
       limiter.ratio.value = 20.0;
       limiter.attack.value = 0.001;
       limiter.release.value = 0.1;
 
+      if (!expert) {
       const preset = document.getElementById('genrePreset').value;
 
       if (preset === 'rock') {
@@ -448,6 +637,46 @@
       highEQ.connect(compressor);
       compressor.connect(limiter);
       limiter.connect(offlineCtx.destination);
+      } else {
+        const gain = offlineCtx.createGain();
+        gain.gain.value = Math.pow(10, Number(document.getElementById('gainDb').value) / 20);
+        hpFilter.frequency.value = 28;
+        source.connect(gain);
+        gain.connect(hpFilter);
+        let prev = hpFilter;
+        document.querySelectorAll('[data-eq]').forEach((band) => {
+          const filter = offlineCtx.createBiquadFilter();
+          filter.type = 'peaking';
+          filter.frequency.value = Number(band.dataset.eq);
+          filter.Q.value = 1.1;
+          filter.gain.value = Number(band.value);
+          prev.connect(filter);
+          prev = filter;
+        });
+        compressor.threshold.value = Number(document.getElementById('compThr').value);
+        compressor.ratio.value = Number(document.getElementById('compRatio').value);
+        compressor.knee.value = 8;
+        compressor.attack.value = 0.012;
+        compressor.release.value = 0.22;
+        prev.connect(compressor);
+        const mix = Number(document.getElementById('reverbMix').value) / 100;
+        const dry = offlineCtx.createGain();
+        const wet = offlineCtx.createGain();
+        dry.gain.value = 1;
+        wet.gain.value = mix;
+        const hall = offlineCtx.createConvolver();
+        hall.buffer = makeHall(offlineCtx);
+        compressor.connect(dry);
+        if (mix > 0) {
+          compressor.connect(hall);
+          hall.connect(wet);
+        }
+        const sum = offlineCtx.createGain();
+        dry.connect(sum);
+        wet.connect(sum);
+        sum.connect(limiter);
+        limiter.connect(offlineCtx.destination);
+      }
       source.start(0);
 
       setProgress(20, 'Применение эквалайзера и компрессии...');

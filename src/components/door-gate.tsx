@@ -76,10 +76,19 @@ export function DoorGate({ children }: { children: ReactNode }) {
     };
     window.addEventListener("kadr-leave", leave);
     window.addEventListener("kadr-desk", desk);
+    const notes = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const count = (event.data as { type?: string; notes?: number } | null)?.notes;
+      if ((event.data as { type?: string } | null)?.type === "kadr-notes" && typeof count === "number") {
+        useWallet.getState().apply({ notes: count });
+      }
+    };
+    window.addEventListener("message", notes);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("kadr-leave", leave);
       window.removeEventListener("kadr-desk", desk);
+      window.removeEventListener("message", notes);
     };
   }, []);
 
