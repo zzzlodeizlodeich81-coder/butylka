@@ -17,6 +17,7 @@ export type YardSong = {
   orig: number;
   n: number;
   up?: number;
+  yard?: string;
 };
 
 export type YardLine = {
@@ -206,18 +207,22 @@ async function sheetCall(body: Record<string, unknown>) {
   }
 }
 
-function listMem() {
+function songsOf(room: string) {
+  return [...mem.songs].reverse().filter((song) => (song.yard || "") === room).slice(0, 40);
+}
+
+function listMem(room = "") {
   return {
     ok: true as const,
     shared: true,
-    songs: [...mem.songs].reverse().slice(0, 40),
+    songs: songsOf(room),
     chat: [...mem.chat].slice(-30),
   };
 }
 
-function recount(vkId: string, name: string, frames: number | null) {
+function recount(vkId: string, name: string, frames: number | null, yard = "") {
   if (!vkId) return;
-  const drafts = mem.songs.filter((s) => s.vk === vkId && s.kind === "draft");
+  const drafts = mem.songs.filter((s) => s.vk === vkId && s.kind === "draft" && (s.yard || "") === yard);
   const totals = drafts.reduce(
     (sum, song) => ({
       hook: sum.hook + song.hook,
@@ -399,6 +404,83 @@ export const yardBoard = createServerFn({ method: "POST" })
       return { ok: true, notes: credited.notes, credit: 0.1, presaves: presaveView(vkId) };
     }
 
+    if (room && (data.action === "list" || data.action === "add" || data.action === "rate" || data.action === "drop" || data.action === "glory")) {
+      const { yardPost } = await import("@/lib/lands.server");
+      const gate = await yardPost(room, guest?.id || "");
+      const listed = () => ({ ...listMem(room), room, chat: mem.chat.filter((line) => (line.room || "") === room).slice(-30), spots: liveSpots(room), typing: liveTyping(room, vkId) });
+      if (data.action === "list") return listed();
+      if (data.action === "glory") {
+        heroes.clear();
+        const authors = new Map<string, string>();
+        for (const song of mem.songs) {
+          if (song.vk && (song.yard || "") === room && song.kind === "draft") authors.set(song.vk, song.author);
+        }
+        const { readPurse } = await import("@/lib/purse.server");
+        for (const [id, author] of authors) {
+          const row = await readPurse(id);
+          recount(id, row?.name || author, null, room);
+          const hero = heroes.get(id);
+          if (hero && row) hero.notes = row.notes;
+        }
+        return { ok: true, shared: true, heroes: heroRows().filter((hero) => hero.tracks > 0) };
+      }
+      let admin = false;
+      if (guest) {
+        const { isAdminLogin, readPurse } = await import("@/lib/purse.server");
+        admin = isAdminLogin((await readPurse(guest.id))?.login);
+      }
+      if (data.action === "add") {
+        if (data.kind === "release") return { ok: false as const, error: "Чужие релизы кидают на общей сцене." };
+        if (gate.north && !gate.resident && !admin) return { ok: false as const, error: "На северном дворе кидают только жители." };
+        const url = cleanUrl(data.url || "");
+        if (!url) return { ok: false as const, error: "Нужна ссылка https://…" };
+        mem.songs.push({
+          id: crypto.randomUUID(),
+          kind: "draft",
+          url,
+          title: (data.title || "").replace(/\s+/g, " ").trim().slice(0, 80),
+          author: name,
+          vk: vkId,
+          at: Date.now(),
+          hook: 0,
+          lyric: 0,
+          music: 0,
+          orig: 0,
+          n: 0,
+          yard: room,
+        });
+        if (mem.songs.length > 80) mem.songs.shift();
+        await saveBoardFile();
+        return listed();
+      }
+      const song = mem.songs.find((item) => item.id === data.songId && (item.yard || "") === room);
+      if (!song) return { ok: false as const, error: "Этого трека на дворе нет." };
+      if (data.action === "drop") {
+        const mine = song.vk === vkId || song.author === name;
+        if (!mine && !admin) return { ok: false as const, error: "Чужую ссылку не убрать." };
+        mem.songs = mem.songs.filter((item) => item.id !== song.id);
+        await saveBoardFile();
+        return listed();
+      }
+      const hook = score(data.hook);
+      const lyric = score(data.lyric);
+      const music = score(data.music);
+      const orig = score(data.orig);
+      if (song.kind !== "draft" || !hook || !lyric || !music || !orig) return { ok: false as const, error: "Оценка от 1 до 5." };
+      const key = `${song.id}:${vkId}`;
+      if (mem.rates.has(key)) return { ok: false as const, error: "Ты уже оценил." };
+      mem.rates.add(key);
+      song.hook += hook;
+      song.lyric += lyric;
+      song.music += music;
+      song.orig += orig;
+      song.n += 1;
+      if ((hook + lyric + music + orig) / 4 >= 4) song.up = (song.up || 0) + 1;
+      recount(song.vk, song.author, null, room);
+      await saveBoardFile();
+      return listed();
+    }
+
     const remote = await sheetCall({ ...data, vkId, name });
     if (remote?.ok) {
       if (data.action === "hear" && vk && remote.credit) {
@@ -507,7 +589,7 @@ export const yardBoard = createServerFn({ method: "POST" })
       heroes.clear();
       const authors = new Map<string, string>();
       for (const song of mem.songs) {
-        if (song.vk) authors.set(song.vk, song.author);
+        if (song.vk && !song.yard && song.kind === "draft") authors.set(song.vk, song.author);
       }
       if (vkId) authors.set(vkId, name);
       const { readPurse } = await import("@/lib/purse.server");

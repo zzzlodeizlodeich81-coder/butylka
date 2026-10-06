@@ -302,7 +302,7 @@ export function Yard() {
   const desk = (
     <>
       {field ? <PresaveSheet onClose={() => setField(false)} /> : null}
-      {fame ? <FameCard onClose={() => setFame(false)} /> : null}
+      {fame ? <FameCard plot={lock?.id || ""} onClose={() => setFame(false)} /> : null}
       {contest ? <ContestHall onClose={() => setContest(false)} /> : null}
       {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
@@ -669,6 +669,7 @@ export function Yard() {
             toStudio();
           }}
           plotId={lock?.id || ""}
+          labels={quietCamp ? CAMP_LABEL : undefined}
         />
       ) : null}
     </div>
@@ -1167,8 +1168,9 @@ function HouseSheet(props: {
   onStage: () => void;
   onStudio: () => void;
   plotId?: string;
+  labels?: Record<string, string>;
 }) {
-  const title = ZONES.find((z) => z.id === props.house)?.label ?? "";
+  const title = props.labels?.[props.house] || ZONES.find((z) => z.id === props.house)?.label || "";
   return (
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
       <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -1182,7 +1184,7 @@ function HouseSheet(props: {
         </div>
         {props.house === "gate" ? <GateCard roles={props.roles} onSave={props.onRoles} plotId={props.plotId || ""} /> : null}
         {props.house === "stage" ? <ReleaseCard onStage={props.onStage} /> : null}
-        {props.house === "organ" ? <OrganCard /> : null}
+        {props.house === "organ" ? <OrganCard plot={props.plotId || ""} /> : null}
         {props.house === "record" ? (
           <p className="text-sm leading-relaxed text-muted">
             Suno, минус, стемы, кавер своим голосом. Файлы сразу на телефон.

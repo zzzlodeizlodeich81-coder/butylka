@@ -296,7 +296,7 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
   );
 }
 
-export function OrganCard() {
+export function OrganCard({ plot = "" }: { plot?: string }) {
   const [songs, setSongs] = useState<YardSong[]>([]);
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -305,7 +305,7 @@ export function OrganCard() {
   const [sent, setSent] = useState<string[]>([]);
 
   useEffect(() => {
-    void loadBoard().then((row) => {
+    void loadBoard(plot).then((row) => {
       setSongs(row.songs.filter((s) => s.kind === "draft"));
       setShared(row.shared);
     });
@@ -316,11 +316,11 @@ export function OrganCard() {
         setSent(ids);
       })
       .catch(() => undefined);
-  }, []);
+  }, [plot]);
 
   return (
     <div className="text-sm text-muted">
-      <p>Неопубликованное кидают бесплатно. Слушатели ставят хук, текст, музыку и оригинальность от 1 до 5. На конкурс уходит только свой трек.</p>
+      <p>{plot ? "Черновики этого двора. В общий зал славы они не попадают." : "Неопубликованное кидают бесплатно. Слушатели ставят хук, текст, музыку и оригинальность от 1 до 5. На конкурс уходит только свой трек."}</p>
       {contest ? (
         <ContestSheet
           song={contest}
@@ -336,7 +336,7 @@ export function OrganCard() {
             void (async () => {
               setBusy(true);
               try {
-                const res = await yardBoard({ data: { action: "add", kind: "draft", url, ...caller() } });
+                const res = await yardBoard({ data: { action: "add", kind: "draft", url, plot, ...caller() } });
                 if (!res.ok) {
                   toast.error(res.error || "Не кинулось.");
                   return;
@@ -361,6 +361,7 @@ export function OrganCard() {
             sent={sent.includes(song.id)}
             onContest={() => setContest(song)}
             onDone={(next) => setSongs(next.filter((s) => s.kind === "draft"))}
+            plot={plot}
           />
         ))}
       </div>
@@ -373,11 +374,13 @@ function DraftRow({
   sent,
   onContest,
   onDone,
+  plot = "",
 }: {
   song: YardSong;
   sent: boolean;
   onContest: () => void;
   onDone: (songs: YardSong[]) => void;
+  plot?: string;
 }) {
   const admin = useWallet((s) => s.admin);
   const who = caller();
@@ -430,7 +433,7 @@ function DraftRow({
         className="mt-2 rounded-xl"
         onClick={() => {
           void (async () => {
-            const res = await yardBoard({ data: { action: "rate", songId: song.id, ...score, ...caller() } });
+            const res = await yardBoard({ data: { action: "rate", songId: song.id, plot, ...score, ...caller() } });
             if (!res.ok) {
               toast.error(res.error || "Не зачлось.");
               return;
@@ -447,7 +450,7 @@ function DraftRow({
           className="mt-2 w-full rounded-xl"
           onClick={() => {
             void (async () => {
-              const res = await yardBoard({ data: { action: "drop", songId: song.id, ...caller() } });
+              const res = await yardBoard({ data: { action: "drop", songId: song.id, plot, ...caller() } });
               if (!res.ok) {
                 toast.error(res.error || "Не удалилось.");
                 return;
@@ -1246,14 +1249,14 @@ function axis(sum: number, votes: number) {
   return (sum / votes).toFixed(1);
 }
 
-export function FameCard({ onClose }: { onClose: () => void }) {
+export function FameCard({ onClose, plot = "" }: { onClose: () => void; plot?: string }) {
   const [rows, setRows] = useState<Hero[]>([]);
   const [shared, setShared] = useState(true);
   const me = useWallet((s) => s.vkId) || caller().heroId;
 
   useEffect(() => {
     void (async () => {
-      const res = await yardBoard({ data: { action: "glory", frames: readFrames(), ...caller() } });
+      const res = await yardBoard({ data: { action: "glory", frames: readFrames(), plot, ...caller() } });
       if (!res.ok) return;
       setRows(res.heroes || []);
       setShared(Boolean(res.shared));
@@ -1264,13 +1267,13 @@ export function FameCard({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-10 flex items-end bg-black/35">
       <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-2xl text-fg">Слава</h2>
+          <h2 className="font-display text-2xl text-fg">{plot ? "Слава двора" : "Слава"}</h2>
           <Button variant="ghost" onClick={onClose}>
             Закрыть
           </Button>
         </div>
         <p className="text-sm text-muted">
-          Ноты и кадры — кошель. Слава — как двор оценил черновики у шарманщика. Деньги славу не покупают.
+          {plot ? "Только черновики этого двора. Общий зал славы в главном городе." : "Ноты и кадры — кошель. Слава — как двор оценил черновики у шарманщика. Деньги славу не покупают."}
         </p>
         <div className="mt-3 flex flex-col gap-2">
           {rows.map((hero, index) => (

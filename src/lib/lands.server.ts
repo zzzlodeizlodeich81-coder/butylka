@@ -68,6 +68,17 @@ export async function plotById(id: string) {
   return { id: plot.id, name: plot.name, ownerId: plot.owner };
 }
 
+export async function yardPost(plotId: string, userId: string) {
+  const book = await readBook();
+  const plot = book.plots.find((item) => item.id === plotId);
+  if (!plot) return { resident: false, north: false, name: "" };
+  return {
+    name: plot.name,
+    resident: plot.owner === userId || plot.members.includes(userId),
+    north: /северян|снежин/i.test(plot.name),
+  };
+}
+
 export async function hasHome(playerId: string) {
   const book = await readBook();
   return book.plots.some((plot) => plot.owner === playerId || plot.members.includes(playerId));
