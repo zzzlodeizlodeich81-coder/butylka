@@ -101,6 +101,18 @@ const YARD_PHONE: typeof ZONES = [
   { id: "gate", label: "Ворота", left: "28%", top: "80%", width: "44%", height: "16%", sign: "top" },
 ];
 
+const CAMP_ZONES: typeof ZONES = [
+  { id: "record", label: "Блиндаж записи", left: "6%", top: "16%", width: "22%", height: "22%", sign: "bottom" },
+  { id: "factory", label: "Аппаратная", left: "30%", top: "8%", width: "20%", height: "20%", sign: "bottom" },
+  { id: "frame", label: "Планшет", left: "52%", top: "8%", width: "18%", height: "18%", sign: "bottom" },
+  { id: "atelier", label: "Маскировочная", left: "74%", top: "18%", width: "22%", height: "20%", sign: "bottom" },
+  { id: "organ", label: "Маэстро", left: "38%", top: "36%", width: "18%", height: "22%", sign: "bottom" },
+  { id: "stage", label: "Караулка", left: "6%", top: "46%", width: "22%", height: "20%", sign: "bottom" },
+  { id: "cinema", label: "Кинобудка", left: "70%", top: "46%", width: "24%", height: "20%", sign: "top" },
+  { id: "market", label: "Обоз", left: "28%", top: "62%", width: "30%", height: "16%", sign: "top" },
+  { id: "gate", label: "КПП", left: "60%", top: "74%", width: "22%", height: "16%", sign: "top" },
+];
+
 const DOORS: Partial<Record<HouseId, string>> = {
   factory: "/doors/master.html",
   frame: "/doors/frame.html",
@@ -129,7 +141,6 @@ export function Yard() {
   const [price, setPrice] = useState(false);
   const [splash, setSplash] = useState(true);
   const stage = useStage();
-  const yardMap = stage === "phone" ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE } : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const [guide, setGuide] = useState(false);
   const [lands, setLands] = useState(false);
   const [bog, setBog] = useState(false);
@@ -269,6 +280,11 @@ export function Yard() {
   }
 
   const quietCamp = partnerShare(lock?.name || "") === 0.5;
+  const yardMap = quietCamp
+    ? { src: "/camp.jpg", aspect: "16 / 9", zones: CAMP_ZONES }
+    : stage === "phone"
+      ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE }
+      : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const menuItems = [
     { label: "Карта", onClick: () => setLands(true) },
     { label: "Слава", onClick: () => setFame(true) },
