@@ -68,19 +68,10 @@ export function GollumCave({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="absolute inset-0 z-40 overflow-hidden bg-black">
-      <img src="/rooms/bones.jpg" alt="" className="absolute inset-0 h-full w-full object-cover brightness-75 saturate-50" />
-      <div className="absolute inset-0 bg-[#3a140c]/35" />
+      <img src="/bog.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <button type="button" className="absolute top-3 right-3 z-20 rounded-full bg-black/60 px-3 py-1 text-sm text-white" onClick={onClose}>
         На карту
       </button>
-      <div className="pointer-events-none absolute top-14 left-3 max-w-[14rem] text-[#f4e4c4]">
-        <p className="font-display text-2xl">Болота Голума</p>
-        <p className="text-xs text-white/80">Пещера, кости, паутина. На грунте Марса первым разбился зонд «Марс-2».</p>
-      </div>
-      <div className="absolute bottom-[18%] left-[8%] w-24 rounded bg-black/50 p-1 text-[10px] text-[#d7c4a3]">
-        <div className="mb-1 h-8 rounded bg-gradient-to-br from-[#8a8378] to-[#2c2824]" />
-        обломки «Марс-2»
-      </div>
       <button
         type="button"
         className="absolute bottom-[8%] left-1/2 w-28 -translate-x-1/2"
