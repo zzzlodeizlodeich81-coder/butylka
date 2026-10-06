@@ -744,35 +744,28 @@ function World({
 
   function grab(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    event.preventDefault();
-    const node = event.currentTarget;
-    const id = event.pointerId;
     const startX = event.clientX;
     const startY = event.clientY;
     const origin = view.current;
     let dragged = false;
     const clicked = (event.target as HTMLElement).closest("button,a,input,label");
-    node.setPointerCapture(id);
     const move = (ev: PointerEvent) => {
-      if (ev.pointerId !== id) return;
       if (ev.pointerType === "mouse" && (ev.buttons & 1) === 0) {
         end();
         return;
       }
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      if (!dragged && Math.hypot(dx, dy) < 5) return;
+      if (!dragged && Math.hypot(dx, dy) < 6) return;
       dragged = true;
       const next = { ...origin, x: origin.x + dx, y: origin.y + dy };
       view.current = next;
       setPan({ ...next });
     };
-    const end = (ev?: Event) => {
-      if (ev && "pointerId" in ev && (ev as PointerEvent).pointerId !== id) return;
-      node.removeEventListener("pointermove", move);
-      node.removeEventListener("pointerup", end);
-      node.removeEventListener("pointercancel", end);
-      if (node.hasPointerCapture(id)) node.releasePointerCapture(id);
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
       if (dragged && clicked) {
         const swallow = (click: Event) => {
           click.preventDefault();
@@ -782,23 +775,23 @@ function World({
         clicked.addEventListener("click", swallow, true);
       }
     };
-    node.addEventListener("pointermove", move);
-    node.addEventListener("pointerup", end);
-    node.addEventListener("pointercancel", end);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
   }
   const spots = [
-    { left: "78%", top: "30%" },
-    { left: "50%", top: "50%" },
-    { left: "66%", top: "54%" },
-    { left: "28%", top: "60%" },
-    { left: "36%", top: "72%" },
-    { left: "22%", top: "56%" },
-    { left: "86%", top: "48%" },
-    { left: "44%", top: "64%" },
-    { left: "58%", top: "68%" },
-    { left: "30%", top: "78%" },
-    { left: "72%", top: "44%" },
-    { left: "16%", top: "64%" },
+    { left: "76%", top: "34%" },
+    { left: "56%", top: "34%" },
+    { left: "67%", top: "56%" },
+    { left: "63%", top: "70%" },
+    { left: "40%", top: "74%" },
+    { left: "22%", top: "78%" },
+    { left: "47%", top: "84%" },
+    { left: "30%", top: "64%" },
+    { left: "86%", top: "50%" },
+    { left: "16%", top: "62%" },
+    { left: "72%", top: "46%" },
+    { left: "34%", top: "84%" },
   ];
 
   return (
@@ -823,8 +816,8 @@ function World({
             <span className="text-sm text-[#c4a574]">государство</span>
           </button>
           {[
-            { left: "18%", top: "70%" },
-            { left: "42%", top: "78%" },
+            { left: "21%", top: "78%" },
+            { left: "46%", top: "84%" },
           ].map((spot) => (
             <button
               key={spot.left}
@@ -871,7 +864,7 @@ function World({
             type="button"
             aria-label="Поле пресейвов"
             className="absolute rounded-xl bg-black/55 px-3 py-1.5 text-left text-white"
-            style={{ left: "66%", top: "60%" }}
+            style={{ left: "78%", top: "72%" }}
             onClick={onField}
           >
             <span className="text-base font-medium">поле пресейвов</span>
