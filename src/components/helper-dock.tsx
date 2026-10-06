@@ -126,7 +126,7 @@ export function HelperDock() {
     <>
       <button
         type="button"
-        className="fixed right-3 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 rounded-full bg-[#f4e4c4] px-3 py-2 text-sm text-[#1a120c] shadow"
+        className="fixed top-[max(4.2rem,calc(env(safe-area-inset-top)+3.6rem))] right-3 z-30 rounded-full bg-[#f4e4c4] px-3 py-2 text-sm text-[#1a120c] shadow"
         onClick={() => setPick(true)}
       >
         Позвать

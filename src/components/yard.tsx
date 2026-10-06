@@ -744,6 +744,7 @@ function World({
 
   function grab(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
     const node = event.currentTarget;
     const id = event.pointerId;
     const startX = event.clientX;
@@ -809,9 +810,9 @@ function World({
       >
         <div
           className="absolute w-[220%]"
-          style={{ aspectRatio: "16 / 9", transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
         >
-          <img src="/earth.jpg" alt="" className="absolute inset-0 h-full w-full" />
+          <img src="/earth.jpg" alt="" draggable={false} className="pointer-events-none block h-auto w-full select-none" />
           <button
             type="button"
             className="absolute max-w-[16rem] rounded-xl bg-[#1a120c]/90 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
@@ -860,10 +861,10 @@ function World({
           <button
             type="button"
             className="absolute rounded-xl bg-white/90 px-3 py-1.5 text-left text-[#1a120c] shadow"
-            style={{ left: "54%", top: "26%" }}
+            style={{ left: "46%", top: "52%" }}
             onClick={onAngel}
           >
-            <span className="block text-base font-medium">дом Анджела</span>
+            <span className="block text-base font-medium">DJ Angel A</span>
             <span className="text-sm">кабинет</span>
           </button>
           <button
