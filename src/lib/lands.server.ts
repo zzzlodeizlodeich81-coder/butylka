@@ -97,6 +97,22 @@ function pub(plot: Plot, viewer: string) {
   };
 }
 
+function giftBaba(book: Book) {
+  if (book.plots.some((plot) => plot.id === "baba-yaga" || partnerShare(plot.name) === 0.5)) return false;
+  book.plots.push({
+    id: "baba-yaga",
+    owner: "gift-baba",
+    name: "Феномен Бабы Яги",
+    kind: "manor",
+    tools: TOOLS.map((tool) => tool.id),
+    code: "yaga",
+    members: [],
+    bank: 0,
+    state: "",
+  });
+  return true;
+}
+
 function toolById(id: string) {
   return TOOLS.find((tool) => tool.id === id);
 }
@@ -115,6 +131,7 @@ export async function runLand(data: {
     const guest = currentGuest();
     if (!guest) return { ok: false as const, error: "Сначала зайди.", notes: 0 };
     const book = await readBook();
+    if (giftBaba(book)) await writeBook(book);
     const mine = book.plots.find((plot) => plot.owner === guest.id);
 
     if (data.action === "look") {
