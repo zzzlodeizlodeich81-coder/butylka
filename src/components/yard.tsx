@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -705,9 +705,50 @@ function World({
     });
   }, []);
   const mine = rows.find((row) => row.owner);
-  const board = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
-  const [pan, setPan] = useState({ x: -40, y: -30 });
+  const frame = useRef<HTMLDivElement>(null);
+  const view = useRef({ x: -80, y: -40, z: 1 });
+  const [pan, setPan] = useState(view.current);
+
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const prev = view.current;
+      const z = Math.min(2.8, Math.max(0.45, prev.z * (event.deltaY > 0 ? 0.9 : 1.1)));
+      const rect = node.getBoundingClientRect();
+      const ox = event.clientX - rect.left;
+      const oy = event.clientY - rect.top;
+      const next = {
+        z,
+        x: ox - ((ox - prev.x) * z) / prev.z,
+        y: oy - ((oy - prev.y) * z) / prev.z,
+      };
+      view.current = next;
+      setPan(next);
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, []);
+
+  function grab(event: ReactPointerEvent) {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button,a,input,label")) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const origin = view.current;
+    const move = (ev: PointerEvent) => {
+      const next = { ...origin, x: origin.x + ev.clientX - startX, y: origin.y + ev.clientY - startY };
+      view.current = next;
+      setPan({ ...next });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
   const spots = [
     { left: "14%", top: "46%" },
     { left: "33%", top: "24%" },
@@ -723,36 +764,17 @@ function World({
     { left: "52%", top: "18%" },
   ];
 
-  function clamp(x: number, y: number) {
-    const frame = board.current?.parentElement;
-    if (!frame) return { x, y };
-    return {
-      x: Math.min(40, Math.max(frame.clientWidth - frame.clientWidth * 1.85, x)),
-      y: Math.min(20, Math.max(frame.clientHeight - frame.clientHeight * 1.7, y)),
-    };
-  }
-
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#6a341c]">
       <div
-        className="absolute inset-0 z-10 cursor-grab touch-none active:cursor-grabbing"
-        onPointerDown={(event) => {
-          if ((event.target as HTMLElement).closest("button")) return;
-          drag.current = { x: event.clientX, y: event.clientY, px: pan.x, py: pan.y };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          if (!drag.current) return;
-          setPan(clamp(drag.current.px + event.clientX - drag.current.x, drag.current.py + event.clientY - drag.current.y));
-        }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
+        ref={frame}
+        className="absolute inset-0 z-10 cursor-grab touch-none overflow-hidden select-none active:cursor-grabbing"
+        onPointerDown={grab}
       >
-        <div ref={board} className="absolute h-[170%] w-[185%]" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
+        <div
+          className="absolute h-[220%] w-[240%]"
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
+        >
           <img src="/world.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
           <button
             type="button"

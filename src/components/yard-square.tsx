@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -638,6 +638,50 @@ type WhisperLine = { id: string; from: string; to: string; text: string; at: num
 
 const SMILES = ["😊", "😂", "😉", "😍", "😎", "🤔", "😭", "😡", "👍", "🔥", "❤️", "💀", "🎵", "🎤", "🎸", "👏", "🙏", "⭐", "👀", "🪆"];
 
+function BraSmile() {
+  return (
+    <svg viewBox="0 0 64 64" className="mx-0.5 inline-block h-7 w-7 align-middle" aria-label="девушка в лифчике">
+      <circle cx="32" cy="16" r="9" fill="#f3c7a5" />
+      <path d="M23 12c1-6 8-8 12-4 3-4 10-2 11 4" fill="#2a1a12" />
+      <circle cx="29" cy="16" r="1" fill="#1a120c" />
+      <circle cx="35" cy="16" r="1" fill="#1a120c" />
+      <path d="M28 19c2 2 6 2 8 0" stroke="#1a120c" fill="none" strokeWidth="1" />
+      <path d="M18 34c6 8 22 8 28 0l4 16H14z" fill="#f3c7a5" />
+      <path d="M16 36c6 2 10 8 8 12 6-2 12-2 16 0-2-4 2-10 8-12-8 6-24 6-32 0z" fill="#f7f2ea" />
+      <path d="M30 38c2 3 2 3 4 0" stroke="#e7b7c8" fill="none" />
+    </svg>
+  );
+}
+
+function GuySmile() {
+  return (
+    <svg viewBox="0 0 64 64" className="mx-0.5 inline-block h-7 w-7 align-middle" aria-label="качок в стрингах">
+      <circle cx="32" cy="13" r="8" fill="#e2b08a" />
+      <path d="M24 10c2-5 14-5 16 0-2 2-14 2-16 0z" fill="#1a120c" />
+      <circle cx="29" cy="13" r="1" fill="#1a120c" />
+      <circle cx="35" cy="13" r="1" fill="#1a120c" />
+      <path d="M29 16c2 2 4 2 6 0" stroke="#1a120c" fill="none" />
+      <path d="M14 28c4-6 8-6 10-2l8-2 8 2c2-4 6-4 10 2l-4 14H18z" fill="#e2b08a" />
+      <path d="M28 30h8M30 34h4M32 26v12" stroke="#c4896a" fill="none" />
+      <path d="M26 42h12l-2 10h-8z" fill="#1a120c" />
+      <path d="M30 42c1 6 3 6 4 0" stroke="#e2b08a" fill="none" />
+    </svg>
+  );
+}
+
+function ChatBits({ text }: { text: string }) {
+  const parts = text.split(/(\{\{bra\}\}|\{\{guy\}\})/g);
+  return (
+    <p className="text-muted">
+      {parts.map((part, index) => {
+        if (part === "{{bra}}") return <BraSmile key={index} />;
+        if (part === "{{guy}}") return <GuySmile key={index} />;
+        return <span key={index}>{part}</span>;
+      })}
+    </p>
+  );
+}
+
 async function postDoor(body: Record<string, unknown>) {
   const res = await fetch("/api/door", {
     method: "POST",
@@ -723,6 +767,12 @@ function FaceDot({ photo, name }: { photo?: string; name?: string }) {
 function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
   return (
     <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
+      <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{bra}}")}>
+        <BraSmile />
+      </button>
+      <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{guy}}")}>
+        <GuySmile />
+      </button>
       {SMILES.map((smile) => (
         <button key={smile} type="button" className="shrink-0 rounded-lg bg-surface px-2 py-1 text-2xl" onClick={() => onPick(smile)}>
           {smile}
@@ -778,23 +828,52 @@ function VoiceButton({ onClip }: { onClip: (data: string) => void }) {
   );
 }
 
-function useStick(dep: unknown) {
+function ScrollBox({ dep, children }: { dep: unknown; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
+  const [follow, setFollow] = useState(true);
+
   useEffect(() => {
-    const node = box.current;
-    if (node) node.scrollTop = node.scrollHeight;
-  }, [dep]);
-  return box;
+    if (follow && box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [dep, follow]);
+
+  return (
+    <div className="relative min-h-0 flex-1">
+      <div
+        ref={box}
+        className="flex h-full flex-col gap-2 overflow-auto text-sm"
+        onScroll={(event) => {
+          const node = event.currentTarget;
+          setFollow(node.scrollHeight - node.scrollTop - node.clientHeight < 64);
+        }}
+      >
+        {children}
+      </div>
+      {follow ? null : (
+        <button
+          type="button"
+          className="absolute right-2 bottom-2 rounded-full bg-black/75 px-2.5 py-1 text-sm text-white"
+          onClick={() => {
+            setFollow(true);
+            if (box.current) box.current.scrollTop = box.current.scrollHeight;
+          }}
+        >
+          ↓
+        </button>
+      )}
+    </div>
+  );
 }
 
 function PrivatePane({
   focusId,
   pingPeople,
   onOpenPerson,
+  onZoom,
 }: {
   focusId?: string;
   pingPeople: string[];
   onOpenPerson: (id: string) => void;
+  onZoom: (src: string) => void;
 }) {
   const [people, setPeople] = useState<Face[]>([]);
   const [me, setMe] = useState("");
@@ -805,7 +884,6 @@ function PrivatePane({
   const [voice, setVoice] = useState("");
   const [typing, setTyping] = useState("");
   const mine = people.find((person) => person.id === me);
-  const box = useStick(lines);
   const typedAt = useRef(0);
 
   function poke(value: string, to: string) {
@@ -871,7 +949,7 @@ function PrivatePane({
   }
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-3 flex items-center gap-3">
         <FaceDot photo={mine?.photo} name={mine?.name} />
         <label className="cursor-pointer rounded-xl bg-surface px-3 py-2 text-sm text-fg">
@@ -902,7 +980,7 @@ function PrivatePane({
         </label>
       </div>
       <div className="mb-3 flex gap-2 overflow-x-auto">
-        {others.map((person) => (
+        {withId ? null : others.map((person) => (
           <button
             key={person.id}
             type="button"
@@ -917,7 +995,12 @@ function PrivatePane({
       </div>
       {withId ? (
         <>
-          <div ref={box} className="flex max-h-52 flex-col gap-2 overflow-auto text-sm">
+          <button type="button" className="mb-2 flex items-center gap-2 text-sm text-fg" onClick={() => setWithId("")}>
+            <span aria-hidden>←</span>
+            <FaceDot photo={talk?.photo} name={talk?.name} />
+            {talk?.name || "Назад к чатам"}
+          </button>
+          <ScrollBox dep={lines.length + lines[lines.length - 1]?.id}>
             {lines.map((line) => {
               const own = line.from === me;
               const face = people.find((person) => person.id === line.from);
@@ -925,18 +1008,26 @@ function PrivatePane({
                 <div key={line.id} className={own ? "flex flex-row-reverse gap-2" : "flex gap-2"}>
                   <FaceDot photo={face?.photo} name={face?.name} />
                   <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
-                    {line.image ? <img src={line.image} alt="" className="mb-1 max-h-40 rounded-lg" /> : null}
+                    {line.image ? (
+                      <button type="button" onClick={() => onZoom(line.image || "")}>
+                        <img src={line.image} alt="" className="mb-1 max-h-40 cursor-zoom-in rounded-lg" />
+                      </button>
+                    ) : null}
                     {line.audio ? <audio controls src={line.audio} className="mb-1 w-full" /> : null}
-                    {line.text ? <p className="text-muted">{line.text}</p> : null}
+                    {line.text ? <ChatBits text={line.text} /> : null}
                     {own ? <p className="text-xs text-accent">{line.seen ? "✓✓" : "✓"}</p> : null}
                   </div>
                 </div>
               );
             })}
             {lines.length === 0 ? <p className="text-sm text-muted">Это видите только вы двое. {talk ? talk.name : ""}</p> : null}
-          </div>
+          </ScrollBox>
           {typing ? <p className="mt-1 text-xs text-muted">{typing} печатает…</p> : null}
-          {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
+          {shot ? (
+            <button type="button" onClick={() => onZoom(shot)}>
+              <img src={shot} alt="" className="mt-2 max-h-24 cursor-zoom-in rounded-lg" />
+            </button>
+          ) : null}
           {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
           <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} />
           <div className="mt-2 flex gap-2">
@@ -996,7 +1087,9 @@ export function YardChat({
   const [voice, setVoice] = useState("");
   const [typers, setTypers] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<"yard" | "private">(focusId ? "private" : "yard");
-  const box = useStick(tab === "yard" ? lines : tab);
+  const [tray, setTray] = useState(false);
+  const [wide, setWide] = useState(false);
+  const [zoom, setZoom] = useState("");
   const typedAt = useRef(0);
 
   function poke(value: string) {
@@ -1022,20 +1115,51 @@ export function YardChat({
   }, [focusId]);
 
   useEffect(() => {
+    const query = window.matchMedia("(min-width: 800px)");
+    const apply = () => setWide(query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
     if (tab !== "yard") return;
     void pull();
     const timer = window.setInterval(() => void pull(), 4000);
     return () => window.clearInterval(timer);
   }, [tab, plot]);
 
+  if (tray) {
+    return (
+      <button
+        type="button"
+        className={`absolute right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 rounded-full bg-[#1a120c] px-4 py-3 text-sm text-[#f4e4c4] shadow-lg ${pingYard || pingPeople.length ? "kadr-blink" : ""}`}
+        onClick={() => setTray(false)}
+      >
+        Чат
+      </button>
+    );
+  }
+
   return (
-    <div className="absolute inset-0 z-10 flex items-end bg-black/35">
-      <div className="flex max-h-[78%] w-full flex-col overflow-hidden rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="mb-3 flex items-center justify-between">
+    <div
+      className={
+        wide
+          ? "absolute right-4 bottom-4 z-40 flex h-[min(680px,82dvh)] w-[400px] flex-col overflow-hidden rounded-2xl bg-bg shadow-2xl"
+          : "absolute inset-0 z-40 flex flex-col bg-bg pt-[max(0.5rem,env(safe-area-inset-top))]"
+      }
+    >
+      <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="font-display text-2xl text-fg">Чат</h2>
-          <Button variant="ghost" onClick={onClose}>
-            Закрыть
-          </Button>
+          <div className="flex gap-1">
+            <Button variant="ghost" onClick={() => setTray(true)}>
+              Свернуть
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              Закрыть
+            </Button>
+          </div>
         </div>
         <div className="mb-3 flex gap-2">
           <Button variant={tab === "yard" ? "default" : "secondary"} className={`rounded-xl ${pingYard && tab !== "yard" ? "kadr-blink" : ""}`} onClick={() => setTab("yard")}>
@@ -1049,10 +1173,10 @@ export function YardChat({
             Лично
           </Button>
         </div>
-        {tab === "private" ? <PrivatePane focusId={focusId} pingPeople={pingPeople} onOpenPerson={onOpenPerson} /> : null}
+        {tab === "private" ? <PrivatePane focusId={focusId} pingPeople={pingPeople} onOpenPerson={onOpenPerson} onZoom={setZoom} /> : null}
         {tab === "yard" ? (
           <>
-            <div ref={box} className="flex min-h-0 max-h-48 flex-col gap-2 overflow-auto text-sm">
+            <ScrollBox dep={lines.length ? lines[lines.length - 1]?.id : 0}>
               {lines.map((line) => {
                 const own = Boolean(myId && line.who === myId);
                 return (
@@ -1060,18 +1184,26 @@ export function YardChat({
                     <FaceDot photo={line.photo} name={line.name} />
                     <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
                       {!own ? <p className="text-xs font-medium text-fg">{line.name}</p> : null}
-                      {line.image ? <img src={line.image} alt="" className="mb-1 max-h-40 rounded-lg" /> : null}
+                      {line.image ? (
+                        <button type="button" onClick={() => setZoom(line.image || "")}>
+                          <img src={line.image} alt="" className="mb-1 max-h-40 cursor-zoom-in rounded-lg" />
+                        </button>
+                      ) : null}
                       {line.audio ? <audio controls src={line.audio} className="mb-1 w-full" /> : null}
-                      {line.text ? <p className="text-muted">{line.text}</p> : null}
+                      {line.text ? <ChatBits text={line.text} /> : null}
                       {own ? <p className="text-xs text-accent">✓</p> : null}
                     </div>
                   </div>
                 );
               })}
-            </div>
+            </ScrollBox>
             {typers.length ? <p className="mt-1 text-xs text-muted">{typers.map((person) => person.name).join(", ")} печатает…</p> : null}
-            {shot ? <img src={shot} alt="" className="mt-2 max-h-24 rounded-lg" /> : null}
-          {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
+            {shot ? (
+              <button type="button" onClick={() => setZoom(shot)}>
+                <img src={shot} alt="" className="mt-2 max-h-24 cursor-zoom-in rounded-lg" />
+              </button>
+            ) : null}
+            {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
             <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} />
             <div className="mt-2 flex gap-2">
               <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
@@ -1123,6 +1255,11 @@ export function YardChat({
           </>
         ) : null}
       </div>
+      {zoom ? (
+        <button type="button" className="absolute inset-0 z-50 flex items-center justify-center bg-black/92 p-4" onClick={() => setZoom("")}>
+          <img src={zoom} alt="" className="max-h-full max-w-full object-contain" />
+        </button>
+      ) : null}
     </div>
   );
 }
