@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { isPartnerName } from "@/lib/lands";
+import { partnerShare } from "@/lib/lands";
 import { plotById } from "@/lib/lands.server";
 import { NOTE_COST, NOTE_PRICE, NOTE_RUB, type PaidKind } from "@/lib/notes";
 import { addPurse, hereFromRequest } from "@/lib/purse.server";
@@ -15,6 +15,7 @@ type Line = {
   paid: number;
   cost: number;
   share: number;
+  house: number;
 };
 
 function filePath() {
@@ -67,11 +68,14 @@ export async function grantCut(kind: PaidKind) {
     const plotId = hereFromRequest();
     if (!plotId) return;
     const plot = await plotById(plotId);
-    if (!plot || !isPartnerName(plot.name)) return;
-    await addPurse(plot.ownerId, share);
+    const rate = plot ? partnerShare(plot.name) : null;
+    if (!plot || rate === null) return;
+    const his = Math.round(share * rate);
+    const house = share - his;
+    if (his) await addPurse(plot.ownerId, his);
     await locked(async () => {
       const lines = await readLines();
-      lines.push({ at: Date.now(), ownerId: plot.ownerId, ownerName: plot.name, kind, paid, cost, share });
+      lines.push({ at: Date.now(), ownerId: plot.ownerId, ownerName: plot.name, kind, paid, cost, share: his, house });
       await writeLines(lines);
     });
   } catch {
@@ -83,14 +87,15 @@ export async function reportBook(viewerId: string, admin: boolean) {
   const lines = await readLines();
   const mine = admin ? lines : lines.filter((line) => line.ownerId === viewerId);
   const now = periodOf(Date.now());
-  const groups = new Map<string, { period: number; ownerName: string; paid: number; cost: number; share: number; count: number }>();
+  const groups = new Map<string, { period: number; ownerName: string; paid: number; cost: number; share: number; house: number; count: number }>();
   for (const line of mine) {
     const period = periodOf(line.at);
     const key = `${period}:${line.ownerId}`;
-    const row = groups.get(key) || { period, ownerName: line.ownerName, paid: 0, cost: 0, share: 0, count: 0 };
+    const row = groups.get(key) || { period, ownerName: line.ownerName, paid: 0, cost: 0, share: 0, house: 0, count: 0 };
     row.paid += line.paid;
     row.cost += line.cost;
     row.share += line.share;
+    row.house += line.house || 0;
     row.count += 1;
     groups.set(key, row);
   }
@@ -105,5 +110,7 @@ export async function reportBook(viewerId: string, admin: boolean) {
       costRub: Math.round(row.cost * NOTE_RUB),
       share: row.share,
       shareRub: Math.round(row.share * NOTE_RUB),
+      house: row.house,
+      houseRub: Math.round(row.house * NOTE_RUB),
     }));
 }

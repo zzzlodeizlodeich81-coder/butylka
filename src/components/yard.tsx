@@ -19,7 +19,7 @@ import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
-import { PLOT_LABEL, TOOLS, type PlotKind } from "@/lib/lands";
+import { TOOLS, partnerShare, type PlotKind } from "@/lib/lands";
 import { landDesk } from "@/lib/land-desk";
 import {
   ROLES,
@@ -257,10 +257,11 @@ export function Yard() {
     setLayer("yard");
   }
 
+  const quietCamp = partnerShare(lock?.name || "") === 0.5;
   const menuItems = [
     { label: "Карта", onClick: () => setLands(true) },
     { label: "Слава", onClick: () => setFame(true) },
-    { label: "Конкурс", onClick: () => setContest(true) },
+    ...(quietCamp ? [] : [{ label: "Конкурс", onClick: () => setContest(true) }]),
     { label: "Дом", onClick: () => setPlot(true) },
     { label: "Прайс", onClick: () => setPrice(true) },
     { label: "Кабинет", onClick: () => setProfile(true) },
@@ -457,9 +458,11 @@ export function Yard() {
             <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
               Слава
             </button>
-            <button type="button" className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setContest(true)}>
-              Конкурс
-            </button>
+            {quietCamp ? null : (
+              <button type="button" className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setContest(true)}>
+                Конкурс
+              </button>
+            )}
             <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
               Дом
             </button>

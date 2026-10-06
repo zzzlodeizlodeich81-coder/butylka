@@ -36,7 +36,7 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [reports, setReports] = useState<
-    { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number }[]
+    { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number; house?: number; houseRub?: number }[]
   >([]);
   const [reportAdmin, setReportAdmin] = useState(false);
 
@@ -169,7 +169,8 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
                 Услуг {row.count}. Заплатили {row.paid} нот. Себестоимость {row.costRub} ₽.
               </p>
               <p>
-                {reportAdmin ? "Должен ему" : "Тебе начислено"} {row.share} нот ({row.shareRub} ₽)
+                {reportAdmin ? "Ему" : "Тебе"} {row.share} нот ({row.shareRub} ₽)
+                {row.house ? `. Тебе ${row.house} нот (${row.houseRub} ₽)` : ""}
               </p>
             </div>
           ))}

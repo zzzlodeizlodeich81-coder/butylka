@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, isPartnerName, type PlotKind, type ToolId } from "@/lib/lands";
+import { PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, partnerShare, type PlotKind, type ToolId } from "@/lib/lands";
 import { addPurse, currentGuest, readPurse, spendPurse } from "@/lib/purse.server";
 
 type Plot = {
@@ -84,7 +84,7 @@ function pub(plot: Plot, viewer: string) {
     id: plot.id,
     name: plot.name,
     kind: plot.kind,
-    tools: isPartnerName(plot.name) ? TOOLS.map((tool) => tool.id) : plot.tools,
+    tools: partnerShare(plot.name) === null ? plot.tools : TOOLS.map((tool) => tool.id),
     code: plot.owner === viewer ? plot.code : "",
     bank: plot.bank,
     state: plot.state,

@@ -28,6 +28,10 @@ export const WAR_STAKE = 100;
 
 export type ToolId = (typeof TOOLS)[number]["id"];
 
-export function isPartnerName(name: string) {
-  return /andrei/i.test(name) && /nik/i.test(name);
+/** Доля хозяина двора от чистой прибыли. null — обычный двор. */
+export function partnerShare(name: string) {
+  const text = name.trim();
+  if (/andrei/i.test(text) && /nik/i.test(text)) return 1;
+  if ((/баб/i.test(text) && /яг/i.test(text)) || (/baba/i.test(text) && /yaga/i.test(text))) return 0.5;
+  return null;
 }
