@@ -66,6 +66,17 @@ function MapStage({
   );
 }
 
+const CAMP_LABEL: Record<string, string> = {
+  record: "Блиндаж записи",
+  factory: "Аппаратная",
+  frame: "Планшет",
+  atelier: "Маскировочная",
+  stage: "Караулка",
+  cinema: "Кинобудка",
+  organ: "Маэстро",
+  market: "Обоз",
+  gate: "КПП",
+};
 const ZONES: { id: HouseId; label: string; left: string; top: string; width: string; height: string; sign: "top" | "bottom" }[] = [
   { id: "record", label: "Дом записи", left: "8%", top: "6%", width: "24%", height: "26%", sign: "bottom" },
   { id: "factory", label: "Фабрика звука", left: "33%", top: "2%", width: "24%", height: "28%", sign: "bottom" },
@@ -339,11 +350,12 @@ export function Yard() {
           {yardMap.zones.map((zone) => {
             const tool = TOOLS.find((item) => item.id === zone.id);
             const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
+            const label = quietCamp ? CAMP_LABEL[zone.id] || zone.label : zone.label;
             return (
             <button
               key={zone.id}
               type="button"
-              aria-label={zone.label}
+              aria-label={label}
               className={`absolute rounded-xl border ${closed ? "border-white/30 bg-black/45" : "border-transparent hover:border-white/70 hover:bg-white/10"}`}
               style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
               onClick={() => open(zone.id)}
@@ -351,7 +363,7 @@ export function Yard() {
               <span
                 className={`pointer-events-none absolute left-1/2 max-w-[92%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium text-[#f4e4c4] shadow ${zone.sign === "top" ? "top-0.5" : "bottom-0.5"}`}
               >
-                {closed ? `закрыто · ${tool?.price}` : zone.label}
+                {closed ? `закрыто · ${tool?.price}` : label}
               </span>
               {faces
                 .filter((person) => person.spot === zone.id)
