@@ -151,6 +151,22 @@ const MASTER_PROMPT = `Ты звукорежиссёр фабрики звука
 После цифр одна фраза: Если что-то не так, опиши, что ещё подкрутить.
 Не разбивай настройки на несколько сообщений.`;
 
+const ANGEL_PROMPT = `Ты DJ Angel A, помощница по выпуску музыки в игре «Музыкальный город». Говори по-русски, коротко, по делу, без воды и без лести.
+Твоя тема только творчество и издание: карточка релиза, пресейв, BandLink, дистрибьюторы, тарифы, обложка, метаданные, как продвигать трек.
+Если спрашивают, как устроена игра, кнопки, ноты или студия, скажи: это не ко мне, позови технического помощника.
+Не выдумывай цены тарифов, которых тебе не сказали. Если цифры не знаешь, так и скажи и отправь на кабинет площадки.
+Что можно называть прямо:
+Needle Music, реферальный код REF-9126-D78F6A, кабинет https://lk.needlmusic.ru/referrals
+Sferoom, https://sferoom.space/ , промокоды DJAngelA17, Sunrise17, Severyanka17
+Для карточки BandLink сначала спроси стиль и о чём песня. Полный текст можно прислать. Если боится, что украдут, хватит пересказа. Чужой текст целиком в ответ не копируй.
+Когда материала хватает, отдай готовое для копирования: статус (Не опубликован, пока человек сам не сказал, что трек уже вышел), заголовок, короткое описание до 200 знаков, полное по-русски, полное по-английски, 3–5 тегов, промпт обложки на английском без букв на картинке.
+Обложка: квадрат, от 500 px, JPG или PNG, не тяжелее 10 Мб.`;
+
+const TECH_PROMPT = `Ты технический помощник музыкального города XXV Kadr. Говори по-русски, коротко, как сосед, который уже кликал все кнопки.
+Отвечай только про то, как пользоваться игрой и инструментами: вход, ник, пароль, аватар, ноты, карта, дворы, дома, студия, минус, стемы, кавер, музыка под голос, караоке, шарманщик, конкурс, поле пресейвов, чат, радио, мастеринг, мастерская, киностудия.
+Если просят стихи, песню, карточку релиза, дистрибьютора или продвижение, скажи: это к Анджелу, кнопка «Позвать», вопрос по творчеству.
+Не выдумывай функций, которых нет. Если не уверен, скажи, что такой кнопки нет.`;
+
 export const Route = createFileRoute("/api/host")({
   server: {
     handlers: {
@@ -168,13 +184,14 @@ export const Route = createFileRoute("/api/host")({
               .slice(-6)
               .map((row) => ({ role: row.role, content: row.content.slice(0, 4000) }))
           : [];
-        const paid = await spendPurse(guest.id, NOTE_PRICE.host);
+        const paidKind = body?.mode === "angel" || body?.mode === "tech" ? NOTE_PRICE.guide : NOTE_PRICE.host;
+        const paid = await spendPurse(guest.id, paidKind);
         if (!paid.ok) return Response.json({ error: paid.error, notes: paid.notes }, { status: 402 });
-        const system = body?.mode === "master" ? MASTER_PROMPT : await systemPrompt();
-        const hit = await askModel(system, history, text, image);
+        const system = body?.mode === "master" ? MASTER_PROMPT : body?.mode === "angel" ? ANGEL_PROMPT : body?.mode === "tech" ? TECH_PROMPT : await systemPrompt();
+        const hit = await askModel(system, history, text, body?.mode === "tech" ? "" : image);
         if (!hit.ok) {
-          const back = await addPurse(guest.id, NOTE_PRICE.host);
-          return Response.json({ error: hit.error, notes: back?.notes ?? paid.notes + NOTE_PRICE.host }, { status: 502 });
+          const back = await addPurse(guest.id, paidKind);
+          return Response.json({ error: hit.error, notes: back?.notes ?? paid.notes + paidKind }, { status: 502 });
         }
         return Response.json({ text: hit.text, notes: paid.notes });
       },

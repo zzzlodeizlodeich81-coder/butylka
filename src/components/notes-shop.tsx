@@ -140,6 +140,9 @@ export function NotesShop() {
             {NOTE_LABEL.cover} — {NOTE_PRICE.cover} нот
           </li>
           <li>
+            {NOTE_LABEL.arrange} — {NOTE_PRICE.arrange} нот
+          </li>
+          <li>
             {NOTE_LABEL.grok} — {NOTE_PRICE.grok} нот
           </li>
           <li>
@@ -159,6 +162,9 @@ export function NotesShop() {
           </li>
           <li>
             {NOTE_LABEL.host} — {NOTE_PRICE.host} нот
+          </li>
+          <li>
+            {NOTE_LABEL.guide} — {NOTE_PRICE.guide} нот
           </li>
           <li>
             {NOTE_LABEL.contest} — {NOTE_PRICE.contest} нот

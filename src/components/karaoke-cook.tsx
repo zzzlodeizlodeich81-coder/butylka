@@ -25,7 +25,7 @@ import { findSyncedLyrics } from "@/lib/lyrics-server";
 import { looksLikeLrc, parseLrc, stampLines } from "@/lib/lyrics-sync";
 import { proxyAudio } from "@/lib/suno";
 import { pullMinusBlobs, pullSunoStemPack, zipSunoStems } from "@/lib/suno-flow";
-import { pollSunoGenerate, startSunoCover } from "@/lib/suno-server";
+import { pollSunoGenerate, startSunoArrange, startSunoCover } from "@/lib/suno-server";
 import { useGame } from "@/lib/store";
 import { NOTE_PRICE } from "@/lib/notes";
 import { refreshWallet } from "@/lib/vk/boot";
@@ -87,6 +87,7 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
   const [takeRate, setTakeRate] = useState(track.takeRate ?? TAKE_RATE_DEFAULT);
   const [takeVol, setTakeVol] = useState(track.takeVolume ?? TAKE_VOLUME_DEFAULT);
   const [minusVol, setMinusVol] = useState(track.takeMinusVol ?? TAKE_MINUS_DEFAULT);
+  const [band, setBand] = useState("");
   const recRef = useRef<MixedTake | null>(null);
 
   useEffect(() => {
@@ -408,6 +409,54 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
     }
   }
 
+  async function cookArrange() {
+    const tags = band.trim();
+    if (tags.length < 2) {
+      toast.error("Напиши инструменты: балалайка, тихий бас, аккордеон.");
+      return;
+    }
+    const source = track.takeBlob || track.blob;
+    if (!source) {
+      toast.error("Нет голоса или файла.");
+      return;
+    }
+    setBusy("Кладу музыку под голос…");
+    try {
+      const audioUrl = isPublicHttp(track.sourceUrl) && !track.takeBlob
+        ? track.sourceUrl!
+        : await hostFile(source, fileNameFor(track.title, "voice", source.type || "audio/mpeg"));
+      const started = await startSunoArrange({
+        data: { audioUrl, title: track.title, tags },
+      });
+      if (!started.ok) throw started;
+      let audio: string | null = null;
+      for (let i = 0; i < 48; i++) {
+        await new Promise((r) => window.setTimeout(r, 4000));
+        const st = await pollSunoGenerate({ data: { taskId: started.taskId } });
+        if (st.failed) throw new Error("Музыка не легла.");
+        const clip = st.clips.find((c) => c.audioUrl);
+        if (clip?.audioUrl) {
+          audio = clip.audioUrl;
+          break;
+        }
+      }
+      if (!audio) throw new Error("Музыка не успела. Попробуй ещё раз.");
+      const res = await fetch(proxyAudio(audio));
+      if (!res.ok) throw new Error("Не скачалась музыка.");
+      const blob = await res.blob();
+      downloadBlob(blob, fileNameFor(track.title, "band", blob.type || "audio/mpeg"));
+      void refreshWallet();
+      toast.success("Музыка скачалась. Это аранжировка под файл, не труба поверх готового микса.");
+    } catch (err) {
+      const rec = err && typeof err === "object" ? (err as { error?: string; needNotes?: number; message?: string }) : {};
+      toast.error(rec.error || rec.message || "Музыка не легла.");
+      if (rec.needNotes) useWallet.getState().setShop(true);
+      void refreshWallet();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const rows = looksLikeLrc(text) ? parseLrc(text).map((l) => l.text) : splitText(text);
   const currentLine = rows[stamps.length] ?? "готово";
   const nextLine = rows[stamps.length + 1] ?? "";
@@ -512,6 +561,18 @@ export function KaraokeCook({ track, onClose, onSaved }: Props) {
               {busy?.startsWith("Suno снимает стемы")
                 ? busy
                 : `Снять стемы · ${NOTE_PRICE.stems} нот`}
+            </Button>
+            <label className="flex flex-col gap-1 text-sm text-muted">
+              Подложить музыку под голос. Лучше голый голос или одна дорожка, не готовый микс.
+              <input
+                value={band}
+                onChange={(e) => setBand(e.target.value)}
+                placeholder="балалайка, тихий бас, аккордеон"
+                className="h-11 rounded-xl border border-border bg-surface px-3 text-fg outline-none"
+              />
+            </label>
+            <Button variant="secondary" onClick={() => void cookArrange()} disabled={Boolean(busy)}>
+              {busy?.startsWith("Кладу") ? busy : `Подложить музыку · ${NOTE_PRICE.arrange} нот`}
             </Button>
             <Button onClick={() => void startRecord()} disabled={Boolean(busy)}>
               {track.takeBlob ? "Перезаписать голос" : "Спеть и записать"}

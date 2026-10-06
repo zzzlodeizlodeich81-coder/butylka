@@ -7,6 +7,8 @@ import { FameCard, OrganCard, PresaveSheet, ReleaseCard, YardChat } from "@/comp
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HostChat } from "@/components/host-chat";
+import { AngelHouse, HelperDock } from "@/components/helper-dock";
+import { ProfileCard } from "@/components/profile-card";
 import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
 import { Matreshka } from "@/components/matreshka";
@@ -122,6 +124,8 @@ export function Yard() {
   const [pile, setPile] = useState(false);
   const [mess, setMess] = useState(false);
   const [field, setField] = useState(false);
+  const [angel, setAngel] = useState(false);
+  const [profile, setProfile] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
   const [lock, setLock] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member: boolean } | null>(null);
   const [ask, setAsk] = useState<(typeof TOOLS)[number] | null>(null);
@@ -247,6 +251,7 @@ export function Yard() {
     { label: "Слава", onClick: () => setFame(true) },
     { label: "Дом", onClick: () => setPlot(true) },
     { label: "Прайс", onClick: () => setPrice(true) },
+    { label: "Кабинет", onClick: () => setProfile(true) },
     { label: "Радио", onClick: () => { setRadioOn(true); setRadioOpen(true); } },
   ];
   const desk = (
@@ -256,6 +261,8 @@ export function Yard() {
       {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
+      {profile ? <ProfileCard onClose={() => setProfile(false)} /> : null}
+      <HelperDock />
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
     </>
   );
@@ -273,9 +280,11 @@ export function Yard() {
           onEnter={enterPlot}
           onBuy={() => setLands(true)}
           onField={() => setField(true)}
+          onAngel={() => setAngel(true)}
           onBog={() => setBog(true)}
           menu={menuItems}
         />
+        {angel ? <AngelHouse onClose={() => setAngel(false)} /> : null}
         {bog ? <GollumCave onClose={() => setBog(false)} /> : null}
         {desk}
         {splash ? (
@@ -686,6 +695,7 @@ function World({
   onEnter,
   onBuy,
   onField,
+  onAngel,
   onBog,
   menu,
 }: {
@@ -694,6 +704,7 @@ function World({
   onEnter: (plot: { id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean }) => void;
   onBuy: () => void;
   onField: () => void;
+  onAngel: () => void;
   onBog: () => void;
   menu: { label: string; onClick: () => void }[];
 }) {
@@ -765,7 +776,7 @@ function World({
   ];
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#6a341c]">
+    <div className="relative h-dvh w-full overflow-hidden bg-[#6d8f62]">
       <div
         ref={frame}
         className="absolute inset-0 z-10 cursor-grab touch-none overflow-hidden select-none active:cursor-grabbing"
@@ -814,24 +825,41 @@ function World({
           ))}
           <button
             type="button"
-            className="absolute max-w-[9rem] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
-            style={{ left: "30%", top: "16%" }}
+            className="absolute max-w-[9rem] rounded-xl bg-[#1a120c]/80 px-2 py-1 text-left text-[#f4e4c4] shadow"
+            style={{ left: "8%", top: "70%" }}
             onClick={onBog}
           >
             <span className="block text-[12px] font-medium">болота голума</span>
             <span className="text-[10px] text-[#c4a574]">пещеры</span>
           </button>
+          <button
+            type="button"
+            className="absolute rounded-xl bg-white/80 px-2 py-1 text-left text-[#1a120c] shadow"
+            style={{ left: "46%", top: "38%" }}
+            onClick={onAngel}
+          >
+            <span className="block text-[12px] font-medium">дом Анджела</span>
+            <span className="text-[10px]">кабинет</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Поле пресейвов"
+            className="absolute rounded-xl bg-black/25 px-2 py-1 text-left text-white"
+            style={{ left: "62%", top: "60%", width: "24%", height: "20%" }}
+            onClick={onField}
+          >
+            <span className="text-[12px] font-medium">поле пресейвов</span>
+          </button>
+          <p className="pointer-events-none absolute rounded-xl bg-white/75 px-2 py-1 text-[12px] text-[#1a120c]" style={{ left: "34%", top: "8%" }}>
+            северные земли
+          </p>
         </div>
       </div>
       <div className="pointer-events-none absolute top-[max(4.6rem,calc(env(safe-area-inset-top)+4.2rem))] left-3 z-20 max-w-[16rem] rounded-xl bg-black/55 px-3 py-2 text-[#f4e4c4]">
         <p className="text-sm">карта музыкального мира</p>
-        <p className="text-lg leading-none">😏</p>
-        <p className="text-xs">а вы думали вы на земле? как бы не так!</p>
+        <p className="text-xs">луга, леса и северные земли</p>
       </div>
       <div className="absolute top-0 left-0 z-30 flex flex-wrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onField}>
-          Посеять пресейв
-        </button>
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onCity}>
           Город
         </button>

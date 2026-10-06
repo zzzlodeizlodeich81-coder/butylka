@@ -99,6 +99,7 @@ function viewOf(book: Book, me: string, admin: boolean) {
         url: row.url || "",
         lyrics: admin ? row.lyrics : "",
         guest: Boolean(row.guest),
+        voterIds: admin ? row.votes : [],
       };
     })
     .sort((a, b) => Number(b.month === month) - Number(a.month === month) || a.place - b.place);
@@ -113,7 +114,17 @@ function viewOf(book: Book, me: string, admin: boolean) {
 
 export async function contestView(me: string, admin: boolean) {
   const book = await readBook();
-  return viewOf(book, me, admin);
+  const view = viewOf(book, me, admin);
+  if (!admin) return view;
+  const { peoplePurse } = await import("@/lib/purse.server");
+  const names = new Map((await peoplePurse()).map((person) => [person.id, person.name]));
+  return {
+    ...view,
+    entries: view.entries.map((row) => ({
+      ...row,
+      voters: row.voterIds.map((id) => names.get(id) || "без ника"),
+    })),
+  };
 }
 
 export async function contestFile(id: string, part: "audio" | "cover") {
@@ -217,11 +228,11 @@ export async function voteContest(guestId: string, id: string) {
     const row = book.entries.find((item) => item.id === id);
     if (!row) return { ok: false as const, error: "Трека уже нет." };
     if (row.owner === guestId) return { ok: false as const, error: "За свой трек статус не растёт." };
-    if (row.votes.includes(guestId)) return { ok: true as const, ...viewOf(book, guestId, false) };
+    if (row.votes.includes(guestId)) return { ok: true as const, ...(await contestView(guestId, await adminOf(guestId))) };
     row.votes.push(guestId);
     book.ranks[guestId] = (book.ranks[guestId] || 0) + 1;
     await writeBook(book);
-    return { ok: true as const, gained: 1 as const, ...viewOf(book, guestId, false) };
+    return { ok: true as const, gained: 1 as const, ...(await contestView(guestId, await adminOf(guestId))) };
   });
 }
 

@@ -291,6 +291,33 @@ export const startSunoCover = createServerFn({ method: "POST" })
     });
   });
 
+export const startSunoArrange = createServerFn({ method: "POST" })
+  .middleware([vkMiddleware])
+  .validator((input: { audioUrl: string; title: string; tags: string }) => input)
+  .handler(async ({ data, context }) => {
+    return withNotes(context.vk, "arrange", async () => {
+      const tags = data.tags.replace(/\s+/g, " ").trim().slice(0, 400);
+      if (tags.length < 2) return { ok: false as const, error: "Напиши, какие инструменты подложить." };
+      const { res, body } = await sunoFetch("/api/v1/generate/add-instrumental", {
+        method: "POST",
+        body: JSON.stringify({
+          uploadUrl: data.audioUrl,
+          title: (data.title || "Музыка").slice(0, 80),
+          tags,
+          negativeTags: "vocals, singing, rap, spoken word",
+          callBackUrl: CALLBACK,
+          model: "V5_5",
+        }),
+      });
+      const code = Number(body.code ?? res.status);
+      const taskId = pick<string>(body.data as Record<string, unknown>, "taskId", "task_id");
+      if (code !== 200 || !taskId) {
+        return { ok: false as const, error: String(body.msg ?? "Музыку под голос не приняли.") };
+      }
+      return { ok: true as const, taskId };
+    });
+  });
+
 export const pollSunoStems = createServerFn({ method: "GET" })
   .validator((input: { taskId: string }) => input)
   .handler(async ({ data }) => {

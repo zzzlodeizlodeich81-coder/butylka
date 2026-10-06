@@ -71,6 +71,7 @@ type ContestRow = {
   url?: string;
   lyrics?: string;
   guest?: boolean;
+  voters?: string[];
 };
 
 function squareShot(file: File) {
@@ -255,6 +256,9 @@ function ContestSheet({ song, onClose, onSent }: { song: YardSong; onClose: () =
                 <audio className="mt-2 w-full" controls src={`/api/contest?id=${row.id}&part=audio`} />
               )}
               <p className="mt-1 text-xs">голосов {row.votes}</p>
+              {admin && row.voters?.length ? (
+                <p className="mt-1 text-xs text-[#c4a574]">кто голосовал: {row.voters.join(", ")}</p>
+              ) : null}
               {admin && row.lyrics ? <p className="mt-1 whitespace-pre-wrap text-xs text-[#c4a574]">{row.lyrics}</p> : null}
               {admin ? (
                 <a className="mt-1 block text-xs underline" href={`/api/contest?id=${row.id}&part=audio`}>

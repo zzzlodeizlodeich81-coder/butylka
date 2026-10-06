@@ -181,6 +181,50 @@ export async function loginAccount(login: string, password: string) {
   return { ok: true as const, row };
 }
 
+export async function updateAccount(
+  id: string,
+  patch: { name?: string; login?: string; password?: string; current?: string },
+) {
+  return locked(async () => {
+    const book = await readBook();
+    const row = book.rows.find((item) => item.id === id);
+    if (!row) return { ok: false as const, error: "Нет такого игрока." };
+    const admin = isAdminLogin(row.login);
+    const current = (patch.current || "").trim();
+    const nextLogin = (patch.login || "").trim();
+    const loginChange = Boolean(nextLogin) && cleanLogin(nextLogin) !== (row.login || "");
+    const passChange = Boolean((patch.password || "").trim());
+    if (loginChange || passChange) {
+      const known = row.pass ? passOk(current, row.pass) : admin && checkAdminPassword(current);
+      if (row.pass || admin) {
+        if (!known) return { ok: false as const, error: "Старый пароль не тот." };
+      }
+    }
+    if ((patch.name || "").trim()) {
+      const shown = patch.name!.replace(/[|\n\r]/g, "").trim().slice(0, 24);
+      if (shown.length < 2) return { ok: false as const, error: "Ник хотя бы из двух букв." };
+      row.name = shown;
+    }
+    if (loginChange) {
+      if (admin) return { ok: false as const, error: "Логин хозяина не меняется." };
+      const user = cleanLogin(patch.login || "");
+      if (user === adminLogin()) return { ok: false as const, error: "Этот логин занят." };
+      if (!/^[\p{L}\p{N}_-]{3,20}$/u.test(user)) return { ok: false as const, error: "Логин: 3–20 букв или цифр." };
+      if (book.rows.some((item) => item.login === user && item.id !== row.id)) {
+        return { ok: false as const, error: "Такой логин уже занят." };
+      }
+      row.login = user;
+    }
+    if (passChange) {
+      if (admin) return { ok: false as const, error: "Пароль админки меняется не здесь." };
+      if (patch.password!.trim().length < 4) return { ok: false as const, error: "Пароль хотя бы из 4 знаков." };
+      row.pass = hashPass(patch.password!.trim());
+    }
+    await writeBook(book);
+    return { ok: true as const, row };
+  });
+}
+
 export async function loginVk(vkId: string, name: string) {
   const id = vkId.replace(/\D/g, "").slice(0, 20);
   if (!id) return null;

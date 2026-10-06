@@ -21,6 +21,7 @@ import {
   registerAccount,
   setCookie,
   setFace,
+  updateAccount,
 } from "@/lib/purse.server";
 import { postWhisper, setTyping, threadFor, typingName, unreadFrom } from "@/lib/mail.server";
 import { forgetName } from "@/lib/yard-board";
@@ -32,6 +33,7 @@ export const Route = createFileRoute("/api/door")({
         let body: {
           action?: string;
           password?: string;
+          current?: string;
           login?: string;
           name?: string;
           id?: string;
@@ -75,6 +77,26 @@ export const Route = createFileRoute("/api/door")({
             status: 200,
             headers,
           });
+        }
+
+        if (body.action === "profile") {
+          const guest = guestFromRequest(request);
+          if (!guest) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
+          const saved = await updateAccount(guest.id, {
+            name: body.name,
+            login: body.login,
+            password: body.password,
+            current: body.current,
+          });
+          if (!saved.ok) return Response.json({ ok: false, error: saved.error }, { status: 400 });
+          headers.append("set-cookie", setCookie(request, GUEST_COOKIE, guestToken(saved.row)));
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              guest: { id: saved.row.id, name: saved.row.name, notes: saved.row.notes, login: saved.row.login || "" },
+            }),
+            { status: 200, headers },
+          );
         }
 
         if (body.action === "out") {
