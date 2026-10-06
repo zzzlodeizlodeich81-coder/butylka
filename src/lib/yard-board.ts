@@ -503,8 +503,21 @@ export const yardBoard = createServerFn({ method: "POST" })
     }
 
     if (data.action === "glory") {
-      recount(vkId, name, Math.max(0, Math.round(Number(data.frames || 0))));
-      return { ok: true, shared: false, heroes: heroRows() };
+      await loadBoardFile();
+      heroes.clear();
+      const authors = new Map<string, string>();
+      for (const song of mem.songs) {
+        if (song.vk) authors.set(song.vk, song.author);
+      }
+      if (vkId) authors.set(vkId, name);
+      const { readPurse } = await import("@/lib/purse.server");
+      for (const [id, author] of authors) {
+        const row = await readPurse(id);
+        recount(id, row?.name || author, id === vkId ? Math.max(0, Math.round(Number(data.frames || 0))) : null);
+        const hero = heroes.get(id);
+        if (hero && row) hero.notes = row.notes;
+      }
+      return { ok: true, shared: true, heroes: heroRows().filter((hero) => hero.tracks > 0 || hero.votes > 0) };
     }
 
     if (data.action === "home" || data.action === "build") {

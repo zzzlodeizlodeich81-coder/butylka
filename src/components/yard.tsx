@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesButton, PriceSheet } from "@/components/notes-shop";
-import { FameCard, OrganCard, PresaveSheet, ReleaseCard, YardChat } from "@/components/yard-square";
+import { ContestHall, FameCard, OrganCard, PresaveSheet, ReleaseCard, YardChat } from "@/components/yard-square";
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HostChat } from "@/components/host-chat";
@@ -111,6 +111,7 @@ export function Yard() {
   const [houseTake, setHouseTake] = useState(0);
   const [chat, setChat] = useState(false);
   const [fame, setFame] = useState(false);
+  const [contest, setContest] = useState(false);
   const [plot, setPlot] = useState(false);
   const [radioOn, setRadioOn] = useState(false);
   const [radioOpen, setRadioOpen] = useState(false);
@@ -259,6 +260,7 @@ export function Yard() {
   const menuItems = [
     { label: "Карта", onClick: () => setLands(true) },
     { label: "Слава", onClick: () => setFame(true) },
+    { label: "Конкурс", onClick: () => setContest(true) },
     { label: "Дом", onClick: () => setPlot(true) },
     { label: "Прайс", onClick: () => setPrice(true) },
     { label: "Кабинет", onClick: () => setProfile(true) },
@@ -268,6 +270,7 @@ export function Yard() {
     <>
       {field ? <PresaveSheet onClose={() => setField(false)} /> : null}
       {fame ? <FameCard onClose={() => setFame(false)} /> : null}
+      {contest ? <ContestHall onClose={() => setContest(false)} /> : null}
       {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
@@ -453,6 +456,9 @@ export function Yard() {
             </button>
             <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
               Слава
+            </button>
+            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setContest(true)}>
+              Конкурс
             </button>
             <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
               Дом

@@ -1322,6 +1322,87 @@ export function FameCard({ onClose }: { onClose: () => void }) {
   );
 }
 
+export function ContestHall({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<ContestRow[]>([]);
+  const [taken, setTaken] = useState(0);
+  const [admin, setAdmin] = useState(false);
+
+  function take(data: { entries?: ContestRow[]; taken?: number; admin?: boolean }) {
+    if (Array.isArray(data.entries)) setRows(data.entries);
+    if (typeof data.taken === "number") setTaken(data.taken);
+    if (typeof data.admin === "boolean") setAdmin(data.admin);
+  }
+
+  useEffect(() => {
+    void fetch("/api/contest")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok) take(data);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-end bg-black/35">
+      <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-2xl text-fg">Конкурс</h2>
+          <Button variant="ghost" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+        <p className="text-sm text-muted">
+          Треки, которые идут в сборник HoldingMusic Матрёшка. В сборник месяца проходят 10 лучших. Сейчас подано {taken}. Свой черновик отправляют кнопкой у шарманщика.
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          {rows.map((row) => (
+            <div key={row.id} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm">
+              <p className="font-medium text-fg">
+                {row.place}. {row.artist} — {row.title}{" "}
+                <span className="text-xs text-muted">{row.passed ? "идёт в сборник" : "на конкурсе"}{row.guest ? " · гость" : ""}</span>
+              </p>
+              <img src={`/api/contest?id=${row.id}&part=cover`} alt="" className="mt-2 size-16 rounded-lg object-cover" />
+              {row.url ? (
+                <a className="mt-2 block text-xs underline" href={row.url} target="_blank" rel="noreferrer">
+                  Слушать трек
+                </a>
+              ) : (
+                <audio className="mt-2 w-full" controls src={`/api/contest?id=${row.id}&part=audio`} />
+              )}
+              <p className="mt-1 text-xs text-muted">голосов {row.votes}</p>
+              {admin && row.voters?.length ? <p className="mt-1 text-xs text-muted">кто голосовал: {row.voters.join(", ")}</p> : null}
+              <Button
+                variant="secondary"
+                className="mt-2 rounded-xl"
+                disabled={row.voted || row.mine}
+                onClick={() => {
+                  void (async () => {
+                    const res = await fetch("/api/contest", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: row.id }),
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok || !data?.ok) {
+                      toast.error(data?.error || "Голос не засчитан.");
+                      return;
+                    }
+                    take(data);
+                    toast.success("Голос есть. Статус +1.");
+                  })();
+                }}
+              >
+                {row.mine ? "Твой трек" : row.voted ? "Уже голосовал" : "Голос"}
+              </Button>
+            </div>
+          ))}
+          {!rows.length ? <p className="text-sm text-muted">Пока пусто. Первые треки появятся, когда их подадут у шарманщика.</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type PresaveCard = {
   id: string;
   name: string;
