@@ -642,35 +642,8 @@ type WhisperLine = { id: string; from: string; to: string; text: string; at: num
 
 const SMILES = ["😊", "😂", "😉", "😍", "😎", "🤔", "😭", "😡", "👍", "🔥", "❤️", "💀", "🎵", "🎤", "🎸", "👏", "🙏", "⭐", "👀", "🪆"];
 
-function BraSmile() {
-  return (
-    <svg viewBox="0 0 64 64" className="mx-0.5 inline-block h-7 w-7 align-middle" aria-label="девушка в лифчике">
-      <circle cx="32" cy="16" r="9" fill="#f3c7a5" />
-      <path d="M23 12c1-6 8-8 12-4 3-4 10-2 11 4" fill="#2a1a12" />
-      <circle cx="29" cy="16" r="1" fill="#1a120c" />
-      <circle cx="35" cy="16" r="1" fill="#1a120c" />
-      <path d="M28 19c2 2 6 2 8 0" stroke="#1a120c" fill="none" strokeWidth="1" />
-      <path d="M18 34c6 8 22 8 28 0l4 16H14z" fill="#f3c7a5" />
-      <path d="M16 36c6 2 10 8 8 12 6-2 12-2 16 0-2-4 2-10 8-12-8 6-24 6-32 0z" fill="#f7f2ea" />
-      <path d="M30 38c2 3 2 3 4 0" stroke="#e7b7c8" fill="none" />
-    </svg>
-  );
-}
-
-function GuySmile() {
-  return (
-    <svg viewBox="0 0 64 64" className="mx-0.5 inline-block h-7 w-7 align-middle" aria-label="качок в стрингах">
-      <circle cx="32" cy="13" r="8" fill="#e2b08a" />
-      <path d="M24 10c2-5 14-5 16 0-2 2-14 2-16 0z" fill="#1a120c" />
-      <circle cx="29" cy="13" r="1" fill="#1a120c" />
-      <circle cx="35" cy="13" r="1" fill="#1a120c" />
-      <path d="M29 16c2 2 4 2 6 0" stroke="#1a120c" fill="none" />
-      <path d="M14 28c4-6 8-6 10-2l8-2 8 2c2-4 6-4 10 2l-4 14H18z" fill="#e2b08a" />
-      <path d="M28 30h8M30 34h4M32 26v12" stroke="#c4896a" fill="none" />
-      <path d="M26 42h12l-2 10h-8z" fill="#1a120c" />
-      <path d="M30 42c1 6 3 6 4 0" stroke="#e2b08a" fill="none" />
-    </svg>
-  );
+function Sticker({ src, label, big }: { src: string; label: string; big?: boolean }) {
+  return <img src={src} alt={label} className={`mx-0.5 inline-block align-middle object-contain ${big ? "h-28 w-28" : "h-14 w-14"}`} />;
 }
 
 function ChatBits({ text }: { text: string }) {
@@ -678,8 +651,8 @@ function ChatBits({ text }: { text: string }) {
   return (
     <p className="text-muted">
       {parts.map((part, index) => {
-        if (part === "{{bra}}") return <BraSmile key={index} />;
-        if (part === "{{guy}}") return <GuySmile key={index} />;
+        if (part === "{{bra}}") return <Sticker key={index} big src="/sticker-girl.jpg" label="девушка" />;
+        if (part === "{{guy}}") return <Sticker key={index} big src="/sticker-guy.jpg" label="качок" />;
         return <span key={index}>{part}</span>;
       })}
     </p>
@@ -772,10 +745,10 @@ function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
   return (
     <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
       <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{bra}}")}>
-        <BraSmile />
+        <Sticker src="/sticker-girl.jpg" label="девушка" />
       </button>
       <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{guy}}")}>
-        <GuySmile />
+        <Sticker src="/sticker-guy.jpg" label="качок" />
       </button>
       {SMILES.map((smile) => (
         <button key={smile} type="button" className="shrink-0 rounded-lg bg-surface px-2 py-1 text-2xl" onClick={() => onPick(smile)}>
