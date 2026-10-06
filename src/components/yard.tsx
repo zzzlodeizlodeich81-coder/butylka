@@ -102,15 +102,15 @@ const YARD_PHONE: typeof ZONES = [
 ];
 
 const CAMP_ZONES: typeof ZONES = [
-  { id: "record", label: "Блиндаж записи", left: "6%", top: "16%", width: "22%", height: "22%", sign: "bottom" },
-  { id: "factory", label: "Аппаратная", left: "30%", top: "8%", width: "20%", height: "20%", sign: "bottom" },
-  { id: "frame", label: "Планшет", left: "52%", top: "8%", width: "18%", height: "18%", sign: "bottom" },
-  { id: "atelier", label: "Маскировочная", left: "74%", top: "18%", width: "22%", height: "20%", sign: "bottom" },
-  { id: "organ", label: "Маэстро", left: "38%", top: "36%", width: "18%", height: "22%", sign: "bottom" },
-  { id: "stage", label: "Караулка", left: "6%", top: "46%", width: "22%", height: "20%", sign: "bottom" },
-  { id: "cinema", label: "Кинобудка", left: "70%", top: "46%", width: "24%", height: "20%", sign: "top" },
-  { id: "market", label: "Обоз", left: "28%", top: "62%", width: "30%", height: "16%", sign: "top" },
-  { id: "gate", label: "КПП", left: "60%", top: "74%", width: "22%", height: "16%", sign: "top" },
+  { id: "record", label: "Блиндаж записи", left: "14%", top: "32%", width: "16%", height: "14%", sign: "bottom" },
+  { id: "factory", label: "Аппаратная", left: "28%", top: "18%", width: "16%", height: "14%", sign: "bottom" },
+  { id: "frame", label: "Планшет", left: "54%", top: "18%", width: "14%", height: "14%", sign: "bottom" },
+  { id: "atelier", label: "Маскировочная", left: "4%", top: "74%", width: "22%", height: "14%", sign: "top" },
+  { id: "organ", label: "Маэстро", left: "72%", top: "58%", width: "10%", height: "12%", sign: "bottom" },
+  { id: "stage", label: "Караулка", left: "36%", top: "34%", width: "14%", height: "12%", sign: "bottom" },
+  { id: "cinema", label: "Кинобудка", left: "70%", top: "30%", width: "12%", height: "12%", sign: "bottom" },
+  { id: "market", label: "Обоз", left: "56%", top: "48%", width: "16%", height: "10%", sign: "bottom" },
+  { id: "gate", label: "КПП", left: "84%", top: "32%", width: "12%", height: "14%", sign: "bottom" },
 ];
 
 const DOORS: Partial<Record<HouseId, string>> = {
@@ -232,7 +232,12 @@ export function Yard() {
   }, [lock?.id]);
 
   useEffect(() => {
-    if (layer !== "yard") return;
+    const name = lock?.name || "";
+    if (layer !== "yard" || partnerShare(name) === 0.5 || /северян|снежин/i.test(name)) {
+      setPile(false);
+      setMess(false);
+      return;
+    }
     void gollumDesk({ data: { action: "pile", room: lock?.id || "" } }).then((res) => {
       if (res.ok) {
         const on = Boolean((res as { pile?: boolean }).pile);
@@ -240,10 +245,10 @@ export function Yard() {
         setMess(on);
       }
     });
-  }, [layer, lock?.id]);
+  }, [layer, lock?.id, lock?.name]);
 
   function open(id: HouseId) {
-    if (lock && (id === "organ" || id === "market")) {
+    if (lock && partnerShare(lock.name) !== 0.5 && (id === "organ" || id === "market")) {
       toast.message("Шарманщик и рынок только на общем дворе.");
       return;
     }
