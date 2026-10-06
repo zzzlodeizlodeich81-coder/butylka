@@ -742,37 +742,62 @@ function World({
     return () => node.removeEventListener("wheel", onWheel);
   }, []);
 
-  function grab(event: ReactPointerEvent) {
-    if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest("button,a,input,label")) return;
+  function grab(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const node = event.currentTarget;
+    const id = event.pointerId;
     const startX = event.clientX;
     const startY = event.clientY;
     const origin = view.current;
+    let dragged = false;
+    const clicked = (event.target as HTMLElement).closest("button,a,input,label");
+    node.setPointerCapture(id);
     const move = (ev: PointerEvent) => {
-      const next = { ...origin, x: origin.x + ev.clientX - startX, y: origin.y + ev.clientY - startY };
+      if (ev.pointerId !== id) return;
+      if (ev.pointerType === "mouse" && (ev.buttons & 1) === 0) {
+        end();
+        return;
+      }
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!dragged && Math.hypot(dx, dy) < 5) return;
+      dragged = true;
+      const next = { ...origin, x: origin.x + dx, y: origin.y + dy };
       view.current = next;
       setPan({ ...next });
     };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+    const end = (ev?: Event) => {
+      if (ev && "pointerId" in ev && (ev as PointerEvent).pointerId !== id) return;
+      node.removeEventListener("pointermove", move);
+      node.removeEventListener("pointerup", end);
+      node.removeEventListener("pointercancel", end);
+      if (node.hasPointerCapture(id)) node.releasePointerCapture(id);
+      if (dragged && clicked) {
+        const swallow = (click: Event) => {
+          click.preventDefault();
+          click.stopPropagation();
+          clicked.removeEventListener("click", swallow, true);
+        };
+        clicked.addEventListener("click", swallow, true);
+      }
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    node.addEventListener("pointermove", move);
+    node.addEventListener("pointerup", end);
+    node.addEventListener("pointercancel", end);
   }
   const spots = [
-    { left: "14%", top: "46%" },
-    { left: "33%", top: "24%" },
-    { left: "61%", top: "30%" },
-    { left: "82%", top: "42%" },
-    { left: "24%", top: "70%" },
-    { left: "48%", top: "58%" },
-    { left: "74%", top: "68%" },
-    { left: "18%", top: "84%" },
-    { left: "44%", top: "82%" },
-    { left: "68%", top: "86%" },
-    { left: "88%", top: "74%" },
-    { left: "52%", top: "18%" },
+    { left: "78%", top: "30%" },
+    { left: "50%", top: "50%" },
+    { left: "66%", top: "54%" },
+    { left: "28%", top: "60%" },
+    { left: "36%", top: "72%" },
+    { left: "22%", top: "56%" },
+    { left: "86%", top: "48%" },
+    { left: "44%", top: "64%" },
+    { left: "58%", top: "68%" },
+    { left: "30%", top: "78%" },
+    { left: "72%", top: "44%" },
+    { left: "16%", top: "64%" },
   ];
 
   return (
@@ -783,74 +808,74 @@ function World({
         onPointerDown={grab}
       >
         <div
-          className="absolute h-[220%] w-[240%]"
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
+          className="absolute w-[220%]"
+          style={{ aspectRatio: "16 / 9", transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
         >
-          <img src="/earth.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img src="/earth.jpg" alt="" className="absolute inset-0 h-full w-full" />
           <button
             type="button"
-            className="absolute max-w-[11rem] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
-            style={{ left: "8%", top: "40%" }}
+            className="absolute max-w-[16rem] rounded-xl bg-[#1a120c]/90 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
+            style={{ left: "6%", top: "42%" }}
             onClick={onHome}
           >
-            <span className="block text-[12px] font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
-            <span className="text-[10px] text-[#c4a574]">государство</span>
+            <span className="block text-base font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
+            <span className="text-sm text-[#c4a574]">государство</span>
           </button>
           {[
-            { left: "70%", top: "22%" },
-            { left: "40%", top: "72%" },
+            { left: "18%", top: "70%" },
+            { left: "42%", top: "78%" },
           ].map((spot) => (
             <button
               key={spot.left}
               type="button"
-              className="absolute rounded-xl bg-white/90 px-2 py-1 text-left text-[#1a120c] shadow"
+              className="absolute rounded-xl bg-white/90 px-3 py-1.5 text-left text-[#1a120c] shadow"
               style={spot}
               onClick={onBuy}
             >
-              <span className="block text-[12px] font-medium">продаётся</span>
-              <span className="text-[10px]">участок и дома</span>
+              <span className="block text-base font-medium">продаётся</span>
+              <span className="text-sm">участок и дома</span>
             </button>
           ))}
           {rows.map((plot, index) => (
             <button
               key={plot.id}
               type="button"
-              className="absolute max-w-[9rem] rounded-xl bg-black/75 px-2 py-1 text-left text-[#f4e4c4] shadow"
+              className="absolute max-w-[14rem] rounded-xl bg-black/75 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
               style={spots[index % spots.length]}
               onClick={() => onEnter(plot)}
             >
-              <span className="block truncate text-[12px] font-medium">{plot.name}</span>
-              <span className="text-[10px] text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
+              <span className="block truncate text-base font-medium">{plot.name}</span>
+              <span className="text-sm text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
             </button>
           ))}
           <button
             type="button"
-            className="absolute max-w-[9rem] rounded-xl bg-[#1a120c]/80 px-2 py-1 text-left text-[#f4e4c4] shadow"
-            style={{ left: "8%", top: "70%" }}
+            className="absolute max-w-[12rem] rounded-xl bg-[#1a120c]/80 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
+            style={{ left: "3%", top: "80%" }}
             onClick={onBog}
           >
-            <span className="block text-[12px] font-medium">болота голума</span>
-            <span className="text-[10px] text-[#c4a574]">пещеры</span>
+            <span className="block text-base font-medium">болота голума</span>
+            <span className="text-sm text-[#c4a574]">пещеры</span>
           </button>
           <button
             type="button"
-            className="absolute rounded-xl bg-white/80 px-2 py-1 text-left text-[#1a120c] shadow"
-            style={{ left: "46%", top: "38%" }}
+            className="absolute rounded-xl bg-white/90 px-3 py-1.5 text-left text-[#1a120c] shadow"
+            style={{ left: "54%", top: "26%" }}
             onClick={onAngel}
           >
-            <span className="block text-[12px] font-medium">дом Анджела</span>
-            <span className="text-[10px]">кабинет</span>
+            <span className="block text-base font-medium">дом Анджела</span>
+            <span className="text-sm">кабинет</span>
           </button>
           <button
             type="button"
             aria-label="Поле пресейвов"
-            className="absolute rounded-xl bg-black/25 px-2 py-1 text-left text-white"
-            style={{ left: "62%", top: "60%", width: "24%", height: "20%" }}
+            className="absolute rounded-xl bg-black/55 px-3 py-1.5 text-left text-white"
+            style={{ left: "66%", top: "60%" }}
             onClick={onField}
           >
-            <span className="text-[12px] font-medium">поле пресейвов</span>
+            <span className="text-base font-medium">поле пресейвов</span>
           </button>
-          <p className="pointer-events-none absolute rounded-xl bg-white/75 px-2 py-1 text-[12px] text-[#1a120c]" style={{ left: "34%", top: "8%" }}>
+          <p className="pointer-events-none absolute rounded-xl bg-white/80 px-3 py-1.5 text-base text-[#1a120c]" style={{ left: "36%", top: "6%" }}>
             северные земли
           </p>
         </div>
