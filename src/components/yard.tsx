@@ -786,7 +786,7 @@ function World({
           className="absolute h-[220%] w-[240%]"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
         >
-          <img src="/world.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img src="/earth.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
           <button
             type="button"
             className="absolute max-w-[11rem] rounded-xl bg-[#1a120c]/90 px-2 py-1 text-left text-[#f4e4c4] shadow"
