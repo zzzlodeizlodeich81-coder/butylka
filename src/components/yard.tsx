@@ -433,7 +433,7 @@ export function Yard() {
       ) : null}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex min-w-0 flex-1 items-start gap-2">
-          <div className="flex flex-nowrap gap-2 overflow-x-auto">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className="shrink-0 rounded-full bg-black/45 px-3 py-1 font-display text-sm text-white"
@@ -457,7 +457,7 @@ export function Yard() {
             <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
               Слава
             </button>
-            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setContest(true)}>
+            <button type="button" className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setContest(true)}>
               Конкурс
             </button>
             <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
