@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { videoNotes } from "@/lib/notes";
 import { addPurse, guestFromRequest, spendPurse } from "@/lib/purse.server";
 
-type Job = { guest: string; cost: number; closed?: boolean };
+type Job = { guest: string; cost: number; kind?: "video5" | "video10" | "video15"; cut?: boolean; closed?: boolean };
 
 function filePath() {
   return join(process.cwd(), "data", "clips.json");
@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/clip")({
           return Response.json({ error: "Grok не дал номер ролика", notes: back?.notes ?? paid.notes + cost }, { status: 502 });
         }
         const jobs = await readJobs();
-        jobs[started.id] = { guest: guest.id, cost };
+        jobs[started.id] = { guest: guest.id, cost, kind: duration === 15 ? "video15" : duration === 10 ? "video10" : "video5" };
         await writeJobs(jobs);
         return Response.json({ id: started.id, notes: paid.notes });
       },
@@ -115,6 +115,11 @@ export const Route = createFileRoute("/api/clip")({
         if (!st.ok) return Response.json({ status: "processing" }, { status: 202 });
         const data = (await st.json()) as { status?: string; output?: string | string[]; error?: string };
         if (data.status === "succeeded") {
+          if (!job.cut && job.kind) {
+            job.cut = true;
+            const { grantCut } = await import("@/lib/yard-cut.server");
+            await grantCut(job.kind);
+          }
           job.closed = true;
           jobs[id] = job;
           await writeJobs(jobs);

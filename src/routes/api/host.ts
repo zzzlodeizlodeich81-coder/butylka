@@ -193,6 +193,8 @@ export const Route = createFileRoute("/api/host")({
           const back = await addPurse(guest.id, paidKind);
           return Response.json({ error: hit.error, notes: back?.notes ?? paid.notes + paidKind }, { status: 502 });
         }
+        const { grantCut } = await import("@/lib/yard-cut.server");
+        await grantCut(body?.mode === "angel" || body?.mode === "tech" ? "guide" : body?.mode === "master" ? "master" : "host");
         return Response.json({ text: hit.text, notes: paid.notes });
       },
     },

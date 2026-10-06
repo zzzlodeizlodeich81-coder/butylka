@@ -91,6 +91,10 @@ async function withNotes<T extends { ok: boolean }>(
       try {
         const result = await run();
         if (!result.ok) await addPurse(guest.id, NOTE_PRICE[kind]);
+        else {
+          const { grantCut } = await import("@/lib/yard-cut.server");
+          await grantCut(kind);
+        }
         return result;
       } catch (error) {
         await addPurse(guest.id, NOTE_PRICE[kind]);

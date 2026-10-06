@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, type PlotKind, type ToolId } from "@/lib/lands";
+import { PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, isPartnerName, type PlotKind, type ToolId } from "@/lib/lands";
 import { addPurse, currentGuest, readPurse, spendPurse } from "@/lib/purse.server";
 
 type Plot = {
@@ -61,6 +61,13 @@ export async function plotRoom(id: string) {
   return book.plots.some((plot) => plot.id === clean) ? clean : "";
 }
 
+export async function plotById(id: string) {
+  const book = await readBook();
+  const plot = book.plots.find((item) => item.id === id);
+  if (!plot) return null;
+  return { id: plot.id, name: plot.name, ownerId: plot.owner };
+}
+
 export async function hasHome(playerId: string) {
   const book = await readBook();
   return book.plots.some((plot) => plot.owner === playerId || plot.members.includes(playerId));
@@ -77,7 +84,7 @@ function pub(plot: Plot, viewer: string) {
     id: plot.id,
     name: plot.name,
     kind: plot.kind,
-    tools: plot.tools,
+    tools: isPartnerName(plot.name) ? TOOLS.map((tool) => tool.id) : plot.tools,
     code: plot.owner === viewer ? plot.code : "",
     bank: plot.bank,
     state: plot.state,

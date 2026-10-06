@@ -35,6 +35,10 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reports, setReports] = useState<
+    { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number }[]
+  >([]);
+  const [reportAdmin, setReportAdmin] = useState(false);
 
   useEffect(() => {
     void fetch("/api/door", {
@@ -46,6 +50,18 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
       .then((data) => {
         setName(data?.guest?.name || "");
         setLogin(data?.guest?.login || "");
+      })
+      .catch(() => undefined);
+    void fetch("/api/door", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "reports" }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.ok) return;
+        setReportAdmin(Boolean(data.admin));
+        setReports(Array.isArray(data.rows) ? data.rows : []);
       })
       .catch(() => undefined);
   }, []);
@@ -135,6 +151,29 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
         <Button className="mt-3 w-full rounded-xl" disabled={busy} onClick={() => void save()}>
           {busy ? "Сохраняю…" : "Сохранить"}
         </Button>
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <p className="font-display text-xl">Отчёты</p>
+          <p className="mt-1 text-xs text-[#c4a574]">
+            {reportAdmin
+              ? "Раз в две недели закрывается отчёт: от кого и сколько ему начислено. Себестоимость остаётся на тебе."
+              : "Твоя доля с инструментов двора. Раз в две недели тот же отчёт видит хозяин."}
+          </p>
+          {reports.length === 0 ? <p className="mt-2 text-sm text-[#c4a574]">Пока пусто.</p> : null}
+          {reports.map((row) => (
+            <div key={`${row.period}-${row.from}`} className="mt-2 rounded-xl bg-black/30 px-3 py-2 text-sm">
+              <p className="font-medium">
+                {row.closed ? "Закрыт" : "Текущие две недели"} · {row.period}
+              </p>
+              <p>От кого: {row.from}</p>
+              <p>
+                Услуг {row.count}. Заплатили {row.paid} нот. Себестоимость {row.costRub} ₽.
+              </p>
+              <p>
+                {reportAdmin ? "Должен ему" : "Тебе начислено"} {row.share} нот ({row.shareRub} ₽)
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

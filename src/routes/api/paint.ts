@@ -170,6 +170,8 @@ export const Route = createFileRoute("/api/paint")({
               headers: { "X-Notes": String(back?.notes ?? paid.notes + price) },
             });
           }
+          const { grantCut } = await import("@/lib/yard-cut.server");
+          await grantCut(model === "art" ? "art" : "grok");
           return new Response(shot.body, {
             headers: {
               "Content-Type": shot.headers.get("content-type") || "image/jpeg",

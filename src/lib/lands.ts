@@ -27,3 +27,7 @@ export const TOOLS_ALL = 900;
 export const WAR_STAKE = 100;
 
 export type ToolId = (typeof TOOLS)[number]["id"];
+
+export function isPartnerName(name: string) {
+  return /andrei/i.test(name) && /nik/i.test(name);
+}

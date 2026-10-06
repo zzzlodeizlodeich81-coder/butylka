@@ -19,25 +19,13 @@ const COPY = {
   },
 } as const;
 
-function Sprite({ who, talk }: { who: Who; talk: boolean }) {
-  const face = COPY[who].face;
+function Sprite({ who }: { who: Who }) {
   return (
-    <div className={`helper-sprite ${who === "tech" ? "tech" : ""} ${talk ? "is-talk" : ""}`}>
-      <style>{`
-        .helper-sprite { position: relative; width: 7.5rem; height: 10rem; overflow: hidden; border-radius: 1rem; background: #f3e6cf; animation: helper-bob 1.8s steps(2, end) infinite; }
-        .helper-sprite img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }
-        .helper-sprite.tech img { object-position: 28% 62%; }
-        .helper-sprite .lid { position: absolute; left: 28%; right: 28%; top: 22%; height: 0.55rem; background: #1a120c; transform: scaleY(0); transform-origin: top; animation: helper-blink 3.4s steps(2, end) infinite; }
-        .helper-sprite .mouth { position: absolute; left: 42%; width: 16%; top: 38%; height: 0.35rem; border-radius: 999px; background: #8d2d32; transform: scaleY(0.35); transform-origin: center; }
-        .helper-sprite.is-talk .mouth { animation: helper-talk 0.28s steps(2, end) infinite; }
-        @keyframes helper-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
-        @keyframes helper-blink { 0%, 90%, 100% { transform: scaleY(0) } 94% { transform: scaleY(1) } }
-        @keyframes helper-talk { 0%, 100% { transform: scaleY(0.3) } 50% { transform: scaleY(1) } }
-      `}</style>
-      <img src={face} alt="" />
-      <span className="lid" />
-      <span className="mouth" />
-    </div>
+    <img
+      src={COPY[who].face}
+      alt=""
+      className={`h-40 w-28 shrink-0 rounded-2xl object-cover ${who === "tech" ? "object-[28%_62%]" : "object-top"}`}
+    />
   );
 }
 
@@ -81,7 +69,7 @@ export function HelperChat({ who, onClose }: { who: Who; onClose: () => void }) 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-2 sm:items-center">
       <div className="flex w-full max-w-lg gap-2 rounded-3xl bg-[#1a120c] p-3 text-[#f4e4c4]">
-        <Sprite who={who} talk={busy} />
+        <Sprite who={who} />
         <div className="flex min-h-64 min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-display text-xl">{copy.name}</h2>
@@ -164,16 +152,23 @@ export function HelperDock() {
 export function AngelHouse({ onClose }: { onClose: () => void }) {
   const [chat, setChat] = useState(false);
   return (
-    <div className="absolute inset-0 z-20 bg-[#f3ead7]">
+    <div className="absolute inset-0 z-40 bg-[#f3ead7]">
       <img src="/angel-house.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute top-0 left-0 z-10 flex gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onClose}>
+      <div className="absolute top-0 left-0 z-10 flex flex-nowrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
+        <button type="button" className="rounded-full bg-black/55 px-3 py-1 text-sm text-white" onClick={onClose}>
           На карту
         </button>
         <button type="button" className="rounded-full bg-white px-3 py-1 text-sm text-black" onClick={() => setChat(true)}>
-          Позвать Анджела
+          Поговорить
         </button>
       </div>
+      <button
+        type="button"
+        className="absolute right-[8%] bottom-[12%] rounded-full bg-black/55 px-3 py-1 text-sm text-white"
+        onClick={() => setChat(true)}
+      >
+        Спросить Анджела
+      </button>
       <p className="absolute bottom-4 left-3 rounded-xl bg-black/50 px-3 py-2 text-sm text-[#f4e4c4]">Кабинет DJ Angel A</p>
       {chat ? <HelperChat who="angel" onClose={() => setChat(false)} /> : null}
     </div>

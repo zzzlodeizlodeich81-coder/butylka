@@ -237,8 +237,18 @@ export function Yard() {
     setHouse(id);
   }
 
+  function markYard(id: string) {
+    void fetch("/api/door", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "here", id }),
+    });
+  }
+
   function enterPlot(plot: { id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean }) {
     setLock({ id: plot.id, name: plot.name, kind: plot.kind, tools: plot.tools || [], owner: plot.owner, member: Boolean(plot.owner || plot.member) });
+    markYard(plot.id);
     setAsk(null);
     setHouse(null);
     setSpot(null);
@@ -274,6 +284,7 @@ export function Yard() {
           onCity={() => setLayer("city")}
           onHome={() => {
             setLock(null);
+            markYard("");
             setSpot(null);
             setLayer("yard");
           }}
@@ -507,7 +518,7 @@ export function Yard() {
           <p>
             {lock.owner ? "Твой двор" : lock.member ? "Ты здесь живёшь" : "Гость"} · {lock.name}
           </p>
-          <button type="button" className="mt-1 text-xs text-white/80" onClick={() => setLock(null)}>
+          <button type="button" className="mt-1 text-xs text-white/80" onClick={() => { setLock(null); markYard(""); }}>
             Общий двор
           </button>
         </div>

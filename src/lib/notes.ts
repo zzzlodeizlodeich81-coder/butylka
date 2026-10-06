@@ -57,6 +57,27 @@ export const NOTE_LABEL: Record<PaidKind, string> = {
   master: "Мастеринг, режим эксперта",
 };
 
+/** Себестоимость в нотах. 1 нота = 0.7 ₽. Прибыль двора = цена минус это. */
+export const NOTE_RUB = 0.7;
+
+export const NOTE_COST: Record<PaidKind, number> = {
+  lyrics: 2,
+  generate: 8,
+  minus: 7,
+  stems: 34,
+  cover: 8,
+  arrange: 8,
+  grok: 3,
+  art: 1,
+  video5: 34,
+  video10: 69,
+  video15: 101,
+  host: 1,
+  guide: 1,
+  contest: 0,
+  master: 0,
+};
+
 export type NotePack = {
   id: string;
   notes: number;

@@ -12,6 +12,7 @@ import {
   doorFromRequest,
   guestFromRequest,
   guestToken,
+  HERE_COOKIE,
   isAdminLogin,
   joinPurse,
   listPurse,
@@ -97,6 +98,23 @@ export const Route = createFileRoute("/api/door")({
             }),
             { status: 200, headers },
           );
+        }
+
+        if (body.action === "here") {
+          const guest = guestFromRequest(request);
+          if (!guest) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
+          const id = (body.id || "").replace(/[^\w-]/g, "").slice(0, 40);
+          headers.append("set-cookie", id ? setCookie(request, HERE_COOKIE, id) : clearCookie(request, HERE_COOKIE));
+          return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+        }
+
+        if (body.action === "reports") {
+          const guest = guestFromRequest(request);
+          if (!guest) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
+          const me = await readPurse(guest.id);
+          const admin = isAdminLogin(me?.login);
+          const { reportBook } = await import("@/lib/yard-cut.server");
+          return Response.json({ ok: true, admin, rows: await reportBook(guest.id, admin) });
         }
 
         if (body.action === "out") {

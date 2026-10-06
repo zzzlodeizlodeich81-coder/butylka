@@ -8,6 +8,7 @@ type Book = { rows: Row[] };
 
 const DOOR = "kadr_door";
 const GUEST = "kadr_guest";
+const HERE = "kadr_here";
 
 function doorPassword() {
   return (process.env.DOOR_PASSWORD || "").trim();
@@ -294,6 +295,15 @@ function cookieValue(req: Request, name: string) {
   }
 }
 
+export function hereFromRequest(req?: Request) {
+  try {
+    const target = req || getRequest();
+    return cookieValue(target, HERE).replace(/[^\w-]/g, "").slice(0, 40);
+  } catch {
+    return "";
+  }
+}
+
 export function doorCookieValue() {
   return sign("door-ok");
 }
@@ -354,3 +364,4 @@ export function clearCookie(req: Request, name: string) {
 
 export const DOOR_COOKIE = DOOR;
 export const GUEST_COOKIE = GUEST;
+export const HERE_COOKIE = HERE;
