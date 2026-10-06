@@ -262,7 +262,7 @@
     <button id="snapshotBtn" disabled>📸 Снимок</button>
     <button id="addTextBtn" disabled>✍ Текст</button>
     <button id="muteBtn" disabled>🔊 Звук: Вкл</button>
-    <button id="aiTransitionBtn" disabled style="background: #673ab7;">✨ AI Переход (Kling)</button>
+    <button id="aiTransitionBtn" disabled style="background: #673ab7;">✨ AI Переход (Grok)</button>
 
     <select id="exportRes">
       <option value="original" selected>Исходное разрешение (Авто)</option>
@@ -314,8 +314,8 @@
 <!-- Модальное окно для AI-перехода -->
 <div class="ai-modal" id="aiModal">
   <div class="ai-modal-content">
-    <h3>Генерация перехода через Kling AI</h3>
-    <p>💡 <b>Совет:</b> Кадры вырезаются и отправляются напрямую в n8n.</p>
+    <h3>Переход через Grok, 5 секунд, 480p</h3>
+    <p>Списывается 60 нот. Это дешевле Kling примерно в пять раз.</p>
     <p style="color: #ff5252; font-size: 13px; background: rgba(255,82,82,0.1); padding: 8px; border-radius: 4px;">⚠️ <b>Внимание:</b> Генерация перехода занимает 3–4 минуты. Не нажимайте кнопку проверки раньше этого времени!</p>
     <div class="ai-preview-row">
       <div class="ai-preview-box">
@@ -333,7 +333,7 @@
     </div>
     <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
       <button id="aiCloseModalBtn" style="background:#444;">Закрыть</button>
-      <button id="aiSendToN8nBtn" style="background:#2e7d32;">🚀 Отправить в n8n</button>
+      <button id="aiSendToN8nBtn" style="background:#2e7d32;">Снять переход · 60 нот</button>
       <button id="aiCheckStatusBtn" style="background:#0277bd;" disabled>🔄 Проверить статус / Загрузить</button>
     </div>
   </div>
@@ -398,6 +398,7 @@
   let animId = null;
 
   let lastExtractedFrames = { a: null, b: null };
+  let grokJob = "";
 
   let isDraggingPlayhead = false;
   playhead.addEventListener('mousedown', (e) => { isDraggingPlayhead = true; e.stopPropagation(); });
@@ -853,36 +854,43 @@
   aiCloseModalBtn.addEventListener('click', () => { aiModal.style.display = 'none'; });
 
   aiSendToN8nBtn.addEventListener('click', async () => {
-    aiSendToN8nBtn.innerText = '🚀 Отправка в n8n...';
+    aiSendToN8nBtn.innerText = 'Grok снимает...';
     aiSendToN8nBtn.disabled = true;
 
     try {
-      const response = await fetch('https://xxvkadr.ru/webhook/d83e0ff6-9711-434f-bf84-277ca68309cc', {
+      const response = await fetch('/api/clip', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: aiPromptInput.value,
-          startBase64: lastExtractedFrames.a,
-          endBase64: lastExtractedFrames.b
+          aspect: '16:9',
+          duration: 5,
+          image: lastExtractedFrames.a
         })
       });
-      
       const result = await response.json();
-      console.log("Ответ от n8n:", result);
-
-      alert("Запрос отправлен в n8n! Подождите 3–4 минуты, пока нейросеть сгенерирует видео, затем нажмите кнопку «Проверить статус / Загрузить».");
-      aiCheckStatusBtn.disabled = false; // Разрешаем проверку
+      if (!response.ok) {
+        alert(result.error || 'Grok не принял переход');
+        return;
+      }
+      grokJob = result.id || '';
+      alert('Снято в очередь. Подожди минуту и нажми «Проверить статус». Списано 60 нот, если не выйдет — верну.');
+      aiCheckStatusBtn.disabled = false;
     } catch (err) {
-      alert("Ошибка отправки: " + err.message);
+      alert('Ошибка отправки: ' + err.message);
     } finally {
       aiSendToN8nBtn.disabled = false;
-      aiSendToN8nBtn.innerText = '🚀 Отправить в n8n';
+      aiSendToN8nBtn.innerText = 'Снять переход · 60 нот';
     }
   });
 
-  // Логика кнопки проверки статуса / получения готового видео из n8n
   aiCheckStatusBtn.addEventListener('click', async () => {
-    aiCheckStatusBtn.innerText = '⏳ Проверка...';
+    if (!grokJob) {
+      alert('Сначала сними переход.');
+      return;
+    }
+    aiCheckStatusBtn.innerText = 'Проверка...';
     aiCheckStatusBtn.disabled = true;
 
     let targetIndex = 0;
@@ -892,48 +900,37 @@
     }
 
     try {
-      const response = await fetch('https://xxvkadr.ru/webhook/d83e0ff6-9711-434f-bf84-277ca68309cc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check_status',
-          clipIndexA: targetIndex,
-          clipIndexB: targetIndex + 1
-        })
-      });
-
-      const result = await response.json();
-      console.log("Ответ от n8n (статус):", result);
-
-      if (result && result.video_url) {
+      const response = await fetch('/api/clip?id=' + encodeURIComponent(grokJob), { credentials: 'include' });
+      const type = response.headers.get('content-type') || '';
+      if (response.ok && type.includes('video')) {
+        const blob = await response.blob();
         const transitionClip = {
           id: 'v_trans_' + Date.now(),
           file: null,
-          src: result.video_url,
+          src: URL.createObjectURL(blob),
           start: 0,
-          end: 3.0,
-          duration: 3.0,
+          end: 5,
+          duration: 5,
           transition: 'none',
           thumbnails: null,
           width: 1280,
           height: 720
         };
-
-        const insertIndex = (result.clipIndexB !== undefined) ? result.clipIndexB : (targetIndex + 1);
-        videoClips.splice(insertIndex, 0, transitionClip);
+        videoClips.splice(targetIndex + 1, 0, transitionClip);
         await generateThumbnails(transitionClip);
         recalculateTimeline();
-        
-        alert("AI-переход успешно получен и добавлен на таймлайн!");
+        grokJob = '';
+        alert('Переход лёг на таймлайн.');
         aiModal.style.display = 'none';
       } else {
-        alert("Видео еще не готово или обрабатывается. Попробуйте нажать кнопку еще раз через минуту.");
+        const result = await response.json().catch(() => ({}));
+        alert(result.error || 'Ещё снимается. Нажми ещё раз через минуту.');
       }
     } catch (err) {
-      alert("Ошибка проверки: " + err.message);
+      alert('Ошибка проверки: ' + err.message);
     } finally {
       aiCheckStatusBtn.disabled = false;
-      aiCheckStatusBtn.innerText = '🔄 Проверить статус / Загрузить';
+      aiCheckStatusBtn.innerText = 'Проверить статус / Загрузить';
     }
   });
 

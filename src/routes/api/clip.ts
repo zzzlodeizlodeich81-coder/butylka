@@ -29,6 +29,23 @@ function token() {
   return process.env.REPLICATE_API_TOKEN || "";
 }
 
+async function replicateFrame(raw: string) {
+  const match = raw.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!match) return "";
+  const bytes = Buffer.from(match[2].replace(/\s/g, ""), "base64");
+  if (!bytes.length || bytes.length > 1_800_000) return "";
+  const form = new FormData();
+  form.append("content", new Blob([bytes], { type: match[1] === "image/jpg" ? "image/jpeg" : match[1] }), "frame.jpg");
+  const res = await fetch("https://api.replicate.com/v1/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token()}` },
+    body: form,
+  });
+  if (!res.ok) return "";
+  const data = (await res.json()) as { urls?: { get?: string } };
+  return data.urls?.get || "";
+}
+
 export const Route = createFileRoute("/api/clip")({
   server: {
     handlers: {
@@ -36,21 +53,35 @@ export const Route = createFileRoute("/api/clip")({
         const guest = guestFromRequest(request);
         if (!guest) return Response.json({ error: "Сначала зайди во двор." }, { status: 401 });
         if (!token()) return Response.json({ error: "на сервере нет ключа Replicate" }, { status: 503 });
-        const body = (await request.json().catch(() => null)) as { prompt?: string; aspect?: string; duration?: number } | null;
+        const body = (await request.json().catch(() => null)) as {
+          prompt?: string;
+          aspect?: string;
+          duration?: number;
+          image?: string;
+        } | null;
         const prompt = (body?.prompt || "").trim().slice(0, 400);
         if (prompt.length < 2) return Response.json({ error: "пустой запрос" }, { status: 400 });
         const duration = body?.duration === 10 || body?.duration === 15 ? body.duration : 5;
         const aspect = body?.aspect === "16:9" || body?.aspect === "9:16" ? body.aspect : "1:1";
+        const frame = await replicateFrame(body?.image || "");
         const cost = videoNotes(duration);
         const paid = await spendPurse(guest.id, cost);
         if (!paid.ok) return Response.json({ error: paid.error, notes: paid.notes }, { status: 402 });
 
-        const input = { prompt, aspect_ratio: aspect, duration, resolution: "480p" };
+        const input: Record<string, unknown> = { prompt, aspect_ratio: aspect, duration, resolution: "480p" };
+        if (frame) input.image = frame;
         let run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-video/predictions", {
           method: "POST",
           headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
           body: JSON.stringify({ input }),
         });
+        if (run.status === 422 && frame) {
+          run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-video/predictions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ input: { prompt, image: frame, duration } }),
+          });
+        }
         if (run.status === 422) {
           run = await fetch("https://api.replicate.com/v1/models/xai/grok-imagine-video/predictions", {
             method: "POST",
