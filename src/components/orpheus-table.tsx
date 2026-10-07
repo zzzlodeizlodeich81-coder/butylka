@@ -168,7 +168,8 @@ export function OrpheusRoom({
       {table?.phase === "vote" ? (
         <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 15 - Math.floor((now - table.spunAt) / 1000))} с.</p>
       ) : null}
-      {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 && seats.length >= 5 ? (
+      {mine && turn?.id.startsWith("bot-") && table?.phase === "wait" ? <p className="text-sm">Ход {turn.name}. Автомат крутится сам.</p> : null}
+      {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 ? (
         <Button className="rounded-xl" onClick={() => void act("spin")}>
           Крутить
         </Button>

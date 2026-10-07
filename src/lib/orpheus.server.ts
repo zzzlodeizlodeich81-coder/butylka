@@ -77,7 +77,7 @@ function playBots(table: Table, meId: string) {
     if (!stale && !broke) break;
     table.turn = (table.turn + 1) % table.seats.length;
   }
-  if (botId(table.seats[table.turn]?.id || "") && table.seats.filter((seat) => seat.points > 0).length >= 5) spinWindows(table);
+  if (botId(table.seats[table.turn]?.id || "") && table.seats.some((seat) => seat.points > 0)) spinWindows(table);
 }
 
 type Book = { tables: Record<string, Table> };
@@ -172,12 +172,20 @@ export async function runOrpheus(input: {
     playBots(table, me.id);
 
     if (input.op === "spin") {
-      const live = table.seats.filter((seat) => seat.points > 0);
       const actor = table.seats[table.turn];
+      if (table.phase === "vote") {
+        await writeBook(book);
+        return { ok: true as const, table, me: me.id };
+      }
+      if (actor && botId(actor.id)) {
+        spinWindows(table);
+        await writeBook(book);
+        return { ok: true as const, table, me: me.id };
+      }
       if (!actor || actor.id !== me.id) return { ok: false as const, error: "Сейчас не твоя очередь.", table };
       if (actor.points <= 0) return { ok: false as const, error: "Баллы кончились.", table };
-      if (table.phase !== "wait") return { ok: false as const, error: "Сначала пусть карточки решат.", table };
-      if (live.length < 5) return { ok: false as const, error: "Нужно хотя бы 5 человек за столом.", table };
+      const live = table.seats.filter((seat) => seat.points > 0);
+      if (live.length < 2) return { ok: false as const, error: "За столом мало карточек.", table };
       spinWindows(table);
       await writeBook(book);
       return { ok: true as const, table, me: me.id };

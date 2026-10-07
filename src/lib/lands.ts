@@ -39,8 +39,9 @@ export const HOUSES = [
 export type HouseId = (typeof HOUSES)[number]["id"];
 
 export function houseOf(name: string, stored?: string): HouseId {
-  if (stored && HOUSES.some((item) => item.id === stored)) return stored as HouseId;
   const text = name.toLowerCase();
+  if ((/vano|вано/.test(text)) && (!stored || stored === "log")) return "brick";
+  if (stored && HOUSES.some((item) => item.id === stored)) return stored as HouseId;
   if (/annush|annuch|аннуш|аннуч|анют/i.test(text)) return "boyar";
   if (/andrei/.test(text) && /nik/.test(text)) return "brick";
   if ((/баб/.test(text) && /яг/.test(text)) || (/baba/.test(text) && /yaga/.test(text))) return "bunker";
