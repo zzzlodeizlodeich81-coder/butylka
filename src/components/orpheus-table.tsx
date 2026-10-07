@@ -184,7 +184,7 @@ export function OrpheusRoom({
   }
 
   const board = (
-    <div className="flex min-h-0 flex-col gap-2 overflow-auto p-3 text-[#f4e4c4]">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3 text-[#f4e4c4]">
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl">Орфей</p>
         <div className="flex items-center gap-2">
@@ -199,7 +199,7 @@ export function OrpheusRoom({
         </div>
       </div>
       <div
-        className="relative mx-auto aspect-square w-full max-w-[280px] bg-contain bg-center bg-no-repeat"
+        className={`relative mx-auto aspect-square w-full bg-contain bg-center bg-no-repeat ${phone ? "max-w-[180px]" : "max-w-[280px]"}`}
         style={{ backgroundImage: "url(/slot.jpg)" }}
       >
         <style>{`@keyframes orpheus-drop { from { transform: translateY(0); } to { transform: translateY(calc(var(--steps) * -100cqh)); } }`}</style>
@@ -251,35 +251,12 @@ export function OrpheusRoom({
         ))}
       </div>
       {!mine ? (
-        <Button className="rounded-xl" onClick={() => void act("sit")}>
+        <Button className="min-h-12 rounded-xl touch-manipulation" onClick={() => void act("sit")}>
           Сесть за стол
         </Button>
       ) : (
-        <p className="text-sm">Ты за столом. Нажал на статую — уже в игре.</p>
+        <p className="text-sm">Ты за столом.</p>
       )}
-      {table?.phase === "vote" && !spinning ? (
-        <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 20 - Math.floor((now - table.spunAt) / 1000))} с.</p>
-      ) : null}
-      {table?.phase === "vote" && !spinning && !shown.some((card) => card.id === me && !card.vote) ? (
-        <p className="text-sm">Решают: {shown.map((card) => `${card.name} ${card.vote === "yes" ? "да" : card.vote === "no" ? "нет" : "ждёт"}`).join(", ") || "карточки"}.</p>
-      ) : null}
-      {mine && turn && turn.id !== me && table?.phase === "wait" ? <p className="text-sm">Крутит {turn.name}. Кнопка будет, когда очередь дойдёт до тебя.</p> : null}
-      {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 ? (
-        <Button className="rounded-xl" onClick={() => void act("spin")}>
-          Крутить
-        </Button>
-      ) : null}
-      {mine && !spinning && table?.phase === "vote" && shown.some((card) => card.id === me && !card.vote) ? (
-        <div className="flex gap-2">
-          <Button className="rounded-xl" onClick={() => void act("vote", { text: "yes" })}>
-            Согласен
-          </Button>
-          <Button variant="secondary" className="rounded-xl" onClick={() => void act("vote", { text: "no" })}>
-            Не согласен
-          </Button>
-        </div>
-      ) : null}
-      {mine && mine.points <= 0 ? <p className="text-sm">Баллы кончились. Можно докупить: 1 нота за 1 балл.</p> : null}
       {mine ? (
         <div className="flex gap-2">
           <input
@@ -288,7 +265,7 @@ export function OrpheusRoom({
             value={buy}
             onChange={(event) => setBuy(event.target.value)}
           />
-          <Button variant="secondary" className="rounded-xl" onClick={() => void act("buy", { amount: Number(buy) || 1 })}>
+          <Button variant="secondary" className="rounded-xl touch-manipulation" onClick={() => void act("buy", { amount: Number(buy) || 1 })}>
             Купить баллы
           </Button>
         </div>
@@ -296,11 +273,39 @@ export function OrpheusRoom({
     </div>
   );
 
+  const actions = (
+    <div className="flex flex-col gap-2" onPointerDown={(event) => event.stopPropagation()}>
+      {table?.phase === "vote" && !spinning ? (
+        <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 20 - Math.floor((now - table.spunAt) / 1000))} с.</p>
+      ) : null}
+      {mine && turn && turn.id !== me && table?.phase === "wait" ? <p className="text-sm">Крутит {turn.name}.</p> : null}
+      {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 ? (
+        <Button className="min-h-12 rounded-xl touch-manipulation" onClick={() => void act("spin")}>
+          Крутить
+        </Button>
+      ) : null}
+      {mine && !spinning && table?.phase === "vote" && shown.some((card) => card.id === me && !card.vote) ? (
+        <div className="flex gap-2">
+          <Button className="min-h-12 flex-1 rounded-xl touch-manipulation" onClick={() => void act("vote", { text: "yes" })}>
+            Согласен
+          </Button>
+          <Button variant="secondary" className="min-h-12 flex-1 rounded-xl touch-manipulation" onClick={() => void act("vote", { text: "no" })}>
+            Не согласен
+          </Button>
+        </div>
+      ) : null}
+      {mine && mine.points <= 0 ? <p className="text-sm">Баллы кончились. 1 нота за 1 балл.</p> : null}
+    </div>
+  );
+
   if (phone) {
     return (
-      <div className="absolute inset-0 z-40 flex flex-col bg-[#140e0c]">
-        <div className="h-1/2 min-h-0">{board}</div>
-        <div className="relative h-1/2 min-h-0">
+      <div className="absolute inset-0 z-40 flex flex-col bg-[#140e0c]" onPointerDown={(event) => event.stopPropagation()}>
+        <div className="flex h-[54%] min-h-0 flex-col overflow-hidden">
+          {board}
+          <div className="shrink-0 border-t border-white/10 bg-[#140e0c] px-3 py-2 text-[#f4e4c4]">{actions}</div>
+        </div>
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <YardChat
             half
             plot={plotId}
@@ -317,8 +322,12 @@ export function OrpheusRoom({
   }
 
   return (
-    <div className="absolute top-1/2 left-1/2 z-30 flex max-h-[70dvh] w-[min(420px,92vw)] -translate-x-[58%] -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-[#140e0c] shadow-2xl">
+    <div
+      className="absolute top-1/2 left-1/2 z-30 flex max-h-[70dvh] w-[min(420px,92vw)] -translate-x-[58%] -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-[#140e0c] shadow-2xl"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       {board}
+      <div className="shrink-0 border-t border-white/10 px-3 py-2 text-[#f4e4c4]">{actions}</div>
     </div>
   );
 }
