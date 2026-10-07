@@ -36,8 +36,11 @@ export function MaxFigure({ className }: { className?: string }) {
         return;
       }
       const model = gltf.scene;
-      scene.add(model);
-      const box = new THREE.Box3().setFromObject(model);
+      const group = new THREE.Group();
+      group.rotation.y = Math.PI / 2;
+      group.add(model);
+      scene.add(group);
+      const box = new THREE.Box3().setFromObject(group);
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
       const dist = size.y / (2 * Math.tan((camera.fov * Math.PI) / 360));
@@ -80,10 +83,15 @@ export function MaxFigure({ className }: { className?: string }) {
       const tick = () => {
         frame = requestAnimationFrame(tick);
         const t = clock.getElapsedTime();
-        const bow = Math.sin(t * 1.5);
-        swing(bones["mixamorig:Head"], bow * 0.16, Math.sin(t * 0.6) * 0.05, 0);
-        swing(bones["mixamorig:Neck"], bow * 0.05, 0, 0);
-        swing(bones["mixamorig:Spine2"], 0, Math.sin(t * 0.7) * 0.04, Math.sin(t * 0.5) * 0.03);
+        const bow = Math.sin(t * 1.6);
+        group.rotation.y = Math.PI / 2 + Math.sin(t * 0.8) * 0.18;
+        group.rotation.x = bow * 0.05;
+        swing(bones["mixamorig:Head"], bow * 0.42, Math.sin(t * 0.7) * 0.12, 0);
+        swing(bones["mixamorig:Neck"], bow * 0.12, 0, 0);
+        swing(bones["mixamorig:Spine2"], bow * 0.06, Math.sin(t * 0.8) * 0.08, 0);
+        model.traverse((obj: any) => {
+          if (obj.isSkinnedMesh) obj.skeleton.update();
+        });
         renderer.render(scene, camera);
       };
       tick();

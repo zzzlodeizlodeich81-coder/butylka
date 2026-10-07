@@ -21,7 +21,7 @@ const COPY = {
 } as const;
 
 function Sprite({ who }: { who: Who }) {
-  if (who === "tech") return <MaxFigure className="h-52 w-32 shrink-0" />;
+  if (who === "tech") return <MaxFigure className="h-64 w-40 shrink-0" />;
   return <img src={COPY.angel.face} alt="" className="h-40 w-28 shrink-0 rounded-2xl object-cover object-top" />;
 }
 

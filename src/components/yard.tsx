@@ -176,6 +176,7 @@ export function Yard() {
   const myName = useWallet((s) => s.name);
   const notes = useWallet((s) => s.notes);
   const vkId = useWallet((s) => s.vkId);
+  const iAmHost = useWallet((s) => s.admin);
   const localNotes = useGame((s) => s.players.find((p) => p.id === s.youId)?.notes ?? 0);
   const shownNotes = vkId ? notes : localNotes;
   const [house, setHouse] = useState<HouseId | null>(null);
@@ -452,17 +453,13 @@ export function Yard() {
                 {closed ? `закрыто · ${tool?.price}` : label}
               </span>
               {faces
-                .filter((person) => person.spot === zone.id)
+                .filter((person) => person.spot === zone.id && !person.figure)
                 .slice(0, 4)
                 .map((person, index) => (
                   <span
                     key={person.id}
                     title={`${person.name}. Написать`}
-                    className={`pointer-events-auto absolute z-10 ${
-                      person.figure
-                        ? "-top-10 h-20 w-12"
-                        : `top-0 flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#2a1a0c] text-base ${stage === "phone" ? "size-9" : "size-12"}`
-                    }`}
+                    className={`pointer-events-auto absolute top-0 z-10 flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#2a1a0c] text-base ${stage === "phone" ? "size-9" : "size-12"}`}
                     style={{ left: `${index * (stage === "phone" ? 26 : 42)}px` }}
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {
@@ -471,18 +468,17 @@ export function Yard() {
                       setChat(true);
                     }}
                   >
-                    {person.figure ? (
-                      <MaxFigure className="h-full w-full" />
-                    ) : person.photo ? (
-                      <img src={person.photo} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      "🪆"
-                    )}
+                    {person.photo ? <img src={person.photo} alt="" className="h-full w-full object-cover" /> : "🪆"}
                   </span>
                 ))}
             </button>
             );
           })}
+          {iAmHost || faces.some((person) => person.figure) ? (
+            <div className="pointer-events-none absolute z-20" style={{ left: "40%", top: "40%", width: "20%", height: "38%" }}>
+              <MaxFigure className="h-full w-full" />
+            </div>
+          ) : null}
       </MapStage>
       {mess ? (
           <div className="absolute top-16 right-3 left-3 z-30 rounded-2xl bg-black/75 px-3 py-2 text-sm text-[#f4e4c4]">
