@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 
-export function MaxFigure({ className }: { className?: string }) {
+export function MaxFigure({ className, mode = "shift", play = 0 }: { className?: string; mode?: "shift" | "still"; play?: number }) {
   const host = useRef<HTMLDivElement>(null);
+  const modeRef = useRef(mode);
+  const playRef = useRef(play);
+  modeRef.current = mode;
+  playRef.current = play;
 
   useEffect(() => {
     const el = host.current;
@@ -62,6 +66,8 @@ export function MaxFigure({ className }: { className?: string }) {
       const euler = new THREE.Euler();
       const clock = new THREE.Clock();
       let frame = 0;
+      let seen = 0;
+      let gesture = -1;
       const fit = () => {
         const w = el.clientWidth || 80;
         const h = el.clientHeight || 140;
@@ -83,13 +89,31 @@ export function MaxFigure({ className }: { className?: string }) {
       const tick = () => {
         frame = requestAnimationFrame(tick);
         const t = clock.getElapsedTime();
-        const shift = Math.sin(t * 0.7);
         group.rotation.y = -Math.PI / 2;
         group.rotation.x = 0;
-        swing(bones["mixamorig:Hips"], 0, 0, shift * 0.12);
-        swing(bones["mixamorig:Spine2"], 0, 0, -shift * 0.07);
-        swing(bones["mixamorig:Head"], shift * 0.03, 0, -shift * 0.02);
-        swing(bones["mixamorig:Neck"], 0, 0, 0);
+        if (playRef.current !== seen) {
+          seen = playRef.current;
+          gesture = t;
+        }
+        const age = t - gesture;
+        if (modeRef.current === "shift") {
+          const shift = Math.sin(t * 0.7);
+          swing(bones["mixamorig:Hips"], 0, 0, shift * 0.12);
+          swing(bones["mixamorig:Spine2"], 0, 0, -shift * 0.07);
+          swing(bones["mixamorig:Head"], shift * 0.03, 0, -shift * 0.02);
+          swing(bones["mixamorig:Neck"], 0, 0, 0);
+        } else if (gesture >= 0 && age < 1.4) {
+          const nod = Math.sin((age / 1.4) * Math.PI);
+          swing(bones["mixamorig:Hips"], nod * 0.08, 0, 0);
+          swing(bones["mixamorig:Spine2"], nod * 0.1, 0, 0);
+          swing(bones["mixamorig:Head"], -nod * 0.35, 0, 0);
+          swing(bones["mixamorig:Neck"], -nod * 0.1, 0, 0);
+        } else {
+          swing(bones["mixamorig:Hips"], 0, 0, 0);
+          swing(bones["mixamorig:Spine2"], 0, 0, 0);
+          swing(bones["mixamorig:Head"], 0, 0, 0);
+          swing(bones["mixamorig:Neck"], 0, 0, 0);
+        }
         model.traverse((obj: any) => {
           if (obj.isSkinnedMesh) obj.skeleton.update();
         });

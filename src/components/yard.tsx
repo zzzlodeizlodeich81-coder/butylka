@@ -177,6 +177,7 @@ export function Yard() {
   const notes = useWallet((s) => s.notes);
   const vkId = useWallet((s) => s.vkId);
   const iAmHost = useWallet((s) => s.admin);
+  const [bow, setBow] = useState(0);
   const localNotes = useGame((s) => s.players.find((p) => p.id === s.youId)?.notes ?? 0);
   const shownNotes = vkId ? notes : localNotes;
   const [house, setHouse] = useState<HouseId | null>(null);
@@ -475,8 +476,10 @@ export function Yard() {
             );
           })}
           {iAmHost || faces.some((person) => person.figure) ? (
-            <div
-              className="pointer-events-none absolute z-20"
+            <button
+              type="button"
+              aria-label="Хозяин"
+              className="pointer-events-auto absolute z-20 border-0 bg-transparent p-0"
               style={
                 stage === "phone"
                   ? { left: "38%", top: "42%", width: "18%", height: "24%" }
@@ -484,11 +487,12 @@ export function Yard() {
                     ? { left: "44%", top: "64%", width: "6%", height: "12%" }
                     : snowYard
                       ? { left: "30%", top: "64%", width: "6%", height: "14%" }
-                      : { left: "35%", top: "28%", width: "13%", height: "26%" }
+                      : { left: "41%", top: "28%", width: "13%", height: "26%" }
               }
+              onClick={() => setBow((n) => n + 1)}
             >
-              <MaxFigure className="h-full w-full" />
-            </div>
+              <MaxFigure className="h-full w-full" mode="still" play={bow} />
+            </button>
           ) : null}
       </MapStage>
       {mess ? (
