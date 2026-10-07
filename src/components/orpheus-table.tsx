@@ -25,7 +25,12 @@ function tone(freq: number, at: number, dur: number, type: OscillatorType, gain:
 }
 
 function playSpin() {
-  for (let i = 0; i < 16; i++) tone(140 + (i % 4) * 70, i * 0.09, 0.05, "square", 0.03);
+  let at = 0;
+  for (let i = 0; i < 32; i++) {
+    const gap = i < 10 ? 0.14 - i * 0.01 : 0.04 + (i - 10) * 0.012;
+    tone(150 + (i % 5) * 55, at, 0.04, "square", 0.028);
+    at += Math.max(0.035, gap);
+  }
 }
 
 function playCheer() {
@@ -71,7 +76,7 @@ export function OrpheusRoom({
     setTable((prev) => {
       if (row.table && prev && row.table.spunAt && row.table.spunAt !== prev.spunAt) {
         setSpinning(true);
-        window.setTimeout(() => setSpinning(false), 1800);
+        window.setTimeout(() => setSpinning(false), 3900);
       }
       return row.table || prev;
     });
@@ -90,10 +95,10 @@ export function OrpheusRoom({
   }, [table?.spunAt]);
 
   useEffect(() => {
-    if (!table?.cheer || table.cheer === heard.current.cheer) return;
+    if (spinning || !table?.cheer || table.cheer === heard.current.cheer) return;
     heard.current.cheer = table.cheer;
     playCheer();
-  }, [table?.cheer]);
+  }, [table?.cheer, spinning]);
 
   useEffect(() => {
     void call({ op: "sit", id: plotId }).then((row) => {
@@ -119,7 +124,7 @@ export function OrpheusRoom({
     if (typeof row.notes === "number") useWallet.getState().apply({ notes: row.notes });
     if (op === "spin" && row.table) {
       setSpinning(true);
-      window.setTimeout(() => setSpinning(false), 1800);
+      window.setTimeout(() => setSpinning(false), 3900);
     }
     if (op === "invite") toast.success("Позвала во все чаты.");
   }
@@ -135,30 +140,40 @@ export function OrpheusRoom({
   const cards = table?.phase === "vote" ? shown : table?.result || [];
   const matched = cards.length >= 3 && cards.every((card) => card.vote === "yes");
   const reel = seats.filter((seat) => seat.points > 0);
-  const strip = reel.length ? [...reel, ...reel, ...reel] : [];
+
+  const slots = [
+    { left: "30.9%", top: "33%", width: "9.4%", height: "8%" },
+    { left: "44.7%", top: "33%", width: "8.7%", height: "8%" },
+    { left: "58.1%", top: "33%", width: "9.1%", height: "8%" },
+  ];
+  const spinMs = [2400, 3100, 3900];
 
   function windowFace(card: Card | undefined, index: number) {
+    const faces: Card[] = [];
+    if (spinning && reel.length) {
+      for (let step = 0; step < 14; step++) faces.push(reel[(step * 3 + index) % reel.length]);
+      if (card) faces.push(card);
+    } else if (card) faces.push(card);
     const dark = card?.vote === "no" && !spinning;
-    const frames = spinning && strip.length ? strip : [card];
+    const box = slots[index];
     return (
-      <div
-        key={index}
-        className="absolute overflow-hidden rounded-sm"
-        style={{ left: `${27 + index * 17.5}%`, top: "31%", width: "13%", height: "13%" }}
-      >
+      <div key={index} className="absolute overflow-hidden rounded-[2px]" style={{ ...box, containerType: "size" }}>
         <div
-          className={`flex w-full flex-col ${dark ? "opacity-40 grayscale" : ""}`}
-          style={spinning && strip.length > 1 ? { animation: "orpheus-reel 0.45s linear infinite" } : undefined}
+          className={dark ? "opacity-40 grayscale" : ""}
+          style={
+            spinning && faces.length > 1
+              ? {
+                  animation: `orpheus-drop ${spinMs[index]}ms cubic-bezier(0.33, 0.02, 0.12, 1) forwards`,
+                  ["--steps" as string]: String(faces.length - 1),
+                }
+              : undefined
+          }
         >
-          {frames.map((item, frame) =>
+          {faces.map((item, frame) =>
             item?.photo ? (
-              <img key={frame} src={item.photo} alt="" className="h-full w-full object-cover" style={{ height: "2.2rem" }} />
+              <img key={frame} src={item.photo} alt="" className="w-full object-cover" style={{ height: "100cqh" }} />
             ) : (
-              <span
-                key={frame}
-                className="flex items-center justify-center bg-[#1a120c]/80 text-[10px] text-[#f4e4c4]"
-                style={{ height: "2.2rem" }}
-              >
+              <span key={frame} className="flex w-full items-center justify-center bg-[#1a120c] text-[8px] text-[#f4e4c4]" style={{ height: "100cqh" }}>
                 {(item?.name || "·").slice(0, 1)}
               </span>
             ),
@@ -187,33 +202,37 @@ export function OrpheusRoom({
         className="relative mx-auto aspect-square w-full max-w-[280px] bg-contain bg-center bg-no-repeat"
         style={{ backgroundImage: "url(/slot.jpg)" }}
       >
-        <style>{`@keyframes orpheus-reel { from { transform: translateY(0); } to { transform: translateY(-66%); } }`}</style>
+        <style>{`@keyframes orpheus-drop { from { transform: translateY(0); } to { transform: translateY(calc(var(--steps) * -100cqh)); } }`}</style>
         {[0, 1, 2].map((index) => windowFace(shown[index], index))}
       </div>
-      {matched ? <p className="text-center font-display text-3xl leading-none text-[#ffe7a3]">Oh jaaa, das ist fantastisch!</p> : null}
-      <div className="relative mx-auto h-24 w-full max-w-[280px]">
-        {cards.map((card, index) => (
-          <div
-            key={`${card.id}-${index}`}
-            className="absolute top-0 flex w-16 flex-col items-center transition-all duration-700"
-            style={{
-              left: matched ? "calc(50% - 2rem)" : `${8 + index * 30}%`,
-              zIndex: index + 1,
-              transform: matched ? `rotate(${index * 8 - 8}deg)` : undefined,
-            }}
-          >
-            {card.photo ? (
-              <img src={card.photo} alt="" className={`h-12 w-12 rounded-md object-cover ${card.vote === "no" ? "opacity-40 grayscale" : ""}`} />
-            ) : (
-              <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#2a1a0c] text-sm">{card.name.slice(0, 1)}</span>
-            )}
-            <span className="max-w-full truncate text-[10px]">{card.name}</span>
-            <span className={`text-[10px] font-medium ${card.vote === "yes" ? "text-[#b6e3a8]" : card.vote === "no" ? "text-[#e7a0a0]" : "text-[#c4a574]"}`}>
-              {card.vote === "yes" ? "согласен" : card.vote === "no" ? "отказ" : "ждёт"}
-            </span>
-          </div>
-        ))}
-      </div>
+      {matched && !spinning ? <p className="text-center font-display text-3xl leading-none text-[#ffe7a3]">Oh jaaa, das ist fantastisch!</p> : null}
+      {!spinning ? (
+        <div className="relative mx-auto h-24 w-full max-w-[280px]">
+          {cards.map((card, index) => (
+            <div
+              key={`${card.id}-${index}`}
+              className="absolute top-0 flex w-16 flex-col items-center transition-all duration-700"
+              style={{
+                left: matched ? "calc(50% - 2rem)" : `${8 + index * 30}%`,
+                zIndex: index + 1,
+                transform: matched ? `rotate(${index * 8 - 8}deg)` : undefined,
+              }}
+            >
+              {card.photo ? (
+                <img src={card.photo} alt="" className={`h-12 w-12 rounded-md object-cover ${card.vote === "no" ? "opacity-40 grayscale" : ""}`} />
+              ) : (
+                <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#2a1a0c] text-sm">{card.name.slice(0, 1)}</span>
+              )}
+              <span className="max-w-full truncate text-[10px]">{card.name}</span>
+              <span className={`text-[10px] font-medium ${card.vote === "yes" ? "text-[#b6e3a8]" : card.vote === "no" ? "text-[#e7a0a0]" : "text-[#c4a574]"}`}>
+                {card.vote === "yes" ? "согласен" : card.vote === "no" ? "отказ" : "ждёт"}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="h-24 text-center text-sm text-[#c4a574]">Барабаны крутятся…</p>
+      )}
       <p className="text-xs text-[#c4a574]">
         {turn ? `Очередь: ${turn.name}` : "Стол пуст."} У каждого 15 баллов. Не согласен — минус балл и карточка гаснет. Согласен — плюс балл. Если согласны все трое, каждому по 2.
       </p>
@@ -231,10 +250,10 @@ export function OrpheusRoom({
       ) : (
         <p className="text-sm">Ты за столом. Нажал на статую — уже в игре.</p>
       )}
-      {table?.phase === "vote" ? (
-        <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 15 - Math.floor((now - table.spunAt) / 1000))} с.</p>
+      {table?.phase === "vote" && !spinning ? (
+        <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 20 - Math.floor((now - table.spunAt) / 1000))} с.</p>
       ) : null}
-      {table?.phase === "vote" && !shown.some((card) => card.id === me && !card.vote) ? (
+      {table?.phase === "vote" && !spinning && !shown.some((card) => card.id === me && !card.vote) ? (
         <p className="text-sm">Решают: {shown.map((card) => `${card.name} ${card.vote === "yes" ? "да" : card.vote === "no" ? "нет" : "ждёт"}`).join(", ") || "карточки"}.</p>
       ) : null}
       {mine && turn && turn.id !== me && table?.phase === "wait" ? <p className="text-sm">Крутит {turn.name}. Кнопка будет, когда очередь дойдёт до тебя.</p> : null}
@@ -243,7 +262,7 @@ export function OrpheusRoom({
           Крутить
         </Button>
       ) : null}
-      {mine && table?.phase === "vote" && shown.some((card) => card.id === me && !card.vote) ? (
+      {mine && !spinning && table?.phase === "vote" && shown.some((card) => card.id === me && !card.vote) ? (
         <div className="flex gap-2">
           <Button className="rounded-xl" onClick={() => void act("vote", { text: "yes" })}>
             Согласен

@@ -68,7 +68,7 @@ function playBots(table: Table, meId: string) {
   const now = Date.now();
   fill(table);
   if (table.phase === "vote") {
-    const late = Boolean(table.spunAt && now - table.spunAt >= 15000);
+    const late = Boolean(table.spunAt && now - table.spunAt >= 20000);
     for (const item of table.windows) {
       if (item.vote || botId(item.id)) continue;
       if (late) item.vote = "no";
