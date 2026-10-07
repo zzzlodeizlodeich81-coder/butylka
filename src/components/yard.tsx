@@ -262,7 +262,7 @@ export function Yard() {
   }, [layer, lock?.id, lock?.name]);
 
   function open(id: HouseId) {
-    const annuch = /annuch|аннуч|анют/i.test(lock?.name || "");
+    const annuch = /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "");
     if (lock && partnerShare(lock.name) !== 0.5 && ((id === "organ" && !annuch) || id === "market")) {
       toast.message("Шарманщик и рынок только на общем дворе.");
       return;
@@ -388,7 +388,7 @@ export function Yard() {
           {yardMap.zones.map((zone) => {
             const tool = TOOLS.find((item) => item.id === zone.id);
             const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
-            const annuch = /annuch|аннуч|анют/i.test(lock?.name || "");
+            const annuch = /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "");
             const label = quietCamp ? CAMP_LABEL[zone.id] || zone.label : annuch && zone.id === "organ" ? "Орфей" : zone.label;
             return (
             <button
@@ -676,7 +676,7 @@ export function Yard() {
           <iframe title={ZONES.find((z) => z.id === house)?.label} src={DOORS[house]} className="min-h-0 w-full flex-1 border-0 bg-white" />
         </div>
       ) : null}
-      {house === "organ" && /annuch|аннуч|анют/i.test(lock?.name || "") ? (
+      {house === "organ" && /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "") ? (
         <OrpheusRoom
           plotId={lock?.id || ""}
           phone={stage === "phone"}
@@ -684,7 +684,7 @@ export function Yard() {
           onOpenChat={() => setChat(true)}
         />
       ) : null}
-      {house && !DOORS[house] && !(house === "organ" && /annuch|аннуч|анют/i.test(lock?.name || "")) ? (
+      {house && !DOORS[house] && !(house === "organ" && /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "")) ? (
         <HouseSheet
           house={house}
           roles={roles}
@@ -882,7 +882,7 @@ function World({
     if (plot.id === "baba-yaga" || (/баб/.test(text) && /яг/.test(text))) return { left: "12%", top: "46%" };
     if (/северян|снежин/.test(text)) return { left: "18%", top: "12%" };
     if (/andrei/.test(text) && /nik/.test(text)) return { left: "56%", top: "60%" };
-    if (/annuch|аннуч|анют/.test(text)) return { left: "32%", top: "56%" };
+    if (/annush|annuch|аннуш|аннуч|анют/i.test(text)) return { left: "32%", top: "56%" };
     return spots[index % spots.length];
   }
 
