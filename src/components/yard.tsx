@@ -886,13 +886,12 @@ function World({
           <img src="/earth.jpg" alt="" draggable={false} className="pointer-events-none block h-auto w-full select-none" />
           <button
             type="button"
-            className="absolute max-w-[16rem] rounded-xl bg-[#1a120c]/90 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
+            className="absolute flex max-w-[4.2cm] flex-col items-center bg-transparent p-0 text-center text-[#f4e4c4]"
             style={{ left: "40%", top: "34%" }}
             onClick={onHome}
           >
             <HouseMark id="nest" />
-            <span className="block text-base font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
-            <span className="text-sm text-[#c4a574]">государство</span>
+            <span className="mt-0.5 rounded bg-black/70 px-1 text-[11px] leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
           </button>
           {[
             { left: "78%", top: "18%" },
@@ -915,13 +914,12 @@ function World({
             <button
               key={plot.id}
               type="button"
-              className="absolute max-w-[14rem] rounded-xl bg-black/75 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
+              className="absolute flex w-[3.4cm] flex-col items-center bg-transparent p-0 text-center text-[#f4e4c4]"
               style={plotSpot(plot, index)}
               onClick={() => onEnter(plot)}
             >
               <HouseMark id={houseOf(plot.name, plot.mark)} />
-              <span className="block truncate text-base font-medium">{plot.name}</span>
-              <span className="text-sm text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
+              <span className="mt-0.5 max-w-full truncate rounded bg-black/70 px-1 text-[11px]">{plot.name}</span>
             </button>
           ))}
           <button
@@ -935,13 +933,12 @@ function World({
           </button>
           <button
             type="button"
-            className="absolute rounded-xl bg-white/90 px-3 py-1.5 text-left text-[#1a120c] shadow"
+            className="absolute flex w-[3.2cm] flex-col items-center bg-transparent p-0 text-center"
             style={{ left: "64%", top: "32%" }}
             onClick={onAngel}
           >
             <HouseMark id="wings" />
-            <span className="block text-base font-medium">DJ Angel A</span>
-            <span className="text-sm">кабинет</span>
+            <span className="mt-0.5 rounded bg-white/90 px-1 text-[11px]">DJ Angel A</span>
           </button>
           <button
             type="button"

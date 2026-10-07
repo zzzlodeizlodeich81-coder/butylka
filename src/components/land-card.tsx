@@ -105,7 +105,7 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
                   className={`flex items-center gap-2 rounded-xl px-2 py-1 text-left text-xs ${mark === item.id ? "bg-[#2a1a0c] text-[#f4e4c4]" : "bg-black/10"}`}
                   onClick={() => setMark(item.id)}
                 >
-                  <HouseMark id={item.id} />
+                  <HouseMark id={item.id} shop />
                   <span>
                     {item.title}
                     <br />
