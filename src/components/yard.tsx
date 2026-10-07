@@ -479,12 +479,12 @@ export function Yard() {
               className="pointer-events-none absolute z-20"
               style={
                 stage === "phone"
-                  ? { left: "42%", top: "50%", width: "14%", height: "16%" }
+                  ? { left: "38%", top: "42%", width: "18%", height: "24%" }
                   : quietCamp
                     ? { left: "44%", top: "64%", width: "6%", height: "12%" }
                     : snowYard
                       ? { left: "30%", top: "64%", width: "6%", height: "14%" }
-                      : { left: "38%", top: "37%", width: "8%", height: "17%" }
+                      : { left: "35%", top: "28%", width: "13%", height: "26%" }
               }
             >
               <MaxFigure className="h-full w-full" />

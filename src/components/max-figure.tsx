@@ -84,9 +84,9 @@ export function MaxFigure({ className }: { className?: string }) {
         frame = requestAnimationFrame(tick);
         const t = clock.getElapsedTime();
         const bow = Math.sin(t * 1.6);
-        group.rotation.y = -Math.PI / 2 + Math.sin(t * 0.8) * 0.1;
-        group.rotation.x = bow * 0.05;
-        swing(bones["mixamorig:Head"], bow * 0.42, Math.sin(t * 0.7) * 0.12, 0);
+        group.rotation.y = -Math.PI / 2 + Math.sin(t * 0.8) * 0.22;
+        group.rotation.x = bow * 0.08;
+        swing(bones["mixamorig:Head"], bow * 0.55, Math.sin(t * 0.7) * 0.18, 0);
         swing(bones["mixamorig:Neck"], bow * 0.12, 0, 0);
         swing(bones["mixamorig:Spine2"], bow * 0.06, Math.sin(t * 0.8) * 0.08, 0);
         model.traverse((obj: any) => {
