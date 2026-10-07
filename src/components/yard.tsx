@@ -479,7 +479,7 @@ export function Yard() {
             <button
               type="button"
               aria-label="Хозяин"
-              className="pointer-events-auto absolute z-20 border-0 bg-transparent p-0"
+              className="pointer-events-auto absolute z-30 border-0 bg-transparent p-0"
               style={
                 stage === "phone"
                   ? { left: "38%", top: "42%", width: "18%", height: "24%" }
