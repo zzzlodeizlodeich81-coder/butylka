@@ -44,7 +44,7 @@ export function MaxFigure({ className }: { className?: string }) {
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
       const dist = size.y / (2 * Math.tan((camera.fov * Math.PI) / 360));
-      camera.position.set(center.x, center.y + size.y * 0.02, center.z + dist * 1.2);
+      camera.position.set(center.x, center.y + size.y * 0.02, center.z + dist * 1.05);
       camera.lookAt(center.x, center.y + size.y * 0.02, center.z);
       camera.near = Math.max(dist / 80, 0.01);
       camera.far = dist * 20;

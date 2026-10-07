@@ -484,7 +484,7 @@ export function Yard() {
                     ? { left: "44%", top: "64%", width: "6%", height: "12%" }
                     : snowYard
                       ? { left: "30%", top: "64%", width: "6%", height: "14%" }
-                      : { left: "34%", top: "47%", width: "7%", height: "14%" }
+                      : { left: "38%", top: "37%", width: "8%", height: "17%" }
               }
             >
               <MaxFigure className="h-full w-full" />
