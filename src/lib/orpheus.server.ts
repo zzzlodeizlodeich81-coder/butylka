@@ -4,7 +4,7 @@ import { spendPurse } from "@/lib/purse.server";
 
 type Seat = { id: string; name: string; photo: string; points: number; seen?: number };
 type Window = { id: string; name: string; photo: string; vote?: "yes" | "no" };
-type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number; invitedAt?: number; result?: Window[]; cheer?: number };
+type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number; invitedAt?: number; result?: Window[]; cheer?: number; turnAt?: number };
 
 const BOTS: Seat[] = [
   { id: "bot-mira", name: "Мира", photo: "/bots/mira.jpg", points: 15 },
@@ -64,6 +64,28 @@ function botsVote(table: Table) {
   if (!waiting) score(table);
 }
 
+function claim(table: Table, me: { id: string; name: string; photo: string }) {
+  const key = me.name.trim().toLowerCase();
+  if (key.length < 2) return;
+  const same = table.seats.filter((seat) => !botId(seat.id) && (seat.id === me.id || seat.name.trim().toLowerCase() === key));
+  if (!same.length) return;
+  const keep = same[0];
+  const oldIds = same.map((seat) => seat.id);
+  keep.id = me.id;
+  keep.name = me.name;
+  if (me.photo) keep.photo = me.photo;
+  keep.seen = Date.now();
+  keep.points = Math.max(...same.map((seat) => seat.points));
+  table.seats = table.seats.filter((seat) => botId(seat.id) || seat === keep || !oldIds.includes(seat.id));
+  for (const item of [...table.windows, ...(table.result || [])]) {
+    if (oldIds.includes(item.id)) item.id = me.id;
+  }
+  if (oldIds.includes(table.seats[table.turn]?.id || "") && table.seats[table.turn]?.id !== me.id) {
+    const found = table.seats.findIndex((seat) => seat.id === me.id);
+    if (found >= 0) table.turn = found;
+  }
+}
+
 function dropAway(table: Table, meId: string) {
   const now = Date.now();
   for (const seat of table.seats) {
@@ -83,6 +105,7 @@ function dropAway(table: Table, meId: string) {
   if (current && gone.has(current)) {
     const next = table.seats.findIndex((seat) => seat.points > 0);
     table.turn = next >= 0 ? next : 0;
+    table.turnAt = now;
   } else {
     const found = table.seats.findIndex((seat) => seat.id === current);
     table.turn = found >= 0 ? found : 0;
@@ -102,12 +125,14 @@ function playBots(table: Table, meId: string) {
     botsVote(table);
     return;
   }
+  if (!table.turnAt) table.turnAt = now;
   for (let step = 0; step < table.seats.length; step++) {
     const actor = table.seats[table.turn];
-    const stale = Boolean(actor && !botId(actor.id) && actor.id !== meId && actor.seen && now - actor.seen > 45000);
+    const slow = Boolean(actor && !botId(actor.id) && now - (table.turnAt || now) > 12000);
     const broke = Boolean(actor && actor.points <= 0);
-    if (!stale && !broke) break;
+    if (!slow && !broke) break;
     table.turn = (table.turn + 1) % table.seats.length;
+    table.turnAt = now;
   }
   if (botId(table.seats[table.turn]?.id || "") && table.seats.some((seat) => seat.points > 0)) spinWindows(table);
 }
@@ -178,6 +203,7 @@ function score(table: Table) {
   table.phase = "wait";
   table.windows = [];
   table.turn = nextTurn(table, table.turn);
+  table.turnAt = Date.now();
 }
 
 export async function runOrpheus(input: {
@@ -201,6 +227,7 @@ export async function runOrpheus(input: {
     }
 
     fill(table);
+    claim(table, me);
     const seatMe = table.seats.find((seat) => seat.id === me.id);
     if (seatMe) seatMe.seen = Date.now();
 

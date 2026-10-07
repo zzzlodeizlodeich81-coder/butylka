@@ -234,7 +234,12 @@ export function OrpheusRoom({
         <p className="h-24 text-center text-sm text-[#c4a574]">Барабаны крутятся…</p>
       )}
       <p className="text-xs text-[#c4a574]">
-        {turn ? `Очередь: ${turn.name}` : "Стол пуст."} У каждого 15 баллов. Не согласен — минус балл и карточка гаснет. Согласен — плюс балл. Если согласны все трое, каждому по 2.
+        {table?.phase === "vote"
+          ? `Ждём решение: ${shown.filter((card) => !card.vote).map((card) => card.name).join(", ") || "подсчёт"}.`
+          : turn
+            ? `Очередь крутить: ${turn.name}.`
+            : "Стол пуст."}{" "}
+        У каждого 15 баллов. Не согласен — минус балл и карточка гаснет. Согласен — плюс балл. Если согласны все трое, каждому по 2.
       </p>
       <div className="flex flex-wrap gap-2">
         {seats.map((seat) => (
