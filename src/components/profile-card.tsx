@@ -36,6 +36,7 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [oldLogin, setOldLogin] = useState("");
   const [oldPass, setOldPass] = useState("");
+  const [busy, setBusy] = useState(false);
   const [reports, setReports] = useState<
     { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number; house?: number; houseRub?: number }[]
   >([]);

@@ -65,7 +65,7 @@ export const Route = createFileRoute("/api/door")({
             ok: true,
             needDoor: doorEnabled(),
             inside: doorFromRequest(request) || Boolean(row),
-            guest: row ? { id: row.id, name: row.name, notes: row.notes, login: row.login || "", admin: isAdminLogin(row.login) } : null,
+            guest: row ? { id: row.id, name: row.name, notes: row.notes, login: row.login || "", admin: isAdminLogin(row.login), linked: Boolean(row.vk) } : null,
           });
         }
 

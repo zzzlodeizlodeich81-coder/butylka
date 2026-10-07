@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
-import { DOOR_COOKIE, GUEST_COOKIE, doorCookieValue, guestToken, loginVk, setCookie } from "@/lib/purse.server";
+import { attachVk, DOOR_COOKIE, GUEST_COOKIE, doorCookieValue, guestFromRequest, guestToken, loginVk, setCookie } from "@/lib/purse.server";
 
 function b64url(buf: Buffer) {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
@@ -80,11 +80,17 @@ export const Route = createFileRoute("/api/vk-id")({
         });
         const info = (await infoRes.json().catch(() => null)) as { user?: { first_name?: string; last_name?: string } } | null;
         shown = `${info?.user?.first_name || ""} ${info?.user?.last_name || ""}`.trim();
-        const row = await loginVk(String(token.user_id), shown);
-        if (!row) return new Response("Не завелось.", { status: 500 });
+        const sitting = guestFromRequest(request);
+        const row = sitting ? null : await loginVk(String(token.user_id), shown);
+        const linked = sitting ? await attachVk(sitting.id, String(token.user_id)) : null;
+        if (sitting && !linked?.ok) {
+          return new Response(linked?.error || "Не привязалось.", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+        }
+        const purse = linked?.ok ? linked.row : row;
+        if (!purse) return new Response("Не завелось.", { status: 500 });
         const headers = new Headers({ location: "/", "cache-control": "no-store" });
         headers.append("set-cookie", setCookie(request, DOOR_COOKIE, doorCookieValue()));
-        headers.append("set-cookie", setCookie(request, GUEST_COOKIE, guestToken(row)));
+        headers.append("set-cookie", setCookie(request, GUEST_COOKIE, guestToken(purse)));
         return new Response(null, { status: 302, headers });
       },
     },

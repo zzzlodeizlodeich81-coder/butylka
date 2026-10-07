@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWallet } from "@/lib/wallet";
 
-type Guest = { id: string; name: string; notes: number; admin?: boolean };
+type Guest = { id: string; name: string; notes: number; admin?: boolean; linked?: boolean };
 type Player = { id: string; name: string; notes: number };
 
 async function door(body: Record<string, unknown>) {
@@ -24,21 +24,16 @@ async function door(body: Record<string, unknown>) {
   };
 }
 
-function openedInVk() {
-  if (typeof window === "undefined") return false;
-  return /(?:^|[?&])vk_(?:user_id|app_id)=/.test(window.location.search);
-}
-
 export function DoorGate({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<"load" | "lock" | "name" | "in" | "vkfail">("load");
-  const [mode, setMode] = useState<"login" | "new">("login");
+  const [phase, setPhase] = useState<"load" | "lock" | "name" | "in">("load");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [kassa, setKassa] = useState(false);
   const admin = useWallet((s) => s.admin);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [askVk, setAskVk] = useState(false);
+  const later = useRef(false);
 
   async function sync() {
     const row = await door({ action: "status" });
@@ -47,7 +42,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
       return;
     }
     if (!row.inside) {
-      setPhase(openedInVk() ? "vkfail" : "lock");
+      setPhase("lock");
       return;
     }
     if (!row.guest) {
@@ -61,20 +56,11 @@ export function DoorGate({ children }: { children: ReactNode }) {
       admin: Boolean(row.guest.admin),
     });
     setPhase("in");
+    if (!row.guest.linked && !row.guest.admin && !later.current) setAskVk(true);
   }
 
   useEffect(() => {
-    const fromVk = openedInVk();
-    void (async () => {
-      if (fromVk) {
-        const row = await door({ action: "vk", search: window.location.search });
-        if (!row.ok) {
-          setPhase("vkfail");
-          return;
-        }
-      }
-      await sync();
-    })().catch(() => setPhase(fromVk ? "vkfail" : "lock"));
+    void sync().catch(() => setPhase("lock"));
     const timer = window.setInterval(() => void sync().catch(() => undefined), 15000);
     const leave = () => {
       void (async () => {
@@ -131,6 +117,40 @@ export function DoorGate({ children }: { children: ReactNode }) {
   return (
     <>
       {phase === "in" ? children : null}
+      {phase === "in" && askVk ? (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-3 sm:items-center">
+          <div className="max-h-[85dvh] w-full max-w-md overflow-auto rounded-3xl bg-[#1a120c] p-4 text-[#f4e4c4]">
+            <p className="font-display text-2xl">Привяжи свой ВК</p>
+            <p className="mt-2 text-sm text-[#f4e4c4]/80">
+              Через неделю вход станет по VK ID. Ноты и двор останутся на этой учётке, если привяжешь ВК сейчас. Пока можно играть как раньше.
+            </p>
+            <p className="mt-3 text-sm font-medium">Где посмотреть номер на компьютере</p>
+            <p className="mt-1 text-sm text-[#f4e4c4]/80">
+              Открой vk.com и свою страницу. Если в адресе vk.com/id123456789, эти цифры и есть номер. Если адрес короткий, без цифр, нажми на свою фотографию и открой её. В адресе будет photo123456789_... Цифры до чёрточки — твой номер.
+            </p>
+            <p className="mt-3 text-sm font-medium">Где посмотреть номер в телефоне</p>
+            <p className="mt-1 text-sm text-[#f4e4c4]/80">
+              Приложение ВК, твоя страница, три точки справа сверху, «Скопировать ссылку». Открой эту ссылку в браузере. Дальше как на компьютере: номер в адресе страницы или в адресе фотографии.
+            </p>
+            <p className="mt-3 text-sm text-[#f4e4c4]/80">
+              Сначала открой в браузере тот самый ВК, номер которого посмотрел. Потом жми кнопку. ВК сам подтвердит, что страница твоя, руками номер вписывать не надо.
+            </p>
+            <a className="mt-3 block rounded-xl bg-[#4c75a3] px-3 py-2 text-center text-sm" href="/api/vk-id">
+              Привязать VK ID
+            </a>
+            <button
+              type="button"
+              className="mt-2 w-full text-sm text-[#f4e4c4]/70"
+              onClick={() => {
+                later.current = true;
+                setAskVk(false);
+              }}
+            >
+              Позже, я в игре
+            </button>
+          </div>
+        </div>
+      ) : null}
       {phase !== "in" ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0708] px-4 text-[#f4e4c4]">
           <form
@@ -139,10 +159,9 @@ export function DoorGate({ children }: { children: ReactNode }) {
               event.preventDefault();
               void (async () => {
                 const row = await door({
-                  action: mode === "new" ? "register" : "login",
+                  action: "login",
                   login,
                   password,
-                  name,
                 });
                 if (!row.ok) {
                   toast.error(row.error || "Не пустило.");
@@ -155,24 +174,11 @@ export function DoorGate({ children }: { children: ReactNode }) {
           >
             <p className="font-display text-3xl">XXV Kadr</p>
             {phase === "load" ? <p className="mt-3 text-sm">Открываю калитку…</p> : null}
-            {phase === "vkfail" ? (
-              <p className="mt-3 text-sm text-[#f4e4c4]/70">
-                Вход только из ВКонтакте, по человеку, который уже открыл сервис. Отдельный логин здесь не нужен.
-              </p>
-            ) : null}
             {phase === "lock" || phase === "name" ? (
               <>
                 <p className="mt-3 text-sm text-[#f4e4c4]/70">
-                  Вход по своему логину. Касса и выход — в меню «Ещё» наверху. Админка открывается только у хозяина.
+                  Кто уже в городе, входит своим логином. Новые заходят через VK ID, отдельный пароль им не нужен.
                 </p>
-                <div className="mt-3 flex gap-2">
-                  <Button type="button" variant={mode === "login" ? "default" : "secondary"} className="rounded-xl" onClick={() => setMode("login")}>
-                    Вход
-                  </Button>
-                  <Button type="button" variant={mode === "new" ? "default" : "secondary"} className="rounded-xl" onClick={() => setMode("new")}>
-                    Новый
-                  </Button>
-                </div>
                 <Input
                   className="mt-3 bg-black/40 text-white"
                   placeholder="Логин"
@@ -186,19 +192,14 @@ export function DoorGate({ children }: { children: ReactNode }) {
                   placeholder="Пароль"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  autoComplete={mode === "new" ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                 />
-                {mode === "new" ? (
-                  <Input
-                    className="mt-2 bg-black/40 text-white"
-                    placeholder="Как писать на дворе"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                  />
-                ) : null}
                 <Button className="mt-3 w-full rounded-xl" type="submit">
-                  {mode === "new" ? "Создать" : "Войти"}
+                  Войти
                 </Button>
+                <a className="mt-3 block text-center text-sm underline" href="/api/vk-id">
+                  Я новый, войти через VK ID
+                </a>
               </>
             ) : null}
           </form>

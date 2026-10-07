@@ -226,6 +226,21 @@ export async function updateAccount(
   });
 }
 
+export async function attachVk(currentId: string, vkId: string) {
+  const id = vkId.replace(/\D/g, "").slice(0, 20);
+  if (!id) return { ok: false as const, error: "ВК не отдал номер." };
+  return locked(async () => {
+    const book = await readBook();
+    const current = book.rows.find((item) => item.id === currentId);
+    if (!current) return { ok: false as const, error: "Нет такой учётки." };
+    const taken = book.rows.find((item) => item.vk === id && item.id !== current.id);
+    if (taken) return { ok: false as const, error: "Этот ВК уже привязан к другому двору." };
+    current.vk = id;
+    await writeBook(book);
+    return { ok: true as const, row: current };
+  });
+}
+
 export async function bindVkAccount(currentId: string, login: string, password: string) {
   const user = cleanLogin(login);
   const typed = password.trim();
