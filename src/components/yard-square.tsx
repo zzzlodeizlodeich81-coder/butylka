@@ -1051,6 +1051,7 @@ export function YardChat({
   onSeenYard,
   onOpenPerson,
   plot = "",
+  half = false,
 }: {
   onClose: () => void;
   focusId?: string;
@@ -1060,6 +1061,7 @@ export function YardChat({
   onSeenYard: (id: string) => void;
   onOpenPerson: (id: string) => void;
   plot?: string;
+  half?: boolean;
 }) {
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
@@ -1124,7 +1126,9 @@ export function YardChat({
   return (
     <div
       className={
-        wide
+        half
+          ? "absolute inset-x-0 bottom-0 z-40 flex h-full flex-col overflow-hidden bg-bg"
+          : wide
           ? "absolute right-4 bottom-4 z-40 flex h-[min(680px,82dvh)] w-[400px] flex-col overflow-hidden rounded-2xl bg-bg shadow-2xl"
           : "absolute inset-0 z-40 flex flex-col bg-bg pt-[max(0.5rem,env(safe-area-inset-top))]"
       }

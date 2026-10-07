@@ -19,6 +19,7 @@ import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
+import { OrpheusRoom } from "@/components/orpheus-table";
 import { HouseMark } from "@/components/house-mark";
 import { TOOLS, houseOf, partnerShare, type PlotKind } from "@/lib/lands";
 import { landDesk } from "@/lib/land-desk";
@@ -261,7 +262,8 @@ export function Yard() {
   }, [layer, lock?.id, lock?.name]);
 
   function open(id: HouseId) {
-    if (lock && partnerShare(lock.name) !== 0.5 && (id === "organ" || id === "market")) {
+    const annuch = /annuch|аннуч|анют/i.test(lock?.name || "");
+    if (lock && partnerShare(lock.name) !== 0.5 && ((id === "organ" && !annuch) || id === "market")) {
       toast.message("Шарманщик и рынок только на общем дворе.");
       return;
     }
@@ -386,7 +388,8 @@ export function Yard() {
           {yardMap.zones.map((zone) => {
             const tool = TOOLS.find((item) => item.id === zone.id);
             const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
-            const label = quietCamp ? CAMP_LABEL[zone.id] || zone.label : zone.label;
+            const annuch = /annuch|аннуч|анют/i.test(lock?.name || "");
+            const label = quietCamp ? CAMP_LABEL[zone.id] || zone.label : annuch && zone.id === "organ" ? "Орфей" : zone.label;
             return (
             <button
               key={zone.id}
@@ -670,7 +673,15 @@ export function Yard() {
           <iframe title={ZONES.find((z) => z.id === house)?.label} src={DOORS[house]} className="min-h-0 w-full flex-1 border-0 bg-white" />
         </div>
       ) : null}
-      {house && !DOORS[house] ? (
+      {house === "organ" && /annuch|аннуч|анют/i.test(lock?.name || "") ? (
+        <OrpheusRoom
+          plotId={lock?.id || ""}
+          phone={stage === "phone"}
+          onClose={() => setHouse(null)}
+          onOpenChat={() => setChat(true)}
+        />
+      ) : null}
+      {house && !DOORS[house] && !(house === "organ" && /annuch|аннуч|анют/i.test(lock?.name || "")) ? (
         <HouseSheet
           house={house}
           roles={roles}

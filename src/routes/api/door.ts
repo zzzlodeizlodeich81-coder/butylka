@@ -110,6 +110,22 @@ export const Route = createFileRoute("/api/door")({
           );
         }
 
+        if (body.action === "orpheus") {
+          const guest = guestFromRequest(request);
+          if (!guest) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
+          const me = await readPurse(guest.id);
+          if (!me) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
+          const { runOrpheus } = await import("@/lib/orpheus.server");
+          const row = await runOrpheus({
+            op: body.op || "look",
+            plot: body.id || "",
+            who: { id: me.id, name: me.name, photo: me.photo || "" },
+            vote: body.text,
+            points: body.amount,
+          });
+          return Response.json(row);
+        }
+
         if (body.action === "profile") {
           const guest = guestFromRequest(request);
           if (!guest) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
