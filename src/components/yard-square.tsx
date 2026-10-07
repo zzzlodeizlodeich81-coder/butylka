@@ -650,12 +650,13 @@ function Sticker({ src, label, big }: { src: string; label: string; big?: boolea
 }
 
 function ChatBits({ text }: { text: string }) {
-  const parts = text.split(/(\{\{bra\}\}|\{\{guy\}\})/g);
+  const parts = text.split(/(\{\{bra\}\}|\{\{guy\}\}|\{\{bloom\}\})/g);
   return (
     <p className="text-muted">
       {parts.map((part, index) => {
         if (part === "{{bra}}") return <Sticker key={index} big src="/sticker-girl.jpg" label="девушка" />;
         if (part === "{{guy}}") return <Sticker key={index} big src="/sticker-guy.jpg" label="качок" />;
+        if (part === "{{bloom}}") return <Sticker key={index} big src="/sticker-bloom.jpg" label="букет" />;
         return <span key={index}>{part}</span>;
       })}
     </p>
@@ -752,6 +753,9 @@ function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
       </button>
       <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{guy}}")}>
         <Sticker src="/sticker-guy.jpg" label="качок" />
+      </button>
+      <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{bloom}}")}>
+        <Sticker src="/sticker-bloom.jpg" label="букет" />
       </button>
       {SMILES.map((smile) => (
         <button key={smile} type="button" className="shrink-0 rounded-lg bg-surface px-2 py-1 text-2xl" onClick={() => onPick(smile)}>

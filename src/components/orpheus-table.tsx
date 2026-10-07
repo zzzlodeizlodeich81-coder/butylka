@@ -111,8 +111,13 @@ export function OrpheusRoom({
           На двор
         </button>
       </div>
-      <div className="flex items-end justify-center gap-2 rounded-2xl bg-[#1a120c] px-3 py-4">
-        {[0, 1, 2].map((index) => face(shown[index], index))}
+      <div
+        className="relative mx-auto aspect-square w-full max-w-[280px] bg-contain bg-center bg-no-repeat"
+        style={{ backgroundImage: "url(/slot.jpg)" }}
+      >
+        <div className="absolute top-[27%] right-[24%] left-[18%] flex items-start justify-between">
+          {[0, 1, 2].map((index) => face(shown[index], index))}
+        </div>
       </div>
       <p className="text-xs text-[#c4a574]">
         {turn ? `Очередь: ${turn.name}` : "Стол пуст."} У каждого 15 баллов. Не согласен — минус балл и карточка гаснет. Согласен — плюс балл. Если согласны все трое, каждому по 2.

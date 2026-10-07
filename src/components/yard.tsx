@@ -399,6 +399,9 @@ export function Yard() {
               style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height }}
               onClick={() => open(zone.id)}
             >
+              {annuch && zone.id === "organ" ? (
+                <img src="/orpheus.jpg" alt="" className="pointer-events-none absolute inset-0 h-full w-full rounded-xl object-contain" />
+              ) : null}
               <span
                 className={`pointer-events-none absolute left-1/2 max-w-[92%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center leading-tight font-medium text-[#f4e4c4] shadow ${stage === "phone" ? "text-[10px]" : "text-[11px]"} ${zone.sign === "top" ? "top-0.5" : "bottom-0.5"}`}
               >
