@@ -4,7 +4,7 @@ import { spendPurse } from "@/lib/purse.server";
 
 type Seat = { id: string; name: string; photo: string; points: number; seen?: number };
 type Window = { id: string; name: string; photo: string; vote?: "yes" | "no" };
-type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number; invitedAt?: number };
+type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number; invitedAt?: number; result?: Window[]; cheer?: number };
 
 const BOTS: Seat[] = [
   { id: "bot-mira", name: "Мира", photo: "/bots/mira.jpg", points: 15 },
@@ -34,13 +34,24 @@ function fill(table: Table) {
 
 function spinWindows(table: Table) {
   const live = table.seats.filter((seat) => seat.points > 0);
-  if (live.length < 1) return false;
-  table.windows = [0, 1, 2].map(() => {
-    const pick = live[Math.floor(Math.random() * live.length)];
-    return { id: pick.id, name: pick.name, photo: pick.photo };
-  });
+  const pool = [...live];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const swap = pool[i];
+    pool[i] = pool[j];
+    pool[j] = swap;
+  }
+  const picked: Seat[] = [];
+  for (const seat of pool) {
+    if (picked.length === 3) break;
+    if (!picked.some((row) => row.id === seat.id)) picked.push(seat);
+  }
+  if (!picked.length) return false;
+  table.windows = picked.map((seat) => ({ id: seat.id, name: seat.name, photo: seat.photo }));
   table.phase = "vote";
   table.spunAt = Date.now();
+  table.result = [];
+  table.cheer = 0;
   return true;
 }
 
@@ -141,6 +152,8 @@ function score(table: Table) {
     if (refused) seat.points = Math.max(0, seat.points - 1);
     else seat.points += allYes ? 2 : 1;
   }
+  table.result = windows.map((item) => ({ ...item }));
+  table.cheer = allYes ? Date.now() : 0;
   table.phase = "wait";
   table.windows = [];
   table.turn = nextTurn(table, table.turn);

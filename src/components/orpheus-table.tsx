@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { YardChat } from "@/components/yard-square";
@@ -6,7 +6,33 @@ import { useWallet } from "@/lib/wallet";
 
 type Seat = { id: string; name: string; photo: string; points: number };
 type Card = { id: string; name: string; photo: string; vote?: "yes" | "no" };
-type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Card[]; spunAt: number };
+type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Card[]; spunAt: number; result?: Card[]; cheer?: number };
+
+let audio: AudioContext | null = null;
+
+function tone(freq: number, at: number, dur: number, type: OscillatorType, gain: number) {
+  if (!audio) audio = new AudioContext();
+  const osc = audio.createOscillator();
+  const amp = audio.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  amp.gain.setValueAtTime(gain, audio.currentTime + at);
+  amp.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + at + dur);
+  osc.connect(amp);
+  amp.connect(audio.destination);
+  osc.start(audio.currentTime + at);
+  osc.stop(audio.currentTime + at + dur);
+}
+
+function playSpin() {
+  for (let i = 0; i < 16; i++) tone(140 + (i % 4) * 70, i * 0.09, 0.05, "square", 0.03);
+}
+
+function playCheer() {
+  tone(523, 0, 0.35, "triangle", 0.08);
+  tone(659, 0.12, 0.4, "triangle", 0.08);
+  tone(784, 0.24, 0.55, "triangle", 0.09);
+}
 
 async function call(body: Record<string, unknown>) {
   const res = await fetch("/api/door", {
@@ -36,6 +62,7 @@ export function OrpheusRoom({
   const [spinning, setSpinning] = useState(false);
   const [buy, setBuy] = useState("1");
   const [now, setNow] = useState(() => Date.now());
+  const heard = useRef({ spin: 0, cheer: 0 });
 
   async function pull() {
     const row = await call({ op: "look", id: plotId });
@@ -55,6 +82,18 @@ export function OrpheusRoom({
     const timer = window.setInterval(() => setNow(Date.now()), 500);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!table?.spunAt || table.spunAt === heard.current.spin) return;
+    heard.current.spin = table.spunAt;
+    playSpin();
+  }, [table?.spunAt]);
+
+  useEffect(() => {
+    if (!table?.cheer || table.cheer === heard.current.cheer) return;
+    heard.current.cheer = table.cheer;
+    playCheer();
+  }, [table?.cheer]);
 
   useEffect(() => {
     void call({ op: "sit", id: plotId }).then((row) => {
@@ -92,6 +131,8 @@ export function OrpheusRoom({
     if (!phone) onOpenChat();
   }, [phone, onOpenChat]);
 
+  const cards = table?.phase === "vote" ? shown : table?.result || [];
+  const matched = cards.length >= 3 && cards.every((card) => card.vote === "yes");
   const reel = seats.filter((seat) => seat.points > 0);
   const strip = reel.length ? [...reel, ...reel, ...reel] : [];
 
@@ -147,6 +188,30 @@ export function OrpheusRoom({
       >
         <style>{`@keyframes orpheus-reel { from { transform: translateY(0); } to { transform: translateY(-66%); } }`}</style>
         {[0, 1, 2].map((index) => windowFace(shown[index], index))}
+      </div>
+      {matched ? <p className="text-center font-display text-3xl leading-none text-[#ffe7a3]">Oh jaaa, das ist fantastisch!</p> : null}
+      <div className="relative mx-auto h-24 w-full max-w-[280px]">
+        {cards.map((card, index) => (
+          <div
+            key={`${card.id}-${index}`}
+            className="absolute top-0 flex w-16 flex-col items-center transition-all duration-700"
+            style={{
+              left: matched ? "calc(50% - 2rem)" : `${8 + index * 30}%`,
+              zIndex: index + 1,
+              transform: matched ? `rotate(${index * 8 - 8}deg)` : undefined,
+            }}
+          >
+            {card.photo ? (
+              <img src={card.photo} alt="" className={`h-12 w-12 rounded-md object-cover ${card.vote === "no" ? "opacity-40 grayscale" : ""}`} />
+            ) : (
+              <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#2a1a0c] text-sm">{card.name.slice(0, 1)}</span>
+            )}
+            <span className="max-w-full truncate text-[10px]">{card.name}</span>
+            <span className={`text-[10px] font-medium ${card.vote === "yes" ? "text-[#b6e3a8]" : card.vote === "no" ? "text-[#e7a0a0]" : "text-[#c4a574]"}`}>
+              {card.vote === "yes" ? "согласен" : card.vote === "no" ? "отказ" : "ждёт"}
+            </span>
+          </div>
+        ))}
       </div>
       <p className="text-xs text-[#c4a574]">
         {turn ? `Очередь: ${turn.name}` : "Стол пуст."} У каждого 15 баллов. Не согласен — минус балл и карточка гаснет. Согласен — плюс балл. Если согласны все трое, каждому по 2.
