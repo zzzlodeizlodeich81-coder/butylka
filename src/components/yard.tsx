@@ -113,6 +113,18 @@ const CAMP_ZONES: typeof ZONES = [
   { id: "gate", label: "КПП", left: "84%", top: "32%", width: "12%", height: "14%", sign: "bottom" },
 ];
 
+const CAMP_PHONE: typeof ZONES = [
+  { id: "record", label: "Блиндаж записи", left: "6%", top: "16%", width: "30%", height: "14%", sign: "bottom" },
+  { id: "factory", label: "Аппаратная", left: "36%", top: "14%", width: "28%", height: "14%", sign: "bottom" },
+  { id: "frame", label: "Планшет", left: "66%", top: "16%", width: "28%", height: "14%", sign: "bottom" },
+  { id: "atelier", label: "Маскировочная", left: "2%", top: "34%", width: "30%", height: "16%", sign: "bottom" },
+  { id: "organ", label: "Маэстро", left: "34%", top: "36%", width: "30%", height: "16%", sign: "bottom" },
+  { id: "cinema", label: "Кинобудка", left: "66%", top: "36%", width: "30%", height: "14%", sign: "bottom" },
+  { id: "market", label: "Обоз", left: "28%", top: "54%", width: "44%", height: "14%", sign: "top" },
+  { id: "stage", label: "Караулка", left: "4%", top: "68%", width: "28%", height: "14%", sign: "top" },
+  { id: "gate", label: "КПП", left: "32%", top: "76%", width: "36%", height: "16%", sign: "top" },
+];
+
 const DOORS: Partial<Record<HouseId, string>> = {
   factory: "/doors/master.html",
   frame: "/doors/frame.html",
@@ -286,7 +298,9 @@ export function Yard() {
 
   const quietCamp = partnerShare(lock?.name || "") === 0.5;
   const yardMap = quietCamp
-    ? { src: "/camp.jpg", aspect: "16 / 9", zones: CAMP_ZONES }
+    ? stage === "phone"
+      ? { src: "/m/camp.jpg", aspect: "9 / 16", zones: CAMP_PHONE }
+      : { src: "/camp.jpg", aspect: "16 / 9", zones: CAMP_ZONES }
     : stage === "phone"
       ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE }
       : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
@@ -382,7 +396,7 @@ export function Yard() {
               onClick={() => open(zone.id)}
             >
               <span
-                className={`pointer-events-none absolute left-1/2 max-w-[92%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium text-[#f4e4c4] shadow ${zone.sign === "top" ? "top-0.5" : "bottom-0.5"}`}
+                className={`pointer-events-none absolute left-1/2 max-w-[92%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center leading-tight font-medium text-[#f4e4c4] shadow ${stage === "phone" ? "text-[10px]" : "text-[11px]"} ${zone.sign === "top" ? "top-0.5" : "bottom-0.5"}`}
               >
                 {closed ? `закрыто · ${tool?.price}` : label}
               </span>
