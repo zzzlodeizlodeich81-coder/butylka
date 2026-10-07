@@ -83,12 +83,12 @@ export function MaxFigure({ className }: { className?: string }) {
       const tick = () => {
         frame = requestAnimationFrame(tick);
         const t = clock.getElapsedTime();
-        const bow = Math.sin(t * 1.6);
-        group.rotation.y = -Math.PI / 2 + Math.sin(t * 0.8) * 0.22;
-        group.rotation.x = bow * 0.08;
-        swing(bones["mixamorig:Head"], bow * 0.55, Math.sin(t * 0.7) * 0.18, 0);
-        swing(bones["mixamorig:Neck"], bow * 0.12, 0, 0);
-        swing(bones["mixamorig:Spine2"], bow * 0.06, Math.sin(t * 0.8) * 0.08, 0);
+        const nodDown = Math.max(0, Math.sin(t * 1.3));
+        group.rotation.y = -Math.PI / 2 + Math.sin(t * 0.45) * 0.03;
+        group.rotation.x = 0;
+        swing(bones["mixamorig:Head"], -nodDown * 0.22, Math.sin(t * 0.45) * 0.05, 0);
+        swing(bones["mixamorig:Neck"], -nodDown * 0.06, 0, 0);
+        swing(bones["mixamorig:Spine2"], 0, Math.sin(t * 0.45) * 0.02, 0);
         model.traverse((obj: any) => {
           if (obj.isSkinnedMesh) obj.skeleton.update();
         });
