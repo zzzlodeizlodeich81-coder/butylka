@@ -66,7 +66,7 @@ export async function plotById(id: string) {
   const book = await readBook();
   const plot = book.plots.find((item) => item.id === id);
   if (!plot) return null;
-  return { id: plot.id, name: plot.name, ownerId: plot.owner };
+  return { id: plot.id, name: plot.name, ownerId: plot.owner, members: plot.members || [] };
 }
 
 export async function chatRooms() {

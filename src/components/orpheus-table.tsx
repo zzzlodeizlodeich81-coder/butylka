@@ -124,9 +124,16 @@ export function OrpheusRoom({
     <div className="flex min-h-0 flex-col gap-2 overflow-auto p-3 text-[#f4e4c4]">
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl">Орфей</p>
-        <button type="button" className="text-sm" onClick={onClose}>
-          На двор
-        </button>
+        <div className="flex items-center gap-2">
+          {host ? (
+            <Button variant="secondary" className="rounded-xl px-3 py-1" onClick={() => void act("invite")}>
+              Позвать играть
+            </Button>
+          ) : null}
+          <button type="button" className="text-sm" onClick={onClose}>
+            На двор
+          </button>
+        </div>
       </div>
       <div
         className="relative mx-auto aspect-square w-full max-w-[280px] bg-contain bg-center bg-no-repeat"
@@ -152,11 +159,6 @@ export function OrpheusRoom({
       ) : (
         <p className="text-sm">Ты за столом. Нажал на статую — уже в игре.</p>
       )}
-      {host ? (
-        <Button variant="secondary" className="rounded-xl" onClick={() => void act("invite")}>
-          Позвать играть
-        </Button>
-      ) : null}
       {mine && seats.length < 5 ? <p className="text-sm">Крутить можно, когда за столом хотя бы 5 человек. Сейчас {seats.length}.</p> : null}
       {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 && seats.length >= 5 ? (
         <Button className="rounded-xl" onClick={() => void act("spin")}>

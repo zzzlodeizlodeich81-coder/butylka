@@ -136,6 +136,7 @@ const DOORS: Partial<Record<HouseId, string>> = {
 export function Yard() {
   const toStudio = useGame((s) => s.toStudio);
   const toLobby = useGame((s) => s.toLobby);
+  const myName = useWallet((s) => s.name);
   const notes = useWallet((s) => s.notes);
   const vkId = useWallet((s) => s.vkId);
   const localNotes = useGame((s) => s.players.find((p) => p.id === s.youId)?.notes ?? 0);
@@ -680,7 +681,11 @@ export function Yard() {
         <OrpheusRoom
           plotId={lock?.id || ""}
           phone={stage === "phone"}
-          host={Boolean(lock?.owner)}
+          host={Boolean(
+            lock?.owner ||
+              lock?.member ||
+              (myName && lock?.name && lock.name.toLowerCase().includes(myName.trim().toLowerCase()) && myName.trim().length > 2),
+          )}
           onClose={() => setHouse(null)}
           onOpenChat={() => setChat(true)}
         />

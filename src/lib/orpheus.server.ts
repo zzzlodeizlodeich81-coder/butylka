@@ -4,7 +4,64 @@ import { spendPurse } from "@/lib/purse.server";
 
 type Seat = { id: string; name: string; photo: string; points: number };
 type Window = { id: string; name: string; photo: string; vote?: "yes" | "no" };
-type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number };
+type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number; invitedAt?: number };
+
+const BOTS: Seat[] = [
+  { id: "bot-mira", name: "Мира", photo: "/bots/mira.jpg", points: 15 },
+  { id: "bot-lada", name: "Лада", photo: "/bots/lada.jpg", points: 15 },
+  { id: "bot-gleb", name: "Глеб", photo: "/bots/gleb.jpg", points: 15 },
+  { id: "bot-mark", name: "Марк", photo: "/bots/mark.jpg", points: 15 },
+];
+
+function botId(id: string) {
+  return id.startsWith("bot-");
+}
+
+function fill(table: Table) {
+  const humans = table.seats.filter((seat) => !botId(seat.id));
+  const need = Math.max(0, 5 - humans.length);
+  const picked: Seat[] = [];
+  for (const bot of BOTS) {
+    if (picked.length >= need) break;
+    const prev = table.seats.find((seat) => seat.id === bot.id);
+    picked.push(prev && prev.points > 0 ? prev : { ...bot, points: 15 });
+  }
+  const current = table.seats[table.turn]?.id;
+  table.seats = [...humans, ...picked];
+  const found = table.seats.findIndex((seat) => seat.id === current);
+  table.turn = found >= 0 ? found : 0;
+}
+
+function spinWindows(table: Table) {
+  const live = table.seats.filter((seat) => seat.points > 0);
+  if (live.length < 1) return false;
+  table.windows = [0, 1, 2].map(() => {
+    const pick = live[Math.floor(Math.random() * live.length)];
+    return { id: pick.id, name: pick.name, photo: pick.photo };
+  });
+  table.phase = "vote";
+  table.spunAt = Date.now();
+  return true;
+}
+
+function botsVote(table: Table) {
+  if (table.phase !== "vote") return;
+  for (const item of table.windows) {
+    if (botId(item.id) && !item.vote) item.vote = Math.random() < 0.55 ? "yes" : "no";
+  }
+  const waiting = table.windows.some((item) => !item.vote && !botId(item.id));
+  if (!waiting) score(table);
+}
+
+function playBots(table: Table) {
+  fill(table);
+  if (table.phase === "wait") {
+    const actor = table.seats[table.turn];
+    if (actor && actor.points <= 0) table.turn = nextTurn(table, table.turn);
+  }
+  if (table.phase === "vote") botsVote(table);
+  else if (botId(table.seats[table.turn]?.id || "") && table.seats.filter((seat) => seat.points > 0).length >= 5) spinWindows(table);
+}
 
 type Book = { tables: Record<string, Table> };
 
@@ -90,8 +147,9 @@ export async function runOrpheus(input: {
       if (!table.seats.some((seat) => seat.id === me.id)) {
         table.seats.push({ id: me.id, name: me.name, photo: me.photo, points: 15 });
       }
-      await writeBook(book);
     }
+
+    fill(table);
 
     if (input.op === "spin") {
       const live = table.seats.filter((seat) => seat.points > 0);
@@ -99,15 +157,10 @@ export async function runOrpheus(input: {
       if (!actor || actor.id !== me.id) return { ok: false as const, error: "Сейчас не твоя очередь.", table };
       if (actor.points <= 0) return { ok: false as const, error: "Баллы кончились.", table };
       if (table.phase !== "wait") return { ok: false as const, error: "Сначала пусть карточки решат.", table };
-      if (table.seats.length < 5) return { ok: false as const, error: "Нужно хотя бы 5 человек за столом.", table };
-      if (!live.length) return { ok: false as const, error: "За столом никого с баллами.", table };
-      table.windows = [0, 1, 2].map(() => {
-        const pick = live[Math.floor(Math.random() * live.length)];
-        return { id: pick.id, name: pick.name, photo: pick.photo };
-      });
-      table.phase = "vote";
-      table.spunAt = Date.now();
+      if (live.length < 5) return { ok: false as const, error: "Нужно хотя бы 5 человек за столом.", table };
+      spinWindows(table);
       await writeBook(book);
+      return { ok: true as const, table, me: me.id };
     }
 
     if (input.op === "vote") {
@@ -120,17 +173,27 @@ export async function runOrpheus(input: {
         }
       }
       if (!touched) return { ok: false as const, error: "Тебя в окошках нет.", table };
-      score(table);
+      botsVote(table);
       await writeBook(book);
+      return { ok: true as const, table, me: me.id };
     }
 
     if (input.op === "invite") {
       const { plotById, chatRooms } = await import("@/lib/lands.server");
       const { broadcastInvite } = await import("@/lib/yard-board");
       const hostPlot = await plotById(plot);
-      if (!hostPlot || hostPlot.ownerId !== me.id) return { ok: false as const, error: "Звать может только хозяйка двора.", table };
+      const named = me.name.trim().toLowerCase();
+      const yard = (hostPlot?.name || "").trim().toLowerCase();
+      const sameName = named.length > 2 && (yard.includes(named) || named.includes(yard));
+      const allowed = Boolean(hostPlot && (hostPlot.ownerId === me.id || hostPlot.members.includes(me.id) || sameName));
+      if (!hostPlot || !allowed) return { ok: false as const, error: "Звать может хозяйка двора.", table };
+      if (table.invitedAt && Date.now() - table.invitedAt < 10 * 60 * 1000) {
+        return { ok: false as const, error: "Уже звала. Следующий раз через несколько минут.", table };
+      }
       const line = `{{invite}}${hostPlot.name} приглашает поиграть`;
       await broadcastInvite(await chatRooms(), line, hostPlot.name);
+      table.invitedAt = Date.now();
+      await writeBook(book);
       return { ok: true as const, table, me: me.id };
     }
 
@@ -145,6 +208,8 @@ export async function runOrpheus(input: {
       return { ok: true as const, table, notes: paid.notes, me: me.id };
     }
 
+    playBots(table);
+    await writeBook(book);
     return { ok: true as const, table, me: me.id };
   });
 }
