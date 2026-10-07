@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, partnerShare, type PlotKind, type ToolId } from "@/lib/lands";
+import { PLOT_PRICE, HOUSES, TOOLS, TOOLS_ALL, WAR_STAKE, houseOf, partnerShare, type HouseId, type PlotKind, type ToolId } from "@/lib/lands";
 import { addPurse, currentGuest, readPurse, spendPurse } from "@/lib/purse.server";
 
 type Plot = {
@@ -9,6 +9,7 @@ type Plot = {
   owner: string;
   name: string;
   kind: PlotKind;
+  mark?: HouseId;
   tools: ToolId[];
   code: string;
   members: string[];
@@ -95,6 +96,7 @@ function pub(plot: Plot, viewer: string) {
     id: plot.id,
     name: plot.name,
     kind: plot.kind,
+    mark: houseOf(plot.name, plot.mark),
     tools: partnerShare(plot.name) === null ? plot.tools : TOOLS.map((tool) => tool.id),
     code: plot.owner === viewer ? plot.code : "",
     bank: plot.bank,
@@ -131,6 +133,7 @@ function toolById(id: string) {
 export async function runLand(data: {
   action: "look" | "buy" | "tool" | "bundle" | "join" | "war" | "track" | "vote" | "settle" | "roster" | "kick" | "swear";
   kind?: PlotKind;
+  mark?: string;
   title?: string;
   tool?: string;
   code?: string;
@@ -178,13 +181,16 @@ export async function runLand(data: {
       if (mine) return { ok: false as const, error: "Место уже куплено." };
       const title = (data.title || "").trim().slice(0, 32);
       if (kind === "commune" && title.length < 2) return { ok: false as const, error: "Сообществу нужно имя." };
-      const paid = await spendPurse(guest.id, PLOT_PRICE[kind]);
+      const mark = houseOf(title || guest.name, data.mark);
+      const extra = HOUSES.find((item) => item.id === mark)?.price ?? 0;
+      const paid = await spendPurse(guest.id, PLOT_PRICE[kind] + extra);
       if (!paid.ok) return { ok: false as const, error: paid.error, notes: paid.notes };
       const plot: Plot = {
         id: randomBytes(4).toString("hex"),
         owner: guest.id,
         name: title || guest.name,
         kind,
+        mark,
         tools: [],
         code: randomBytes(2).toString("hex"),
         members: [],

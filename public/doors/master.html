@@ -698,10 +698,12 @@
     try {
       const selectedFormat = outputFormatSelect.value;
       
+      const rate = 44100;
+      const frames = Math.max(1, Math.ceil(audioBuffer.duration * rate));
       const offlineCtx = new OfflineAudioContext(
         audioBuffer.numberOfChannels,
-        audioBuffer.length,
-        44100
+        frames,
+        rate
       );
 
       const source = offlineCtx.createBufferSource();
@@ -803,7 +805,7 @@
       setProgress(20, 'Применение эквалайзера и компрессии...');
       await new Promise(r => setTimeout(r, 40));
 
-      const renderedBuffer = await offlineCtx.startRendering();
+      const renderedBuffer = cutSilence(await offlineCtx.startRendering());
       paintMeters(levelOf(audioBuffer), levelOf(renderedBuffer));
 
       if (selectedFormat === 'wav') {
@@ -945,6 +947,25 @@
 
       processChunk();
     });
+  }
+
+  function cutSilence(buffer) {
+    const channels = buffer.numberOfChannels;
+    let last = 0;
+    for (let i = buffer.length - 1; i >= 0; i--) {
+      for (let c = 0; c < channels; c++) {
+        if (Math.abs(buffer.getChannelData(c)[i]) > 0.0008) {
+          last = i;
+          i = -1;
+          break;
+        }
+      }
+    }
+    const keep = Math.min(buffer.length, last + Math.round(buffer.sampleRate * 0.08));
+    if (keep >= buffer.length - Math.round(buffer.sampleRate * 0.15)) return buffer;
+    const out = new AudioBuffer({ length: keep, numberOfChannels: channels, sampleRate: buffer.sampleRate });
+    for (let c = 0; c < channels; c++) out.copyToChannel(buffer.getChannelData(c).subarray(0, keep), c);
+    return out;
   }
 
   function createStandardWavBuffer(audioBuffer) {

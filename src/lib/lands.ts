@@ -26,6 +26,30 @@ export const TOOLS = [
 export const TOOLS_ALL = 900;
 export const WAR_STAKE = 100;
 
+export const HOUSES = [
+  { id: "log", title: "Бревенчатый дом", price: 0 },
+  { id: "chum", title: "Чум", price: 20 },
+  { id: "bunker", title: "Блиндаж", price: 35 },
+  { id: "boyar", title: "Боярский дом", price: 55 },
+  { id: "brick", title: "Кирпичный особняк", price: 75 },
+  { id: "wings", title: "Дом с крыльями", price: 90 },
+  { id: "nest", title: "Дом-матрёшка", price: 120 },
+] as const;
+
+export type HouseId = (typeof HOUSES)[number]["id"];
+
+export function houseOf(name: string, stored?: string): HouseId {
+  if (stored && HOUSES.some((item) => item.id === stored)) return stored as HouseId;
+  const text = name.toLowerCase();
+  if (/annuch|аннуч|анют/.test(text)) return "boyar";
+  if (/andrei/.test(text) && /nik/.test(text)) return "brick";
+  if ((/баб/.test(text) && /яг/.test(text)) || (/baba/.test(text) && /yaga/.test(text))) return "bunker";
+  if (/северян|снежин/.test(text)) return "chum";
+  if (/angel|ангел/.test(text)) return "wings";
+  if (/матр|xxv|kadr|кадр/.test(text)) return "nest";
+  return "log";
+}
+
 export type ToolId = (typeof TOOLS)[number]["id"];
 
 /** Доля хозяина двора от чистой прибыли. null — обычный двор. */

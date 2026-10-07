@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PLOT_LABEL, PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, type PlotKind } from "@/lib/lands";
+import { HOUSES, PLOT_LABEL, PLOT_PRICE, TOOLS, TOOLS_ALL, WAR_STAKE, type HouseId, type PlotKind } from "@/lib/lands";
+import { HouseMark } from "@/components/house-mark";
 import { landDesk } from "@/lib/land-desk";
 import { useWallet } from "@/lib/wallet";
 
@@ -26,6 +27,7 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
   const [plots, setPlots] = useState<Plot[]>([]);
   const [wars, setWars] = useState<War[]>([]);
   const [title, setTitle] = useState("");
+  const [mark, setMark] = useState<HouseId>("log");
   const [code, setCode] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -94,9 +96,27 @@ export function LandCard({ onClose, onEnter }: { onClose: () => void; onEnter?: 
         </div>
         {!mine ? (
           <div className="mt-3 flex flex-col gap-2">
+            <p className="text-sm text-fg">Значок дома на карте. Чем наряднее, тем дороже. К цене участка прибавляется.</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {HOUSES.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`flex items-center gap-2 rounded-xl px-2 py-1 text-left text-xs ${mark === item.id ? "bg-[#2a1a0c] text-[#f4e4c4]" : "bg-black/10"}`}
+                  onClick={() => setMark(item.id)}
+                >
+                  <HouseMark id={item.id} />
+                  <span>
+                    {item.title}
+                    <br />
+                    {item.price ? `+${item.price} нот` : "в цене участка"}
+                  </span>
+                </button>
+              ))}
+            </div>
             {(Object.keys(PLOT_PRICE) as PlotKind[]).map((kind) => (
-              <Button key={kind} variant="secondary" className="rounded-xl" disabled={busy} onClick={() => void run({ action: "buy", kind, title })}>
-                {PLOT_LABEL[kind]} · {PLOT_PRICE[kind]} нот
+              <Button key={kind} variant="secondary" className="rounded-xl" disabled={busy} onClick={() => void run({ action: "buy", kind, title, mark })}>
+                {PLOT_LABEL[kind]} · {PLOT_PRICE[kind] + (HOUSES.find((item) => item.id === mark)?.price || 0)} нот
               </Button>
             ))}
             <Input placeholder="Имя сообщества, если берёшь его" value={title} onChange={(e) => setTitle(e.target.value)} />

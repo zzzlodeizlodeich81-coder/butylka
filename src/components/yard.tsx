@@ -19,7 +19,8 @@ import { useStage } from "@/lib/stage";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
-import { TOOLS, partnerShare, type PlotKind } from "@/lib/lands";
+import { HouseMark } from "@/components/house-mark";
+import { TOOLS, houseOf, partnerShare, type PlotKind } from "@/lib/lands";
 import { landDesk } from "@/lib/land-desk";
 import {
   ROLES,
@@ -783,7 +784,7 @@ function World({
   onBog: () => void;
   menu: { label: string; onClick: () => void }[];
 }) {
-  const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
+  const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; mark?: string; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
   const [code, setCode] = useState("");
   useEffect(() => {
     void landDesk({ data: { action: "look" } }).then((res) => {
@@ -855,20 +856,19 @@ function World({
     window.addEventListener("pointercancel", end);
   }
   const spots = [
-    { left: "28%", top: "64%" },
-    { left: "48%", top: "70%" },
-    { left: "74%", top: "58%" },
-    { left: "22%", top: "28%" },
-    { left: "84%", top: "34%" },
-    { left: "34%", top: "22%" },
-    { left: "54%", top: "22%" },
-    { left: "8%", top: "60%" },
-    { left: "62%", top: "74%" },
-    { left: "90%", top: "22%" },
+    { left: "46%", top: "48%" },
+    { left: "78%", top: "62%" },
+    { left: "26%", top: "72%" },
+    { left: "88%", top: "28%" },
+    { left: "50%", top: "18%" },
+    { left: "8%", top: "62%" },
   ];
   function plotSpot(plot: (typeof rows)[number], index: number) {
-    if (plot.id === "baba-yaga" || partnerShare(plot.name) === 0.5) return { left: "14%", top: "40%" };
-    if (/северян|снежин/i.test(plot.name)) return { left: "10%", top: "14%" };
+    const text = plot.name.toLowerCase();
+    if (plot.id === "baba-yaga" || (/баб/.test(text) && /яг/.test(text))) return { left: "12%", top: "46%" };
+    if (/северян|снежин/.test(text)) return { left: "18%", top: "12%" };
+    if (/andrei/.test(text) && /nik/.test(text)) return { left: "56%", top: "60%" };
+    if (/annuch|аннуч|анют/.test(text)) return { left: "32%", top: "56%" };
     return spots[index % spots.length];
   }
 
@@ -887,9 +887,10 @@ function World({
           <button
             type="button"
             className="absolute max-w-[16rem] rounded-xl bg-[#1a120c]/90 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
-            style={{ left: "36%", top: "34%" }}
+            style={{ left: "40%", top: "34%" }}
             onClick={onHome}
           >
+            <HouseMark id="nest" />
             <span className="block text-base font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
             <span className="text-sm text-[#c4a574]">государство</span>
           </button>
@@ -908,7 +909,9 @@ function World({
               <span className="text-sm">участок и дома</span>
             </button>
           ))}
-          {rows.map((plot, index) => (
+          {rows
+            .filter((plot) => !/angel|ангел/i.test(plot.name))
+            .map((plot, index) => (
             <button
               key={plot.id}
               type="button"
@@ -916,6 +919,7 @@ function World({
               style={plotSpot(plot, index)}
               onClick={() => onEnter(plot)}
             >
+              <HouseMark id={houseOf(plot.name, plot.mark)} />
               <span className="block truncate text-base font-medium">{plot.name}</span>
               <span className="text-sm text-[#c4a574]">{plot.badge || (plot.kind === "commune" ? "сообщество" : "частный двор")}</span>
             </button>
@@ -935,6 +939,7 @@ function World({
             style={{ left: "64%", top: "32%" }}
             onClick={onAngel}
           >
+            <HouseMark id="wings" />
             <span className="block text-base font-medium">DJ Angel A</span>
             <span className="text-sm">кабинет</span>
           </button>
