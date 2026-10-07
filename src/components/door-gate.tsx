@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +32,6 @@ export function DoorGate({ children }: { children: ReactNode }) {
   const admin = useWallet((s) => s.admin);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [askVk, setAskVk] = useState(false);
-  const later = useRef(false);
 
   async function sync() {
     const row = await door({ action: "status" });
@@ -56,7 +54,6 @@ export function DoorGate({ children }: { children: ReactNode }) {
       admin: Boolean(row.guest.admin),
     });
     setPhase("in");
-    if (!row.guest.linked && !row.guest.admin && !later.current) setAskVk(true);
   }
 
   useEffect(() => {
@@ -117,40 +114,6 @@ export function DoorGate({ children }: { children: ReactNode }) {
   return (
     <>
       {phase === "in" ? children : null}
-      {phase === "in" && askVk ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-3 sm:items-center">
-          <div className="max-h-[85dvh] w-full max-w-md overflow-auto rounded-3xl bg-[#1a120c] p-4 text-[#f4e4c4]">
-            <p className="font-display text-2xl">Привяжи свой ВК</p>
-            <p className="mt-2 text-sm text-[#f4e4c4]/80">
-              Через неделю вход станет по VK ID. Ноты и двор останутся на этой учётке, если привяжешь ВК сейчас. Пока можно играть как раньше.
-            </p>
-            <p className="mt-3 text-sm font-medium">Где посмотреть номер на компьютере</p>
-            <p className="mt-1 text-sm text-[#f4e4c4]/80">
-              Открой vk.com и свою страницу. Если в адресе vk.com/id123456789, эти цифры и есть номер. Если адрес короткий, без цифр, нажми на свою фотографию и открой её. В адресе будет photo123456789_... Цифры до чёрточки — твой номер.
-            </p>
-            <p className="mt-3 text-sm font-medium">Где посмотреть номер в телефоне</p>
-            <p className="mt-1 text-sm text-[#f4e4c4]/80">
-              Приложение ВК, твоя страница, три точки справа сверху, «Скопировать ссылку». Открой эту ссылку в браузере. Дальше как на компьютере: номер в адресе страницы или в адресе фотографии.
-            </p>
-            <p className="mt-3 text-sm text-[#f4e4c4]/80">
-              Сначала открой в браузере тот самый ВК, номер которого посмотрел. Потом жми кнопку. ВК сам подтвердит, что страница твоя, руками номер вписывать не надо.
-            </p>
-            <a className="mt-3 block rounded-xl bg-[#4c75a3] px-3 py-2 text-center text-sm" href="/api/vk-id">
-              Привязать VK ID
-            </a>
-            <button
-              type="button"
-              className="mt-2 w-full text-sm text-[#f4e4c4]/70"
-              onClick={() => {
-                later.current = true;
-                setAskVk(false);
-              }}
-            >
-              Позже, я в игре
-            </button>
-          </div>
-        </div>
-      ) : null}
       {phase !== "in" ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0708] px-4 text-[#f4e4c4]">
           <form
@@ -177,7 +140,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
             {phase === "lock" || phase === "name" ? (
               <>
                 <p className="mt-3 text-sm text-[#f4e4c4]/70">
-                  Кто уже в городе, входит своим логином. Новые заходят через VK ID, отдельный пароль им не нужен.
+                  Кто уже в городе, входит своим логином и паролем. Новым жителям пароль не нужен: регистрация через VK ID.
                 </p>
                 <Input
                   className="mt-3 bg-black/40 text-white"
@@ -197,9 +160,10 @@ export function DoorGate({ children }: { children: ReactNode }) {
                 <Button className="mt-3 w-full rounded-xl" type="submit">
                   Войти
                 </Button>
-                <a className="mt-3 block text-center text-sm underline" href="/api/vk-id">
-                  Я новый, войти через VK ID
+                <a className="mt-3 block rounded-xl bg-[#4c75a3] px-3 py-2 text-center text-sm" href="/api/vk-id">
+                  Зарегистрироваться через VK ID
                 </a>
+                <p className="mt-2 text-center text-xs text-[#f4e4c4]/60">Уже регистрировался так — эта же кнопка откроет твой двор.</p>
               </>
             ) : null}
           </form>

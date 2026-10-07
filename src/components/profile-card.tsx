@@ -37,6 +37,7 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
   const [oldLogin, setOldLogin] = useState("");
   const [oldPass, setOldPass] = useState("");
   const [busy, setBusy] = useState(false);
+  const [linked, setLinked] = useState(false);
   const [reports, setReports] = useState<
     { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number; house?: number; houseRub?: number }[]
   >([]);
@@ -52,6 +53,7 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
       .then((data) => {
         setName(data?.guest?.name || "");
         setLogin(data?.guest?.login || "");
+        setLinked(Boolean(data?.guest?.linked));
       })
       .catch(() => undefined);
     void fetch("/api/door", {
@@ -153,6 +155,21 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
         <Button className="mt-3 w-full rounded-xl" disabled={busy} onClick={() => void save()}>
           {busy ? "Сохраняю…" : "Сохранить"}
         </Button>
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <p className="font-display text-xl">VK ID</p>
+          {linked ? (
+            <p className="mt-1 text-xs text-[#c4a574]">Страница ВК привязана. Ноты и двор на этой учётке.</p>
+          ) : (
+            <>
+              <p className="mt-1 text-xs text-[#c4a574]">
+                Заходил логином и паролем — привяжи VK ID здесь. Ноты и двор никуда не переедут. Новые жители регистрируются через VK ID ещё на входе.
+              </p>
+              <a className="mt-2 block rounded-xl bg-[#4c75a3] px-3 py-2 text-center text-sm" href="/api/vk-id">
+                Привязать VK ID
+              </a>
+            </>
+          )}
+        </div>
         <div className="mt-4 border-t border-white/10 pt-3">
           <p className="font-display text-xl">Старый двор</p>
           <p className="mt-1 text-xs text-[#c4a574]">
