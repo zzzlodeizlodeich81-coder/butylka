@@ -131,6 +131,39 @@ function giftBaba(book: Book) {
   return true;
 }
 
+function giftSnow(book: Book) {
+  if (book.plots.some((plot) => plot.id === "severyanka" || /северян|снежин/i.test(plot.name))) return false;
+  book.plots.push({
+    id: "severyanka",
+    owner: "gift-severyanka",
+    name: "Снежинка Северянка",
+    kind: "house",
+    mark: "chum",
+    tools: TOOLS.map((tool) => tool.id),
+    code: "sever",
+    members: [],
+    bank: 0,
+    state: "",
+  });
+  return true;
+}
+
+function claimSnow(book: Book, guest: { id: string; name: string }) {
+  if (!/северян|снежин/i.test(guest.name)) return false;
+  const plot = book.plots.find((item) => item.id === "severyanka" || /северян|снежин/i.test(item.name));
+  if (!plot) return false;
+  if (plot.owner === guest.id) return false;
+  if (plot.owner.startsWith("gift-")) {
+    plot.owner = guest.id;
+    return true;
+  }
+  if (!plot.members.includes(guest.id)) {
+    plot.members.push(guest.id);
+    return true;
+  }
+  return false;
+}
+
 function toolById(id: string) {
   return TOOLS.find((tool) => tool.id === id);
 }
@@ -150,7 +183,10 @@ export async function runLand(data: {
     const guest = currentGuest();
     if (!guest) return { ok: false as const, error: "Сначала зайди.", notes: 0 };
     const book = await readBook();
-    if (giftBaba(book)) await writeBook(book);
+    const gifted = giftBaba(book);
+    const snow = giftSnow(book);
+    const claimed = claimSnow(book, guest);
+    if (gifted || snow || claimed) await writeBook(book);
     const mine = book.plots.find((plot) => plot.owner === guest.id);
 
     if (data.action === "look") {
