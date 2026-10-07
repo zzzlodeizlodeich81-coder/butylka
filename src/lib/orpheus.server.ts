@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { spendPurse } from "@/lib/purse.server";
 
-type Seat = { id: string; name: string; photo: string; points: number };
+type Seat = { id: string; name: string; photo: string; points: number; seen?: number };
 type Window = { id: string; name: string; photo: string; vote?: "yes" | "no" };
 type Table = { seats: Seat[]; turn: number; phase: "wait" | "vote"; windows: Window[]; spunAt: number; invitedAt?: number };
 
@@ -55,12 +55,22 @@ function botsVote(table: Table) {
 
 function playBots(table: Table) {
   fill(table);
-  if (table.phase === "wait") {
-    const actor = table.seats[table.turn];
-    if (actor && actor.points <= 0) table.turn = nextTurn(table, table.turn);
+  const now = Date.now();
+  if (table.phase === "vote" && table.spunAt && now - table.spunAt >= 15000) {
+    for (const item of table.windows) {
+      if (!item.vote) item.vote = "no";
+    }
   }
   if (table.phase === "vote") botsVote(table);
-  else if (botId(table.seats[table.turn]?.id || "") && table.seats.filter((seat) => seat.points > 0).length >= 5) spinWindows(table);
+  if (table.phase !== "wait") return;
+  for (let step = 0; step < table.seats.length; step++) {
+    const actor = table.seats[table.turn];
+    const stale = Boolean(actor && !botId(actor.id) && (!actor.seen || now - actor.seen > 20000));
+    const broke = Boolean(actor && actor.points <= 0);
+    if (!stale && !broke) break;
+    table.turn = (table.turn + 1) % table.seats.length;
+  }
+  if (botId(table.seats[table.turn]?.id || "") && table.seats.filter((seat) => seat.points > 0).length >= 5) spinWindows(table);
 }
 
 type Book = { tables: Record<string, Table> };
@@ -150,6 +160,8 @@ export async function runOrpheus(input: {
     }
 
     fill(table);
+    const seatMe = table.seats.find((seat) => seat.id === me.id);
+    if (seatMe) seatMe.seen = Date.now();
 
     if (input.op === "spin") {
       const live = table.seats.filter((seat) => seat.points > 0);

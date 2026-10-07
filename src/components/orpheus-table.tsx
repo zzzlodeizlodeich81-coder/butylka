@@ -35,6 +35,7 @@ export function OrpheusRoom({
   const [me, setMe] = useState("");
   const [spinning, setSpinning] = useState(false);
   const [buy, setBuy] = useState("1");
+  const [now, setNow] = useState(() => Date.now());
 
   async function pull() {
     const row = await call({ op: "look", id: plotId });
@@ -49,6 +50,11 @@ export function OrpheusRoom({
     });
     if (typeof row.notes === "number") useWallet.getState().apply({ notes: row.notes });
   }
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     void call({ op: "sit", id: plotId }).then((row) => {
@@ -159,7 +165,9 @@ export function OrpheusRoom({
       ) : (
         <p className="text-sm">Ты за столом. Нажал на статую — уже в игре.</p>
       )}
-      {mine && seats.length < 5 ? <p className="text-sm">Крутить можно, когда за столом хотя бы 5 человек. Сейчас {seats.length}.</p> : null}
+      {table?.phase === "vote" ? (
+        <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 15 - Math.floor((now - table.spunAt) / 1000))} с.</p>
+      ) : null}
       {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 && seats.length >= 5 ? (
         <Button className="rounded-xl" onClick={() => void act("spin")}>
           Крутить
