@@ -66,24 +66,19 @@ function botsVote(table: Table) {
 
 function playBots(table: Table, meId: string) {
   const now = Date.now();
-  const current = table.seats[table.turn]?.id;
-  table.seats = table.seats.filter((seat) => botId(seat.id) || seat.id === meId || Boolean(seat.seen && now - seat.seen <= 20000));
-  const found = table.seats.findIndex((seat) => seat.id === current);
-  table.turn = found >= 0 ? found : 0;
   fill(table);
   if (table.phase === "vote") {
     const late = Boolean(table.spunAt && now - table.spunAt >= 15000);
     for (const item of table.windows) {
       if (item.vote || botId(item.id)) continue;
-      const still = table.seats.some((seat) => seat.id === item.id);
-      if (!still || late) item.vote = "no";
+      if (late) item.vote = "no";
     }
     botsVote(table);
+    return;
   }
-  if (table.phase !== "wait") return;
   for (let step = 0; step < table.seats.length; step++) {
     const actor = table.seats[table.turn];
-    const stale = Boolean(actor && !botId(actor.id) && actor.id !== meId && (!actor.seen || now - actor.seen > 20000));
+    const stale = Boolean(actor && !botId(actor.id) && actor.id !== meId && actor.seen && now - actor.seen > 45000);
     const broke = Boolean(actor && actor.points <= 0);
     if (!stale && !broke) break;
     table.turn = (table.turn + 1) % table.seats.length;
@@ -182,29 +177,17 @@ export async function runOrpheus(input: {
     fill(table);
     const seatMe = table.seats.find((seat) => seat.id === me.id);
     if (seatMe) seatMe.seen = Date.now();
-    playBots(table, me.id);
 
-    if (input.op === "spin") {
+    if (input.op === "spin" && table.phase === "wait") {
       const actor = table.seats[table.turn];
-      if (table.phase === "vote") {
-        await writeBook(book);
-        return { ok: true as const, table, me: me.id };
-      }
-      if (actor && botId(actor.id)) {
-        spinWindows(table);
-        await writeBook(book);
-        return { ok: true as const, table, me: me.id };
-      }
-      if (!actor || actor.id !== me.id) return { ok: false as const, error: "Сейчас не твоя очередь.", table };
+      if (!actor || actor.id !== me.id) return { ok: false as const, error: `Сейчас очередь ${actor?.name || "другого"}.`, table };
       if (actor.points <= 0) return { ok: false as const, error: "Баллы кончились.", table };
-      const live = table.seats.filter((seat) => seat.points > 0);
-      if (live.length < 2) return { ok: false as const, error: "За столом мало карточек.", table };
+      if (table.seats.filter((seat) => seat.points > 0).length < 2) return { ok: false as const, error: "За столом мало карточек.", table };
       spinWindows(table);
-      await writeBook(book);
-      return { ok: true as const, table, me: me.id };
     }
 
     if (input.op === "vote") {
+      if (table.phase !== "vote") return { ok: false as const, error: "Круг уже закрыт.", table };
       const vote = input.vote === "no" ? "no" : "yes";
       let touched = false;
       for (const item of table.windows) {
@@ -213,8 +196,12 @@ export async function runOrpheus(input: {
           touched = true;
         }
       }
-      if (!touched) return { ok: false as const, error: "Тебя в окошках нет.", table };
-      botsVote(table);
+      if (!touched) return { ok: false as const, error: "В этом круге решают другие карточки.", table };
+    }
+
+    playBots(table, me.id);
+
+    if (input.op === "spin" || input.op === "vote") {
       await writeBook(book);
       return { ok: true as const, table, me: me.id };
     }

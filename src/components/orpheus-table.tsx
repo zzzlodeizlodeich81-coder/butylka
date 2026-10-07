@@ -111,6 +111,7 @@ export function OrpheusRoom({
   async function act(op: string, extra: Record<string, unknown> = {}) {
     const row = await call({ op, id: plotId, ...extra });
     if (!row.ok) {
+      if (row.table) setTable(row.table);
       toast.error(row.error || "Не вышло.");
       return;
     }
@@ -233,7 +234,10 @@ export function OrpheusRoom({
       {table?.phase === "vote" ? (
         <p className="text-sm">Молчишь — это отказ. Осталось {Math.max(0, 15 - Math.floor((now - table.spunAt) / 1000))} с.</p>
       ) : null}
-      {mine && turn?.id.startsWith("bot-") && table?.phase === "wait" ? <p className="text-sm">Ход {turn.name}. Автомат крутится сам.</p> : null}
+      {table?.phase === "vote" && !shown.some((card) => card.id === me && !card.vote) ? (
+        <p className="text-sm">Решают: {shown.map((card) => `${card.name} ${card.vote === "yes" ? "да" : card.vote === "no" ? "нет" : "ждёт"}`).join(", ") || "карточки"}.</p>
+      ) : null}
+      {mine && turn && turn.id !== me && table?.phase === "wait" ? <p className="text-sm">Крутит {turn.name}. Кнопка будет, когда очередь дойдёт до тебя.</p> : null}
       {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 ? (
         <Button className="rounded-xl" onClick={() => void act("spin")}>
           Крутить
