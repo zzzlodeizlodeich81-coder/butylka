@@ -53,7 +53,7 @@ export function MaxFigure({ className }: { className?: string }) {
       const rest = new Map<any, any>();
       const bones: Record<string, any> = {};
       model.traverse((obj: any) => {
-        if (obj.name === "mixamorig:Head" || obj.name === "mixamorig:Neck" || obj.name === "mixamorig:Spine2") {
+        if (obj.name === "mixamorig:Head" || obj.name === "mixamorig:Neck" || obj.name === "mixamorig:Spine2" || obj.name === "mixamorig:Hips") {
           bones[obj.name] = obj;
           rest.set(obj, obj.quaternion.clone());
         }
@@ -83,12 +83,13 @@ export function MaxFigure({ className }: { className?: string }) {
       const tick = () => {
         frame = requestAnimationFrame(tick);
         const t = clock.getElapsedTime();
-        const nodDown = Math.max(0, Math.sin(t * 1.3));
-        group.rotation.y = -Math.PI / 2 + Math.sin(t * 0.45) * 0.03;
+        const shift = Math.sin(t * 0.7);
+        group.rotation.y = -Math.PI / 2;
         group.rotation.x = 0;
-        swing(bones["mixamorig:Head"], -nodDown * 0.22, Math.sin(t * 0.45) * 0.05, 0);
-        swing(bones["mixamorig:Neck"], -nodDown * 0.06, 0, 0);
-        swing(bones["mixamorig:Spine2"], 0, Math.sin(t * 0.45) * 0.02, 0);
+        swing(bones["mixamorig:Hips"], 0, 0, shift * 0.12);
+        swing(bones["mixamorig:Spine2"], 0, 0, -shift * 0.07);
+        swing(bones["mixamorig:Head"], shift * 0.03, 0, -shift * 0.02);
+        swing(bones["mixamorig:Neck"], 0, 0, 0);
         model.traverse((obj: any) => {
           if (obj.isSkinnedMesh) obj.skeleton.update();
         });
