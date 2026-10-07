@@ -76,7 +76,7 @@ const typing = new Map<string, { id: string; name: string; room: string; at: num
 function liveSpots(room = ""): YardSpot[] {
   const now = Date.now();
   return spots
-    .filter((row) => now - row.at < 90000 && (row.room || "") === room)
+    .filter((row) => now - row.at < 40000 && (row.room || "") === room)
     .map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
 }
 

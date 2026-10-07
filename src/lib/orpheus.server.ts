@@ -64,8 +64,34 @@ function botsVote(table: Table) {
   if (!waiting) score(table);
 }
 
+function dropAway(table: Table, meId: string) {
+  const now = Date.now();
+  for (const seat of table.seats) {
+    if (!botId(seat.id) && !seat.seen) seat.seen = now;
+  }
+  const current = table.seats[table.turn]?.id;
+  const gone = new Set(
+    table.seats
+      .filter((seat) => !botId(seat.id) && seat.id !== meId && seat.seen && now - seat.seen > 25000)
+      .map((seat) => seat.id),
+  );
+  if (!gone.size) return;
+  table.seats = table.seats.filter((seat) => !gone.has(seat.id));
+  for (const item of table.windows) {
+    if (!item.vote && gone.has(item.id)) item.vote = "no";
+  }
+  if (current && gone.has(current)) {
+    const next = table.seats.findIndex((seat) => seat.points > 0);
+    table.turn = next >= 0 ? next : 0;
+  } else {
+    const found = table.seats.findIndex((seat) => seat.id === current);
+    table.turn = found >= 0 ? found : 0;
+  }
+}
+
 function playBots(table: Table, meId: string) {
   const now = Date.now();
+  dropAway(table, meId);
   fill(table);
   if (table.phase === "vote") {
     const late = Boolean(table.spunAt && now - table.spunAt >= 20000);
