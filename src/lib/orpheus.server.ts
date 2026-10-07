@@ -53,19 +53,26 @@ function botsVote(table: Table) {
   if (!waiting) score(table);
 }
 
-function playBots(table: Table) {
-  fill(table);
+function playBots(table: Table, meId: string) {
   const now = Date.now();
-  if (table.phase === "vote" && table.spunAt && now - table.spunAt >= 15000) {
+  const current = table.seats[table.turn]?.id;
+  table.seats = table.seats.filter((seat) => botId(seat.id) || seat.id === meId || Boolean(seat.seen && now - seat.seen <= 20000));
+  const found = table.seats.findIndex((seat) => seat.id === current);
+  table.turn = found >= 0 ? found : 0;
+  fill(table);
+  if (table.phase === "vote") {
+    const late = Boolean(table.spunAt && now - table.spunAt >= 15000);
     for (const item of table.windows) {
-      if (!item.vote) item.vote = "no";
+      if (item.vote || botId(item.id)) continue;
+      const still = table.seats.some((seat) => seat.id === item.id);
+      if (!still || late) item.vote = "no";
     }
+    botsVote(table);
   }
-  if (table.phase === "vote") botsVote(table);
   if (table.phase !== "wait") return;
   for (let step = 0; step < table.seats.length; step++) {
     const actor = table.seats[table.turn];
-    const stale = Boolean(actor && !botId(actor.id) && (!actor.seen || now - actor.seen > 20000));
+    const stale = Boolean(actor && !botId(actor.id) && actor.id !== meId && (!actor.seen || now - actor.seen > 20000));
     const broke = Boolean(actor && actor.points <= 0);
     if (!stale && !broke) break;
     table.turn = (table.turn + 1) % table.seats.length;
@@ -162,6 +169,7 @@ export async function runOrpheus(input: {
     fill(table);
     const seatMe = table.seats.find((seat) => seat.id === me.id);
     if (seatMe) seatMe.seen = Date.now();
+    playBots(table, me.id);
 
     if (input.op === "spin") {
       const live = table.seats.filter((seat) => seat.points > 0);
@@ -220,7 +228,6 @@ export async function runOrpheus(input: {
       return { ok: true as const, table, notes: paid.notes, me: me.id };
     }
 
-    playBots(table);
     await writeBook(book);
     return { ok: true as const, table, me: me.id };
   });
