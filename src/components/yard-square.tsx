@@ -6,7 +6,7 @@ import { useGame } from "@/lib/store";
 import { refreshWallet } from "@/lib/vk/boot";
 import { useWallet } from "@/lib/wallet";
 import { NOTE_PRICE } from "@/lib/notes";
-import { yardBoard, type Hero, type YardLine, type YardSong } from "@/lib/yard-board";
+import { yardBoard, type Hero, type YardLine, type YardSong } from "@/lib/yard-desk";
 import { readFrames } from "@/lib/yard";
 
 function caller() {

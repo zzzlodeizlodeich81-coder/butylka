@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { HOUSES, houseById, type TierId } from "@/lib/homes";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
-import { yardBoard } from "@/lib/yard-board";
+import { yardBoard } from "@/lib/yard-desk";
 
 type HomeState = {
   tier?: string;

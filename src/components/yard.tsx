@@ -17,7 +17,7 @@ import { GollumCave } from "@/components/gollum-cave";
 import { gollumDesk } from "@/lib/gollum-desk";
 import { useStage } from "@/lib/stage";
 import { MaxFigure } from "@/components/max-figure";
-import { yardBoard, type YardSpot } from "@/lib/yard-board";
+import { yardBoard, type YardSpot } from "@/lib/yard-desk";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
 import { OrpheusRoom } from "@/components/orpheus-table";

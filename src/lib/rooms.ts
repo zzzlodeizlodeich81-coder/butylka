@@ -1,4 +1,3 @@
-import { createServerFn } from "@tanstack/react-start";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { addPurse, currentGuest, readPurse, spendPurse } from "@/lib/purse.server";
@@ -55,17 +54,13 @@ async function once(book: Book, map: "bandits" | "prizes", key: string, amount: 
   return { ok: true as const, fresh: true, table, amount };
 }
 
-export const playRoom = createServerFn({ method: "POST" })
-  .validator(
-    (input: {
-      action: "claim" | "spin" | "box" | "hint" | "bandit" | "prize";
-      hints?: number;
-      step?: "deal" | "pick";
-      pick?: number;
-      kind?: "cake" | "cards" | "brick";
-    }) => input,
-  )
-  .handler(async ({ data }) => {
+export async function runPlayRoom(data: {
+  action: "claim" | "spin" | "box" | "hint" | "bandit" | "prize";
+  hints?: number;
+  step?: "deal" | "pick";
+  pick?: number;
+  kind?: "cake" | "cards" | "brick";
+}) {
     const guest = currentGuest();
     if (!guest) return { ok: false as const, error: "Сначала зайди во двор.", notes: 0 };
     const book = await readBook();
@@ -153,4 +148,4 @@ export const playRoom = createServerFn({ method: "POST" })
       notes = row?.notes ?? notes + win;
     }
     return { ok: true as const, notes, reels, win, stake: STAKE };
-  });
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { playRoom } from "@/lib/rooms";
+import { playRoom } from "@/lib/rooms-desk";
 import { useWallet } from "@/lib/wallet";
 
 type RiddleId = "key" | "bird" | "apple" | "soldier" | "feather";

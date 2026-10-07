@@ -1,7 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createServerFn } from "@tanstack/react-start";
-import { vkMiddleware } from "@/lib/vk/middleware";
 
 export type YardSong = {
   id: string;
@@ -297,30 +295,28 @@ type BoardRes = {
   presaves?: { id: string; name: string; title: string; url: string; clicks: number; live: boolean; mine: boolean; heard: boolean }[];
 };
 
-export const yardBoard = createServerFn({ method: "POST" })
-  .middleware([vkMiddleware])
-  .validator(
-    (input: {
-      action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent" | "type" | "field" | "sow" | "tap" | "resow";
-      kind?: "draft" | "release";
-      url?: string;
-      title?: string;
-      songId?: string;
-      tier?: string;
-      text?: string;
-      image?: string;
-      audio?: string;
-      hook?: number;
-      lyric?: number;
-      music?: number;
-      orig?: number;
-      author?: string;
-      heroId?: string;
-      frames?: number;
-      plot?: string;
-    }) => input,
-  )
-  .handler(async ({ data, context }): Promise<BoardRes> => {
+export async function runYardBoard(
+  data: {
+    action: "list" | "add" | "rate" | "hear" | "drop" | "say" | "glory" | "home" | "build" | "spot" | "stalls" | "rent" | "type" | "field" | "sow" | "tap" | "resow";
+    kind?: "draft" | "release";
+    url?: string;
+    title?: string;
+    songId?: string;
+    tier?: string;
+    text?: string;
+    image?: string;
+    audio?: string;
+    hook?: number;
+    lyric?: number;
+    music?: number;
+    orig?: number;
+    author?: string;
+    heroId?: string;
+    frames?: number;
+    plot?: string;
+  },
+  context: { vk: { vkId: string; name: string } | null },
+): Promise<BoardRes> {
     const vk = context.vk;
     const guest = (await import("@/lib/purse.server")).currentGuest();
     const vkId = guest?.id || vk?.vkId || String(data.heroId || "guest").slice(0, 48);
@@ -694,4 +690,4 @@ export const yardBoard = createServerFn({ method: "POST" })
     await saveBoardFile();
     const listed = listMem();
     return { ...listed, room, chat: (listed.chat || []).filter((line) => (line.room || "") === room), spots: liveSpots(room), typing: liveTyping(room, vkId) };
-  });
+}
