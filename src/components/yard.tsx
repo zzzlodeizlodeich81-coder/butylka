@@ -127,6 +127,42 @@ const CAMP_PHONE: typeof ZONES = [
   { id: "gate", label: "КПП", left: "32%", top: "76%", width: "36%", height: "16%", sign: "top" },
 ];
 
+const NORTH_LABEL: Record<string, string> = {
+  record: "Чум записи",
+  factory: "Метель",
+  frame: "Иней",
+  atelier: "Сияние",
+  stage: "Костёр",
+  cinema: "Полярная",
+  organ: "Бубен",
+  market: "Ярмарка",
+  gate: "Порог",
+};
+
+const NORTH_ZONES: typeof ZONES = [
+  { id: "record", label: "Чум записи", left: "2%", top: "20%", width: "26%", height: "38%", sign: "bottom" },
+  { id: "factory", label: "Метель", left: "30%", top: "8%", width: "22%", height: "28%", sign: "bottom" },
+  { id: "frame", label: "Иней", left: "52%", top: "10%", width: "12%", height: "20%", sign: "bottom" },
+  { id: "atelier", label: "Сияние", left: "64%", top: "6%", width: "30%", height: "30%", sign: "bottom" },
+  { id: "organ", label: "Бубен", left: "38%", top: "40%", width: "24%", height: "28%", sign: "bottom" },
+  { id: "stage", label: "Костёр", left: "16%", top: "58%", width: "22%", height: "20%", sign: "top" },
+  { id: "cinema", label: "Полярная", left: "66%", top: "46%", width: "30%", height: "26%", sign: "top" },
+  { id: "market", label: "Ярмарка", left: "2%", top: "72%", width: "30%", height: "22%", sign: "top" },
+  { id: "gate", label: "Порог", left: "36%", top: "78%", width: "26%", height: "18%", sign: "top" },
+];
+
+const NORTH_PHONE: typeof ZONES = [
+  { id: "record", label: "Чум записи", left: "4%", top: "4%", width: "44%", height: "18%", sign: "bottom" },
+  { id: "factory", label: "Метель", left: "52%", top: "4%", width: "42%", height: "16%", sign: "bottom" },
+  { id: "atelier", label: "Сияние", left: "22%", top: "22%", width: "70%", height: "14%", sign: "bottom" },
+  { id: "frame", label: "Иней", left: "4%", top: "24%", width: "18%", height: "12%", sign: "bottom" },
+  { id: "organ", label: "Бубен", left: "20%", top: "38%", width: "60%", height: "16%", sign: "bottom" },
+  { id: "stage", label: "Костёр", left: "8%", top: "56%", width: "40%", height: "14%", sign: "top" },
+  { id: "cinema", label: "Полярная", left: "52%", top: "58%", width: "42%", height: "14%", sign: "top" },
+  { id: "market", label: "Ярмарка", left: "4%", top: "72%", width: "48%", height: "12%", sign: "top" },
+  { id: "gate", label: "Порог", left: "28%", top: "84%", width: "44%", height: "12%", sign: "top" },
+];
+
 const DOORS: Partial<Record<HouseId, string>> = {
   factory: "/doors/master.html",
   frame: "/doors/frame.html",
@@ -264,7 +300,8 @@ export function Yard() {
 
   function open(id: HouseId) {
     const annuch = /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "");
-    if (lock && partnerShare(lock.name) !== 0.5 && ((id === "organ" && !annuch) || id === "market")) {
+    const north = /северян|снежин/i.test(lock?.name || "");
+    if (lock && partnerShare(lock.name) !== 0.5 && !north && ((id === "organ" && !annuch) || id === "market")) {
       toast.message("Шарманщик и рынок только на общем дворе.");
       return;
     }
@@ -301,13 +338,18 @@ export function Yard() {
   }
 
   const quietCamp = partnerShare(lock?.name || "") === 0.5;
+  const snowYard = /северян|снежин/i.test(lock?.name || "");
   const yardMap = quietCamp
     ? stage === "phone"
       ? { src: "/m/camp.jpg", aspect: "9 / 16", zones: CAMP_PHONE }
       : { src: "/camp.jpg", aspect: "16 / 9", zones: CAMP_ZONES }
-    : stage === "phone"
-      ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE }
-      : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
+    : snowYard
+      ? stage === "phone"
+        ? { src: "/m/north.jpg", aspect: "9 / 16", zones: NORTH_PHONE }
+        : { src: "/north.jpg", aspect: "16 / 9", zones: NORTH_ZONES }
+      : stage === "phone"
+        ? { src: "/m/yard.jpg", aspect: "9 / 16", zones: YARD_PHONE }
+        : { src: "/yard.jpg", aspect: "16 / 9", zones: ZONES };
   const menuItems = [
     { label: "Карта", onClick: () => setLands(true) },
     { label: "Слава", onClick: () => setFame(true) },
@@ -390,7 +432,7 @@ export function Yard() {
             const tool = TOOLS.find((item) => item.id === zone.id);
             const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
             const annuch = /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "");
-            const label = quietCamp ? CAMP_LABEL[zone.id] || zone.label : annuch && zone.id === "organ" ? "Орфей" : zone.label;
+            const label = quietCamp ? CAMP_LABEL[zone.id] || zone.label : snowYard ? NORTH_LABEL[zone.id] || zone.label : annuch && zone.id === "organ" ? "Орфей" : zone.label;
             return (
             <button
               key={zone.id}
@@ -711,7 +753,7 @@ export function Yard() {
             toStudio();
           }}
           plotId={lock?.id || ""}
-          labels={quietCamp ? CAMP_LABEL : undefined}
+          labels={quietCamp ? CAMP_LABEL : snowYard ? NORTH_LABEL : undefined}
         />
       ) : null}
     </div>
