@@ -124,6 +124,16 @@ export async function runOrpheus(input: {
       await writeBook(book);
     }
 
+    if (input.op === "invite") {
+      const { plotById, chatRooms } = await import("@/lib/lands.server");
+      const { broadcastInvite } = await import("@/lib/yard-board");
+      const hostPlot = await plotById(plot);
+      if (!hostPlot || hostPlot.ownerId !== me.id) return { ok: false as const, error: "Звать может только хозяйка двора.", table };
+      const line = `{{invite}}${hostPlot.name} приглашает поиграть`;
+      await broadcastInvite(await chatRooms(), line, hostPlot.name);
+      return { ok: true as const, table, me: me.id };
+    }
+
     if (input.op === "buy") {
       const count = Math.max(1, Math.min(30, Math.round(Number(input.points) || 1)));
       const paid = await spendPurse(me.id, count);

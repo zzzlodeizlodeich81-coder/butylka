@@ -680,6 +680,7 @@ export function Yard() {
         <OrpheusRoom
           plotId={lock?.id || ""}
           phone={stage === "phone"}
+          host={Boolean(lock?.owner)}
           onClose={() => setHouse(null)}
           onOpenChat={() => setChat(true)}
         />

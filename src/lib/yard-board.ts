@@ -121,7 +121,7 @@ function loadBoardFile() {
       if (Array.isArray(raw.songs)) {
         mem.songs = raw.songs.slice(-80).map((song) => ({ ...song, title: song.title || "" }));
       }
-      if (Array.isArray(raw.chat)) mem.chat = raw.chat.slice(-80);
+      if (Array.isArray(raw.chat)) mem.chat = raw.chat.slice(-240);
       if (Array.isArray(raw.stalls)) stalls.splice(0, stalls.length, ...raw.stalls);
       if (Array.isArray(raw.presaves)) presaves.splice(0, presaves.length, ...raw.presaves.slice(-80));
     } catch {
@@ -137,6 +137,16 @@ export async function forgetName(name: string, songs: boolean) {
   await loadBoardFile();
   mem.chat = mem.chat.filter((line) => line.name !== who);
   if (songs) mem.songs = mem.songs.filter((song) => song.author !== who);
+  await saveBoardFile();
+}
+
+export async function broadcastInvite(rooms: string[], text: string, name: string) {
+  await loadBoardFile();
+  const at = Date.now();
+  for (const room of rooms) {
+    mem.chat.push({ id: crypto.randomUUID(), name, text, at, room, who: "orpheus", photo: "" });
+  }
+  if (mem.chat.length > 240) mem.chat.splice(0, mem.chat.length - 240);
   await saveBoardFile();
 }
 

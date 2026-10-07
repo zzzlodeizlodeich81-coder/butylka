@@ -650,6 +650,13 @@ function Sticker({ src, label, big }: { src: string; label: string; big?: boolea
 }
 
 function ChatBits({ text }: { text: string }) {
+  if (text.startsWith("{{invite}}")) {
+    return (
+      <p className="my-1 rounded-xl border-2 border-[#c4a574] bg-[#fff6e8] px-3 py-2 text-center text-sm font-medium text-[#1a120c]">
+        {text.slice("{{invite}}".length)}
+      </p>
+    );
+  }
   const parts = text.split(/(\{\{bra\}\}|\{\{guy\}\}|\{\{bloom\}\})/g);
   return (
     <p className="text-muted">

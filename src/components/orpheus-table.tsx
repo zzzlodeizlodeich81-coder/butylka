@@ -21,18 +21,19 @@ async function call(body: Record<string, unknown>) {
 export function OrpheusRoom({
   plotId,
   phone,
+  host,
   onClose,
   onOpenChat,
 }: {
   plotId: string;
   phone: boolean;
+  host: boolean;
   onClose: () => void;
   onOpenChat: () => void;
 }) {
   const [table, setTable] = useState<Table | null>(null);
   const [me, setMe] = useState("");
   const [spinning, setSpinning] = useState(false);
-  const [tick, setTick] = useState(0);
   const [buy, setBuy] = useState("1");
 
   async function pull() {
@@ -50,16 +51,17 @@ export function OrpheusRoom({
   }
 
   useEffect(() => {
+    void call({ op: "sit", id: plotId }).then((row) => {
+      if (row.me) setMe(row.me);
+      if (row.table) setTable(row.table);
+    });
+  }, [plotId]);
+
+  useEffect(() => {
     void pull();
     const timer = window.setInterval(() => void pull(), 2000);
     return () => window.clearInterval(timer);
   }, [plotId]);
-
-  useEffect(() => {
-    if (!spinning) return;
-    const timer = window.setInterval(() => setTick((value) => value + 1), 120);
-    return () => window.clearInterval(timer);
-  }, [spinning]);
 
   async function act(op: string, extra: Record<string, unknown> = {}) {
     const row = await call({ op, id: plotId, ...extra });
@@ -73,6 +75,7 @@ export function OrpheusRoom({
       setSpinning(true);
       window.setTimeout(() => setSpinning(false), 1800);
     }
+    if (op === "invite") toast.success("Позвала во все чаты.");
   }
 
   const seats = table?.seats || [];
@@ -83,22 +86,36 @@ export function OrpheusRoom({
     if (!phone) onOpenChat();
   }, [phone, onOpenChat]);
 
-  const reel = spinning ? seats.filter((seat) => seat.points > 0) : [];
-  const live = (index: number) => (reel.length ? reel[(tick + index) % reel.length] : undefined);
+  const reel = seats.filter((seat) => seat.points > 0);
+  const strip = reel.length ? [...reel, ...reel, ...reel] : [];
 
-  function face(card: Card | undefined, index: number) {
-    const liveCard = spinning ? live(index) : card;
+  function windowFace(card: Card | undefined, index: number) {
     const dark = card?.vote === "no" && !spinning;
+    const frames = spinning && strip.length ? strip : [card];
     return (
-      <div key={index} className={`flex w-[1.5cm] flex-col items-center ${dark ? "opacity-40 grayscale" : ""}`}>
-        {liveCard?.photo ? (
-          <img src={liveCard.photo} alt="" className="h-[1.5cm] w-[1.5cm] rounded-md object-cover" />
-        ) : (
-          <span className="flex h-[1.5cm] w-[1.5cm] items-center justify-center rounded-md bg-[#2a1a0c] text-xs text-[#f4e4c4]">
-            {(liveCard?.name || "?").slice(0, 1)}
-          </span>
-        )}
-        <span className="mt-0.5 max-w-[1.8cm] truncate text-[10px] text-[#f4e4c4]">{liveCard?.name || "—"}</span>
+      <div
+        key={index}
+        className="absolute overflow-hidden rounded-sm"
+        style={{ left: `${27 + index * 17.5}%`, top: "31%", width: "13%", height: "13%" }}
+      >
+        <div
+          className={`flex w-full flex-col ${dark ? "opacity-40 grayscale" : ""}`}
+          style={spinning && strip.length > 1 ? { animation: "orpheus-reel 0.45s linear infinite" } : undefined}
+        >
+          {frames.map((item, frame) =>
+            item?.photo ? (
+              <img key={frame} src={item.photo} alt="" className="h-full w-full object-cover" style={{ height: "2.2rem" }} />
+            ) : (
+              <span
+                key={frame}
+                className="flex items-center justify-center bg-[#1a120c]/80 text-[10px] text-[#f4e4c4]"
+                style={{ height: "2.2rem" }}
+              >
+                {(item?.name || "·").slice(0, 1)}
+              </span>
+            ),
+          )}
+        </div>
       </div>
     );
   }
@@ -115,9 +132,8 @@ export function OrpheusRoom({
         className="relative mx-auto aspect-square w-full max-w-[280px] bg-contain bg-center bg-no-repeat"
         style={{ backgroundImage: "url(/slot.jpg)" }}
       >
-        <div className="absolute top-[27%] right-[24%] left-[18%] flex items-start justify-between">
-          {[0, 1, 2].map((index) => face(shown[index], index))}
-        </div>
+        <style>{`@keyframes orpheus-reel { from { transform: translateY(0); } to { transform: translateY(-66%); } }`}</style>
+        {[0, 1, 2].map((index) => windowFace(shown[index], index))}
       </div>
       <p className="text-xs text-[#c4a574]">
         {turn ? `Очередь: ${turn.name}` : "Стол пуст."} У каждого 15 баллов. Не согласен — минус балл и карточка гаснет. Согласен — плюс балл. Если согласны все трое, каждому по 2.
@@ -131,7 +147,14 @@ export function OrpheusRoom({
       </div>
       {!mine ? (
         <Button className="rounded-xl" onClick={() => void act("sit")}>
-          Сесть. 15 баллов
+          Сесть за стол
+        </Button>
+      ) : (
+        <p className="text-sm">Ты за столом. Нажал на статую — уже в игре.</p>
+      )}
+      {host ? (
+        <Button variant="secondary" className="rounded-xl" onClick={() => void act("invite")}>
+          Позвать играть
         </Button>
       ) : null}
       {mine && seats.length < 5 ? <p className="text-sm">Крутить можно, когда за столом хотя бы 5 человек. Сейчас {seats.length}.</p> : null}

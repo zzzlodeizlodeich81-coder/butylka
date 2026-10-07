@@ -69,6 +69,11 @@ export async function plotById(id: string) {
   return { id: plot.id, name: plot.name, ownerId: plot.owner };
 }
 
+export async function chatRooms() {
+  const book = await readBook();
+  return ["", ...book.plots.map((plot) => plot.id)];
+}
+
 export async function yardPost(plotId: string, userId: string) {
   const book = await readBook();
   const plot = book.plots.find((item) => item.id === plotId);
