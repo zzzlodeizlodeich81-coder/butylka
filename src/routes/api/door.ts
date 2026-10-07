@@ -17,6 +17,7 @@ import {
   joinPurse,
   listPurse,
   loginAccount,
+  loginVk,
   peoplePurse,
   readPurse,
   registerAccount,
@@ -47,6 +48,7 @@ export const Route = createFileRoute("/api/door")({
           image?: string;
           audio?: string;
           with?: string;
+          search?: string;
         } = {};
         try {
           body = (await request.json()) as typeof body;
@@ -63,6 +65,20 @@ export const Route = createFileRoute("/api/door")({
             needDoor: doorEnabled(),
             inside: doorFromRequest(request) || Boolean(row),
             guest: row ? { id: row.id, name: row.name, notes: row.notes, login: row.login || "", admin: isAdminLogin(row.login) } : null,
+          });
+        }
+
+        if (body.action === "vk") {
+          const { verifyLaunchParams } = await import("@/lib/vk/session.server");
+          const launch = verifyLaunchParams(body.search || "");
+          if (!launch) return Response.json({ ok: false, error: "ВК не подтвердил вход." }, { status: 401 });
+          const row = await loginVk(launch.vkId, body.name || "");
+          if (!row) return Response.json({ ok: false, error: "ВК не передал человека." }, { status: 401 });
+          headers.append("set-cookie", setCookie(request, DOOR_COOKIE, doorCookieValue()));
+          headers.append("set-cookie", setCookie(request, GUEST_COOKIE, guestToken(row)));
+          return new Response(JSON.stringify({ ok: true, guest: { id: row.id, name: row.name, notes: row.notes } }), {
+            status: 200,
+            headers,
           });
         }
 

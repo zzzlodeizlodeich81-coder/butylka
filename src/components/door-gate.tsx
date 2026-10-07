@@ -24,8 +24,13 @@ async function door(body: Record<string, unknown>) {
   };
 }
 
+function openedInVk() {
+  if (typeof window === "undefined") return false;
+  return /(?:^|[?&])vk_(?:user_id|app_id)=/.test(window.location.search);
+}
+
 export function DoorGate({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<"load" | "lock" | "name" | "in">("load");
+  const [phase, setPhase] = useState<"load" | "lock" | "name" | "in" | "vkfail">("load");
   const [mode, setMode] = useState<"login" | "new">("login");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -42,7 +47,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
       return;
     }
     if (!row.inside) {
-      setPhase("lock");
+      setPhase(openedInVk() ? "vkfail" : "lock");
       return;
     }
     if (!row.guest) {
@@ -59,7 +64,17 @@ export function DoorGate({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    void sync().catch(() => setPhase("lock"));
+    const fromVk = openedInVk();
+    void (async () => {
+      if (fromVk) {
+        const row = await door({ action: "vk", search: window.location.search });
+        if (!row.ok) {
+          setPhase("vkfail");
+          return;
+        }
+      }
+      await sync();
+    })().catch(() => setPhase(fromVk ? "vkfail" : "lock"));
     const timer = window.setInterval(() => void sync().catch(() => undefined), 15000);
     const leave = () => {
       void (async () => {
@@ -140,6 +155,11 @@ export function DoorGate({ children }: { children: ReactNode }) {
           >
             <p className="font-display text-3xl">XXV Kadr</p>
             {phase === "load" ? <p className="mt-3 text-sm">Открываю калитку…</p> : null}
+            {phase === "vkfail" ? (
+              <p className="mt-3 text-sm text-[#f4e4c4]/70">
+                Вход только из ВКонтакте, по человеку, который уже открыл сервис. Отдельный логин здесь не нужен.
+              </p>
+            ) : null}
             {phase === "lock" || phase === "name" ? (
               <>
                 <p className="mt-3 text-sm text-[#f4e4c4]/70">
@@ -179,9 +199,6 @@ export function DoorGate({ children }: { children: ReactNode }) {
                 <Button className="mt-3 w-full rounded-xl" type="submit">
                   {mode === "new" ? "Создать" : "Войти"}
                 </Button>
-                <a className="mt-3 block text-center text-sm underline" href="/api/vk-id">
-                  Войти через VK ID
-                </a>
               </>
             ) : null}
           </form>
