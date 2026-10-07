@@ -95,10 +95,10 @@ export function OrpheusRoom({
   }, [table?.spunAt]);
 
   useEffect(() => {
-    if (spinning || !table?.cheer || table.cheer === heard.current.cheer) return;
+    if (!table?.cheer || table.cheer === heard.current.cheer) return;
     heard.current.cheer = table.cheer;
     playCheer();
-  }, [table?.cheer, spinning]);
+  }, [table?.cheer]);
 
   useEffect(() => {
     void call({ op: "sit", id: plotId }).then((row) => {
@@ -205,8 +205,10 @@ export function OrpheusRoom({
         <style>{`@keyframes orpheus-drop { from { transform: translateY(0); } to { transform: translateY(calc(var(--steps) * -100cqh)); } }`}</style>
         {[0, 1, 2].map((index) => windowFace(shown[index], index))}
       </div>
-      {matched && !spinning ? <p className="text-center font-display text-3xl leading-none text-[#ffe7a3]">Oh jaaa, das ist fantastisch!</p> : null}
-      {!spinning ? (
+      {matched ? (
+        <p className="text-center font-display text-4xl leading-none text-[#ffe7a3]">Oh jaaa, das ist fantastisch!</p>
+      ) : null}
+      {!spinning || matched ? (
         <div className="relative mx-auto h-24 w-full max-w-[280px]">
           {cards.map((card, index) => (
             <div

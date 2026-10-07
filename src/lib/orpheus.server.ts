@@ -125,6 +125,7 @@ function playBots(table: Table, meId: string) {
     botsVote(table);
     return;
   }
+  if (table.cheer && now - table.cheer < 5000) return;
   if (!table.turnAt) table.turnAt = now;
   for (let step = 0; step < table.seats.length; step++) {
     const actor = table.seats[table.turn];
