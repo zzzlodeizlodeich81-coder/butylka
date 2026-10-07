@@ -99,7 +99,8 @@ export async function runOrpheus(input: {
       if (!actor || actor.id !== me.id) return { ok: false as const, error: "Сейчас не твоя очередь.", table };
       if (actor.points <= 0) return { ok: false as const, error: "Баллы кончились.", table };
       if (table.phase !== "wait") return { ok: false as const, error: "Сначала пусть карточки решат.", table };
-      if (!live.length) return { ok: false as const, error: "За столом никого.", table };
+      if (table.seats.length < 5) return { ok: false as const, error: "Нужно хотя бы 5 человек за столом.", table };
+      if (!live.length) return { ok: false as const, error: "За столом никого с баллами.", table };
       table.windows = [0, 1, 2].map(() => {
         const pick = live[Math.floor(Math.random() * live.length)];
         return { id: pick.id, name: pick.name, photo: pick.photo };

@@ -134,7 +134,8 @@ export function OrpheusRoom({
           Сесть. 15 баллов
         </Button>
       ) : null}
-      {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 ? (
+      {mine && seats.length < 5 ? <p className="text-sm">Крутить можно, когда за столом хотя бы 5 человек. Сейчас {seats.length}.</p> : null}
+      {mine && turn?.id === me && table?.phase === "wait" && mine.points > 0 && seats.length >= 5 ? (
         <Button className="rounded-xl" onClick={() => void act("spin")}>
           Крутить
         </Button>
@@ -187,7 +188,7 @@ export function OrpheusRoom({
   }
 
   return (
-    <div className="absolute bottom-4 left-4 z-30 flex max-h-[70dvh] w-[min(420px,92vw)] flex-col overflow-hidden rounded-2xl bg-[#140e0c] shadow-2xl">
+    <div className="absolute top-1/2 left-1/2 z-30 flex max-h-[70dvh] w-[min(420px,92vw)] -translate-x-[58%] -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-[#140e0c] shadow-2xl">
       {board}
     </div>
   );
