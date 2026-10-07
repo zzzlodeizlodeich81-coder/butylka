@@ -499,33 +499,37 @@ export function Yard() {
             >
               Чат
             </button>
-            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setLands(true)}>
-              Карта
-            </button>
-            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
-              Слава
-            </button>
-            {quietCamp ? null : (
-              <button type="button" className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setContest(true)}>
-                Конкурс
-              </button>
+            {stage === "phone" ? null : (
+              <>
+                <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setLands(true)}>
+                  Карта
+                </button>
+                <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setFame(true)}>
+                  Слава
+                </button>
+                {quietCamp ? null : (
+                  <button type="button" className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setContest(true)}>
+                    Конкурс
+                  </button>
+                )}
+                <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
+                  Дом
+                </button>
+                <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPrice(true)}>
+                  Прайс
+                </button>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white"
+                  onClick={() => {
+                    setRadioOn(true);
+                    setRadioOpen(true);
+                  }}
+                >
+                  Радио
+                </button>
+              </>
             )}
-            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPlot(true)}>
-              Дом
-            </button>
-            <button type="button" className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={() => setPrice(true)}>
-              Прайс
-            </button>
-            <button
-              type="button"
-              className="shrink-0 rounded-full bg-black/45 px-3 py-1 text-sm text-white"
-              onClick={() => {
-                setRadioOn(true);
-                setRadioOpen(true);
-              }}
-            >
-              Радио
-            </button>
           </div>
           <MoreMenu items={menuItems} />
         </div>
@@ -570,8 +574,11 @@ export function Yard() {
         </button>
       ) : null}
       {lock ? (
-        <div className="absolute top-14 left-3 z-20 max-w-[70vw] rounded-2xl bg-black/70 px-3 py-2 text-sm text-white">
-          <p>
+        <div
+          className="absolute right-3 z-20 max-w-[14rem] rounded-2xl bg-black/70 px-3 py-2 text-sm text-white"
+          style={{ top: "max(6.1rem, calc(env(safe-area-inset-top) + 5.6rem))" }}
+        >
+          <p className="truncate">
             {lock.owner ? "Твой двор" : lock.member ? "Ты здесь живёшь" : "Гость"} · {lock.name}
           </p>
           <button type="button" className="mt-1 text-xs text-white/80" onClick={() => { setLock(null); markYard(""); }}>
@@ -848,19 +855,22 @@ function World({
     window.addEventListener("pointercancel", end);
   }
   const spots = [
-    { left: "76%", top: "34%" },
-    { left: "56%", top: "34%" },
-    { left: "67%", top: "56%" },
-    { left: "63%", top: "70%" },
-    { left: "40%", top: "74%" },
-    { left: "22%", top: "78%" },
-    { left: "47%", top: "84%" },
-    { left: "30%", top: "64%" },
-    { left: "86%", top: "50%" },
-    { left: "16%", top: "62%" },
-    { left: "72%", top: "46%" },
-    { left: "34%", top: "84%" },
+    { left: "28%", top: "64%" },
+    { left: "48%", top: "70%" },
+    { left: "74%", top: "58%" },
+    { left: "22%", top: "28%" },
+    { left: "84%", top: "34%" },
+    { left: "34%", top: "22%" },
+    { left: "54%", top: "22%" },
+    { left: "8%", top: "60%" },
+    { left: "62%", top: "74%" },
+    { left: "90%", top: "22%" },
   ];
+  function plotSpot(plot: (typeof rows)[number], index: number) {
+    if (plot.id === "baba-yaga" || partnerShare(plot.name) === 0.5) return { left: "14%", top: "40%" };
+    if (/северян|снежин/i.test(plot.name)) return { left: "10%", top: "14%" };
+    return spots[index % spots.length];
+  }
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#6d8f62]">
@@ -877,15 +887,15 @@ function World({
           <button
             type="button"
             className="absolute max-w-[16rem] rounded-xl bg-[#1a120c]/90 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
-            style={{ left: "6%", top: "42%" }}
+            style={{ left: "36%", top: "34%" }}
             onClick={onHome}
           >
             <span className="block text-base font-medium leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
             <span className="text-sm text-[#c4a574]">государство</span>
           </button>
           {[
-            { left: "21%", top: "78%" },
-            { left: "46%", top: "84%" },
+            { left: "78%", top: "18%" },
+            { left: "58%", top: "74%" },
           ].map((spot) => (
             <button
               key={spot.left}
@@ -903,7 +913,7 @@ function World({
               key={plot.id}
               type="button"
               className="absolute max-w-[14rem] rounded-xl bg-black/75 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
-              style={spots[index % spots.length]}
+              style={plotSpot(plot, index)}
               onClick={() => onEnter(plot)}
             >
               <span className="block truncate text-base font-medium">{plot.name}</span>
@@ -913,7 +923,7 @@ function World({
           <button
             type="button"
             className="absolute max-w-[12rem] rounded-xl bg-[#1a120c]/80 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
-            style={{ left: "3%", top: "80%" }}
+            style={{ left: "4%", top: "74%" }}
             onClick={onBog}
           >
             <span className="block text-base font-medium">болота голума</span>
@@ -922,7 +932,7 @@ function World({
           <button
             type="button"
             className="absolute rounded-xl bg-white/90 px-3 py-1.5 text-left text-[#1a120c] shadow"
-            style={{ left: "46%", top: "52%" }}
+            style={{ left: "64%", top: "32%" }}
             onClick={onAngel}
           >
             <span className="block text-base font-medium">DJ Angel A</span>
@@ -932,12 +942,12 @@ function World({
             type="button"
             aria-label="Поле пресейвов"
             className="absolute rounded-xl bg-black/55 px-3 py-1.5 text-left text-white"
-            style={{ left: "78%", top: "72%" }}
+            style={{ left: "84%", top: "58%" }}
             onClick={onField}
           >
             <span className="text-base font-medium">поле пресейвов</span>
           </button>
-          <p className="pointer-events-none absolute rounded-xl bg-white/80 px-3 py-1.5 text-base text-[#1a120c]" style={{ left: "36%", top: "6%" }}>
+          <p className="pointer-events-none absolute rounded-xl bg-white/80 px-3 py-1.5 text-base text-[#1a120c]" style={{ left: "4%", top: "4%" }}>
             северные земли
           </p>
         </div>
