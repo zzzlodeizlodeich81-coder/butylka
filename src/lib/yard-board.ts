@@ -31,7 +31,7 @@ export type YardLine = {
   image?: string;
   audio?: string;
 };
-export type YardSpot = { id: string; name: string; photo: string; spot: string };
+export type YardSpot = { id: string; name: string; photo: string; spot: string; figure?: boolean };
 
 export type Hero = {
   vk: string;
@@ -77,7 +77,7 @@ function liveSpots(room = ""): YardSpot[] {
   const now = Date.now();
   return spots
     .filter((row) => now - row.at < 40000 && (row.room || "") === room)
-    .map(({ id, name, photo, spot }) => ({ id, name, photo, spot }));
+    .map(({ id, name, photo, spot, figure }) => ({ id, name, photo, spot, figure }));
 }
 
 function presaveView(me: string) {
@@ -514,11 +514,14 @@ export const yardBoard = createServerFn({ method: "POST" })
     if (data.action === "spot") {
       const spot = String(data.tier || "yard").slice(0, 24);
       let photo = "";
+      let figure = false;
       if (guest) {
         const row = await (await import("@/lib/purse.server")).readPurse(guest.id);
         photo = row?.photo || "";
+        const { isAdminLogin } = await import("@/lib/purse.server");
+        figure = isAdminLogin(row?.login);
       }
-      const next = { id: vkId, name, photo, spot, at: Date.now(), room };
+      const next = { id: vkId, name, photo, spot, figure, at: Date.now(), room };
       const index = spots.findIndex((row) => row.id === vkId);
       if (index >= 0) spots[index] = next;
       else spots.push(next);

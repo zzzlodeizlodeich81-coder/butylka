@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MaxFigure } from "@/components/max-figure";
 import { Button } from "@/components/ui/button";
 import { NOTE_PRICE } from "@/lib/notes";
 import { useWallet } from "@/lib/wallet";
@@ -20,13 +21,8 @@ const COPY = {
 } as const;
 
 function Sprite({ who }: { who: Who }) {
-  return (
-    <img
-      src={COPY[who].face}
-      alt=""
-      className={`h-40 w-28 shrink-0 rounded-2xl object-cover ${who === "tech" ? "object-[28%_62%]" : "object-top"}`}
-    />
-  );
+  if (who === "tech") return <MaxFigure className="h-52 w-32 shrink-0" />;
+  return <img src={COPY.angel.face} alt="" className="h-40 w-28 shrink-0 rounded-2xl object-cover object-top" />;
 }
 
 export function HelperChat({ who, onClose }: { who: Who; onClose: () => void }) {
@@ -129,7 +125,7 @@ export function HelperDock() {
                 <span className="mt-1 block text-sm">Вопрос по творчеству</span>
               </button>
               <button type="button" className="rounded-2xl bg-black/30 p-2 text-left" onClick={() => setWho("tech")}>
-                <img src="/manor.jpg" alt="" className="h-28 w-full rounded-xl object-cover object-[28%_62%]" />
+                <MaxFigure className="h-28 w-full" />
                 <span className="mt-1 block text-sm">Вопрос по игре</span>
               </button>
             </div>

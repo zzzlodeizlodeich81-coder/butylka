@@ -16,6 +16,7 @@ import { LandCard } from "@/components/land-card";
 import { GollumCave } from "@/components/gollum-cave";
 import { gollumDesk } from "@/lib/gollum-desk";
 import { useStage } from "@/lib/stage";
+import { MaxFigure } from "@/components/max-figure";
 import { yardBoard, type YardSpot } from "@/lib/yard-board";
 import { useGame } from "@/lib/store";
 import { useWallet } from "@/lib/wallet";
@@ -457,7 +458,11 @@ export function Yard() {
                   <span
                     key={person.id}
                     title={`${person.name}. Написать`}
-                    className={`pointer-events-auto absolute top-0 z-10 flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#2a1a0c] text-base ${stage === "phone" ? "size-9" : "size-12"}`}
+                    className={`pointer-events-auto absolute z-10 ${
+                      person.figure
+                        ? "-top-10 h-20 w-12"
+                        : `top-0 flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#2a1a0c] text-base ${stage === "phone" ? "size-9" : "size-12"}`
+                    }`}
                     style={{ left: `${index * (stage === "phone" ? 26 : 42)}px` }}
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {
@@ -466,7 +471,13 @@ export function Yard() {
                       setChat(true);
                     }}
                   >
-                    {person.photo ? <img src={person.photo} alt="" className="h-full w-full object-cover" /> : "🪆"}
+                    {person.figure ? (
+                      <MaxFigure className="h-full w-full" />
+                    ) : person.photo ? (
+                      <img src={person.photo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      "🪆"
+                    )}
                   </span>
                 ))}
             </button>
