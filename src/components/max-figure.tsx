@@ -37,7 +37,7 @@ export function MaxFigure({ className }: { className?: string }) {
       }
       const model = gltf.scene;
       const group = new THREE.Group();
-      group.rotation.y = Math.PI / 2;
+      group.rotation.y = -Math.PI / 2;
       group.add(model);
       scene.add(group);
       const box = new THREE.Box3().setFromObject(group);
@@ -84,7 +84,7 @@ export function MaxFigure({ className }: { className?: string }) {
         frame = requestAnimationFrame(tick);
         const t = clock.getElapsedTime();
         const bow = Math.sin(t * 1.6);
-        group.rotation.y = Math.PI / 2 + Math.sin(t * 0.8) * 0.18;
+        group.rotation.y = -Math.PI / 2 + Math.sin(t * 0.8) * 0.1;
         group.rotation.x = bow * 0.05;
         swing(bones["mixamorig:Head"], bow * 0.42, Math.sin(t * 0.7) * 0.12, 0);
         swing(bones["mixamorig:Neck"], bow * 0.12, 0, 0);

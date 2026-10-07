@@ -475,7 +475,18 @@ export function Yard() {
             );
           })}
           {iAmHost || faces.some((person) => person.figure) ? (
-            <div className="pointer-events-none absolute z-20" style={{ left: "40%", top: "40%", width: "20%", height: "38%" }}>
+            <div
+              className="pointer-events-none absolute z-20"
+              style={
+                stage === "phone"
+                  ? { left: "42%", top: "50%", width: "14%", height: "16%" }
+                  : quietCamp
+                    ? { left: "44%", top: "64%", width: "6%", height: "12%" }
+                    : snowYard
+                      ? { left: "30%", top: "64%", width: "6%", height: "14%" }
+                      : { left: "34%", top: "47%", width: "7%", height: "14%" }
+              }
+            >
               <MaxFigure className="h-full w-full" />
             </div>
           ) : null}
