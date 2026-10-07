@@ -18,6 +18,7 @@ import {
   listPurse,
   loginAccount,
   loginVk,
+  bindVkAccount,
   peoplePurse,
   readPurse,
   registerAccount,
@@ -94,6 +95,19 @@ export const Route = createFileRoute("/api/door")({
             status: 200,
             headers,
           });
+        }
+
+        if (body.action === "bind") {
+          const guest = guestFromRequest(request);
+          if (!guest) return Response.json({ ok: false, error: "Сначала зайди." }, { status: 401 });
+          const found = await bindVkAccount(guest.id, body.login || "", body.password || "");
+          if (!found.ok) return Response.json({ ok: false, error: found.error }, { status: 400 });
+          headers.append("set-cookie", setCookie(request, DOOR_COOKIE, doorCookieValue()));
+          headers.append("set-cookie", setCookie(request, GUEST_COOKIE, guestToken(found.row)));
+          return new Response(
+            JSON.stringify({ ok: true, guest: { id: found.row.id, name: found.row.name, notes: found.row.notes, login: found.row.login || "" } }),
+            { status: 200, headers },
+          );
         }
 
         if (body.action === "profile") {

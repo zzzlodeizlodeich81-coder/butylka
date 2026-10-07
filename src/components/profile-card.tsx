@@ -34,7 +34,8 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
   const [login, setLogin] = useState("");
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [oldLogin, setOldLogin] = useState("");
+  const [oldPass, setOldPass] = useState("");
   const [reports, setReports] = useState<
     { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number; house?: number; houseRub?: number }[]
   >([]);
@@ -151,6 +152,54 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
         <Button className="mt-3 w-full rounded-xl" disabled={busy} onClick={() => void save()}>
           {busy ? "Сохраняю…" : "Сохранить"}
         </Button>
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <p className="font-display text-xl">Старый двор</p>
+          <p className="mt-1 text-xs text-[#c4a574]">
+            Если раньше входил логином, впиши его один раз. Ноты и двор останутся там, новая пустая учётка не нужна.
+          </p>
+          <input
+            className="mt-2 w-full rounded-xl bg-black/30 px-3 py-2 text-sm outline-none"
+            placeholder="Старый логин"
+            value={oldLogin}
+            onChange={(e) => setOldLogin(e.target.value)}
+          />
+          <input
+            type="password"
+            className="mt-2 w-full rounded-xl bg-black/30 px-3 py-2 text-sm outline-none"
+            placeholder="Старый пароль"
+            value={oldPass}
+            onChange={(e) => setOldPass(e.target.value)}
+          />
+          <Button
+            className="mt-2 w-full rounded-xl"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void fetch("/api/door", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                credentials: "same-origin",
+                body: JSON.stringify({ action: "bind", login: oldLogin, password: oldPass }),
+              })
+                .then((res) => res.json().then((data) => ({ res, data })))
+                .then(({ res, data }) => {
+                  if (!res.ok || !data?.ok) {
+                    toast.error(data?.error || "Не привязалось.");
+                    return;
+                  }
+                  setOldPass("");
+                  setName(data.guest?.name || name);
+                  setLogin(data.guest?.login || oldLogin);
+                  toast.success("Это тот же двор. Ноты на месте.");
+                })
+                .catch(() => toast.error("Не привязалось."))
+                .finally(() => setBusy(false));
+            }}
+          >
+            Привязать
+          </Button>
+        </div>
         <div className="mt-4 border-t border-white/10 pt-3">
           <p className="font-display text-xl">Отчёты</p>
           <p className="mt-1 text-xs text-[#c4a574]">

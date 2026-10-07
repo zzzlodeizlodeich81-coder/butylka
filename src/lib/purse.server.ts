@@ -226,6 +226,27 @@ export async function updateAccount(
   });
 }
 
+export async function bindVkAccount(currentId: string, login: string, password: string) {
+  const user = cleanLogin(login);
+  const typed = password.trim();
+  if (!user || !typed) return { ok: false as const, error: "Нужны старый логин и пароль." };
+  return locked(async () => {
+    const book = await readBook();
+    const current = book.rows.find((item) => item.id === currentId);
+    if (!current?.vk) return { ok: false as const, error: "Сначала зайди из ВК." };
+    const old = book.rows.find((item) => item.login === user && item.pass && item.id !== current.id);
+    if (!old || !old.pass || !passOk(typed, old.pass)) return { ok: false as const, error: "Логин или пароль не тот." };
+    if (old.vk && old.vk !== current.vk) return { ok: false as const, error: "Этот двор уже привязан к другому ВК." };
+    old.vk = current.vk;
+    if (current.notes) old.notes = Math.round((old.notes + current.notes) * 10) / 10;
+    const shell = (current.login || "").startsWith("vk") && current.notes === 0;
+    if (shell) book.rows = book.rows.filter((item) => item.id !== current.id);
+    else current.vk = undefined;
+    await writeBook(book);
+    return { ok: true as const, row: old };
+  });
+}
+
 export async function loginVk(vkId: string, name: string) {
   const id = vkId.replace(/\D/g, "").slice(0, 20);
   if (!id) return null;
