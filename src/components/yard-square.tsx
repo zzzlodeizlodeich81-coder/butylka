@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -643,7 +643,339 @@ export function ReleaseCard({ onStage }: { onStage: () => void }) {
 type Face = { id: string; name: string; photo: string };
 type WhisperLine = { id: string; from: string; to: string; text: string; at: number; image?: string; audio?: string; seen?: boolean };
 
-const SMILES = ["😊", "😂", "😉", "😍", "😎", "🤔", "😭", "😡", "👍", "🔥", "❤️", "💀", "🎵", "🎤", "🎸", "👏", "🙏", "⭐", "👀", "🪆"];
+const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+
+const SMILES = [
+  "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗",
+  "😙", "😚", "🙂", "🤗", "🤩", "🤔", "🤨", "😐", "😑", "😶", "🙄", "😏", "😣", "😥", "😮", "🤐",
+  "😯", "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓", "😔", "😕", "🙃", "🤑", "😲",
+  "🙁", "😖", "😞", "😟", "😤", "😢", "😭", "😦", "😧", "😨", "😩", "🤯", "😬", "😰", "😱", "🥵",
+  "🥶", "😳", "🤪", "😵", "😡", "😠", "🤬", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "😇", "🤠", "🥳",
+  "🥴", "🥺", "🤥", "🤫", "🤭", "🧐", "🤓", "😈", "👿", "💀", "💩", "🤡", "👻", "👽", "🤖", "😺",
+  "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "💋", "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤",
+  "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "👍", "👎", "👏", "🙌", "🙏", "🤝", "💪",
+  "👀", "🔥", "✨", "⭐", "🌟", "💯", "💥", "💫", "🎉", "🎊", "🎁", "🏆", "👑", "💎", "🔔", "🎵",
+  "🎶", "🎤", "🎧", "🎸", "🎹", "🥁", "🎷", "🎺", "🎻", "🎬", "🎭", "🎨", "🎯", "🎮", "🎲", "🎰",
+  "🚀", "🏠", "🌙", "☀️", "🌈", "❄️", "🍀", "🌸", "🌹", "🌺", "🌻", "🌷", "💐", "🍄", "🐶", "🐱",
+  "🐭", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦉",
+  "🐺", "🦄", "🐝", "🦋", "🐢", "🐍", "🐙", "🐠", "🐬", "🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓",
+  "🍒", "🍑", "🥝", "🍅", "🥑", "🌽", "🍞", "🧀", "🍔", "🍟", "🍕", "🍩", "🍪", "🎂", "☕", "🍺",
+  "🍷", "🥂", "🪆", "🧸",
+];
+
+const STICKERS = [
+  { token: "{{bra}}", src: "/sticker-girl.jpg", label: "девушка" },
+  { token: "{{guy}}", src: "/sticker-guy.jpg", label: "качок" },
+  { token: "{{bloom}}", src: "/sticker-bloom.jpg", label: "букет" },
+];
+
+function HoldMic({ onClip }: { onClip: (data: string) => void }) {
+  const recRef = useRef<MediaRecorder | null>(null);
+  const [on, setOn] = useState(false);
+
+  function stop() {
+    const rec = recRef.current;
+    if (rec && rec.state === "recording") rec.stop();
+  }
+
+  async function start(event: PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (recRef.current && recRef.current.state === "recording") return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (chunk) => {
+        if (chunk.data.size) chunks.push(chunk.data);
+      };
+      rec.onstop = () => {
+        setOn(false);
+        stream.getTracks().forEach((track) => track.stop());
+        recRef.current = null;
+        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        if (blob.size < 800) {
+          toast.error("Слишком коротко. Зажми и поговори.");
+          return;
+        }
+        if (blob.size > 130000) {
+          toast.error("Голос длиннее 15 секунд не влезает.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => onClip(String(reader.result || ""));
+        reader.readAsDataURL(blob);
+      };
+      recRef.current = rec;
+      rec.start();
+      setOn(true);
+      event.currentTarget.setPointerCapture(event.pointerId);
+      window.setTimeout(() => {
+        if (rec.state === "recording") rec.stop();
+      }, 15000);
+    } catch {
+      toast.error("Микрофон не дался.");
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={on ? "Записываю" : "Голосовое, зажми"}
+      className={`grid size-11 shrink-0 place-items-center rounded-full ${on ? "bg-red-600 text-white" : "bg-[#2a6f4e] text-white"}`}
+      style={{ touchAction: "none" }}
+      onContextMenu={(event) => event.preventDefault()}
+      onPointerDown={(event) => void start(event)}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+    >
+      <MicIcon />
+    </button>
+  );
+}
+
+function ClipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M8 12.5 14.2 6.3a3.2 3.2 0 0 1 4.5 4.5l-7.8 7.8a4.4 4.4 0 0 1-6.2-6.2l7.2-7.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SmileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M8.5 13.5c.8 1.4 2 2.1 3.5 2.1s2.7-.7 3.5-2.1" strokeLinecap="round" />
+      <circle cx="9" cy="10" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="currentColor" aria-hidden>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M7 11a5 5 0 0 0 10 0" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 16v4M8 20h8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
+      <path d="M3.4 11.2 20.2 4.2c.7-.3 1.4.4 1.1 1.1l-7 16.8c-.3.8-1.4.8-1.7 0l-2.4-6.3-6.3-2.4c-.8-.3-.8-1.4 0-1.7Z" />
+    </svg>
+  );
+}
+
+function ChatDock({
+  text,
+  onText,
+  shot,
+  onShot,
+  placeholder,
+  onSubmit,
+  onVoice,
+}: {
+  text: string;
+  onText: (value: string) => void;
+  shot: string;
+  onShot: (value: string) => void;
+  placeholder: string;
+  onSubmit: () => void;
+  onVoice: (data: string) => void;
+}) {
+  const [pane, setPane] = useState<"" | "smile" | "clip">("");
+  const [wish, setWish] = useState("");
+  const [drawing, setDrawing] = useState(false);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const ready = Boolean(text.trim() || shot);
+
+  useEffect(() => {
+    const node = box.current;
+    if (!node) return;
+    node.style.height = "0px";
+    node.style.height = `${Math.min(node.scrollHeight, 156)}px`;
+  }, [text]);
+
+  function takeImage(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("В чат пока влезает только фото. Видео и чужие файлы слишком тяжёлые.");
+      return;
+    }
+    void shrinkShot(file).then(onShot).catch(() => toast.error("Картинка не влезла."));
+  }
+
+  async function drawSticker() {
+    const phrase = wish.trim();
+    if (phrase.length < 2 || drawing) return;
+    setDrawing(true);
+    try {
+      const prompt = `Стикер для чата, один герой крупно по центру, жирный контур, плоские яркие цвета, простой белый фон, без надписей, без букв, без водяных знаков. ${phrase}`;
+      const res = await fetch(`/api/paint?model=art&w=512&h=512&aspect=1:1&prompt=${encodeURIComponent(prompt)}`, {
+        credentials: "same-origin",
+      });
+      const notes = Number(res.headers.get("X-Notes"));
+      if (Number.isFinite(notes)) useWallet.getState().apply({ notes });
+      if (!res.ok) {
+        toast.error((await res.text()) || "Стикер не вышел.");
+        return;
+      }
+      const blob = await res.blob();
+      const file = new File([blob], "sticker.jpg", { type: blob.type || "image/jpeg" });
+      onShot(await shrinkShot(file));
+      setWish("");
+      setPane("");
+      toast.success("Стикер готов. Жми кружок отправки.");
+    } catch {
+      toast.error("Стикер не вышел.");
+    } finally {
+      setDrawing(false);
+    }
+  }
+
+  return (
+    <div className="relative mt-2">
+      {pane === "clip" ? (
+        <div className="absolute bottom-full left-0 z-10 mb-2 flex flex-col overflow-hidden rounded-2xl bg-[#1a120c] text-sm text-[#f4e4c4] shadow-xl">
+          <button type="button" className="px-4 py-3 text-left hover:bg-white/10" onClick={() => photoRef.current?.click()}>
+            Фото
+          </button>
+          <button type="button" className="px-4 py-3 text-left hover:bg-white/10" onClick={() => videoRef.current?.click()}>
+            Видео
+          </button>
+          <button type="button" className="px-4 py-3 text-left hover:bg-white/10" onClick={() => fileRef.current?.click()}>
+            Файл
+          </button>
+        </div>
+      ) : null}
+      {pane === "smile" ? (
+        <div className="absolute bottom-full right-0 left-0 z-10 mb-2 max-h-72 overflow-auto rounded-2xl border border-border bg-bg p-2 shadow-xl">
+          <div className="mb-2 flex gap-1">
+            <p className="px-2 py-1 text-xs text-muted">Смайлы цветные. Стикеры ниже. Свой рисует Яндекс, {NOTE_PRICE.art} нот.</p>
+          </div>
+          <div className="grid grid-cols-8 gap-1" style={{ fontFamily: EMOJI_FONT }}>
+            {SMILES.map((smile) => (
+              <button
+                key={smile}
+                type="button"
+                className="grid h-10 place-items-center rounded-lg text-2xl hover:bg-surface"
+                onClick={() => onText((text + smile).slice(0, 300))}
+              >
+                {smile}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            {STICKERS.map((sticker) => (
+              <button key={sticker.token} type="button" className="rounded-lg bg-surface p-1" onClick={() => onText((text + sticker.token).slice(0, 300))}>
+                <Sticker src={sticker.src} label={sticker.label} />
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={wish}
+              maxLength={180}
+              placeholder="Хочу стикер с котиком"
+              className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm text-fg outline-none"
+              onChange={(event) => setWish(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void drawSticker();
+                }
+              }}
+            />
+            <Button className="shrink-0 rounded-xl" disabled={drawing || wish.trim().length < 2} onClick={() => void drawSticker()}>
+              {drawing ? "Рисует…" : "Стикер"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      <input
+        ref={photoRef}
+        className="hidden"
+        type="file"
+        accept="image/*"
+        onChange={(event) => {
+          takeImage(event.target.files?.[0]);
+          event.target.value = "";
+          setPane("");
+        }}
+      />
+      <input
+        ref={videoRef}
+        className="hidden"
+        type="file"
+        accept="video/*"
+        onChange={(event) => {
+          event.target.value = "";
+          setPane("");
+          toast.error("Видео и кружки в чат не кладём. Фото и голос — да.");
+        }}
+      />
+      <input
+        ref={fileRef}
+        className="hidden"
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          setPane("");
+          takeImage(file);
+        }}
+      />
+      <div className="flex items-end gap-1.5">
+        <button
+          type="button"
+          aria-label="Прикрепить"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-fg"
+          onClick={() => setPane((cur) => (cur === "clip" ? "" : "clip"))}
+        >
+          <ClipIcon />
+        </button>
+        <textarea
+          ref={box}
+          value={text}
+          rows={1}
+          maxLength={300}
+          placeholder={placeholder}
+          className="max-h-[156px] min-h-11 w-full resize-none overflow-x-hidden overflow-y-auto rounded-2xl bg-surface px-3 py-2.5 text-base leading-6 break-words whitespace-pre-wrap text-fg outline-none"
+          style={{ fontFamily: EMOJI_FONT }}
+          onChange={(event) => onText(event.target.value)}
+        />
+        <button
+          type="button"
+          aria-label="Смайлы и стикеры"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-fg"
+          onClick={() => setPane((cur) => (cur === "smile" ? "" : "smile"))}
+        >
+          <SmileIcon />
+        </button>
+        {ready ? (
+          <button
+            type="button"
+            aria-label="Отправить"
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-[#2a6f4e] text-white"
+            onClick={onSubmit}
+          >
+            <SendIcon />
+          </button>
+        ) : (
+          <HoldMic onClip={onVoice} />
+        )}
+      </div>
+    </div>
+  );
+}
 
 function Sticker({ src, label, big }: { src: string; label: string; big?: boolean }) {
   return <img src={src} alt={label} className={`mx-0.5 inline-block align-middle object-contain ${big ? "h-28 w-28" : "h-14 w-14"}`} />;
@@ -657,9 +989,7 @@ function ChatBits({ text }: { text: string }) {
       </p>
     );
   }
-  const parts = text.split(/(\{\{bra\}\}|\{\{guy\}\}|\{\{bloom\}\})/g);
-  return (
-    <p className="text-muted">
+    <p className="text-base leading-snug text-fg" style={{ fontFamily: EMOJI_FONT }}>
       {parts.map((part, index) => {
         if (part === "{{bra}}") return <Sticker key={index} big src="/sticker-girl.jpg" label="девушка" />;
         if (part === "{{guy}}") return <Sticker key={index} big src="/sticker-guy.jpg" label="качок" />;
@@ -752,73 +1082,6 @@ function FaceDot({ photo, name }: { photo?: string; name?: string }) {
   );
 }
 
-function SmileBox({ onPick }: { onPick: (smile: string) => void }) {
-  return (
-    <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
-      <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{bra}}")}>
-        <Sticker src="/sticker-girl.jpg" label="девушка" />
-      </button>
-      <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{guy}}")}>
-        <Sticker src="/sticker-guy.jpg" label="качок" />
-      </button>
-      <button type="button" className="shrink-0 rounded-lg bg-surface px-1 py-1" onClick={() => onPick("{{bloom}}")}>
-        <Sticker src="/sticker-bloom.jpg" label="букет" />
-      </button>
-      {SMILES.map((smile) => (
-        <button key={smile} type="button" className="shrink-0 rounded-lg bg-surface px-2 py-1 text-2xl" onClick={() => onPick(smile)}>
-          {smile}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function VoiceButton({ onClip }: { onClip: (data: string) => void }) {
-  const recRef = useRef<MediaRecorder | null>(null);
-  const [on, setOn] = useState(false);
-  async function toggle() {
-    if (recRef.current && recRef.current.state === "recording") {
-      recRef.current.stop();
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
-      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      const chunks: Blob[] = [];
-      rec.ondataavailable = (event) => {
-        if (event.data.size) chunks.push(event.data);
-      };
-      rec.onstop = () => {
-        setOn(false);
-        stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
-        if (blob.size < 800) return;
-        if (blob.size > 130000) {
-          toast.error("Голос длиннее 15 секунд не влезает.");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => onClip(String(reader.result || ""));
-        reader.readAsDataURL(blob);
-      };
-      recRef.current = rec;
-      rec.start();
-      setOn(true);
-      window.setTimeout(() => {
-        if (rec.state === "recording") rec.stop();
-      }, 15000);
-    } catch {
-      toast.error("Микрофон не дался.");
-    }
-  }
-  return (
-    <Button type="button" variant="secondary" className="shrink-0 rounded-xl" onClick={() => void toggle()}>
-      {on ? "Стоп" : "Голос"}
-    </Button>
-  );
-}
-
 function ScrollBox({ dep, children }: { dep: unknown; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
@@ -872,7 +1135,6 @@ function PrivatePane({
   const [lines, setLines] = useState<WhisperLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
-  const [voice, setVoice] = useState("");
   const [typing, setTyping] = useState("");
   const mine = people.find((person) => person.id === me);
   const typedAt = useRef(0);
@@ -924,15 +1186,22 @@ function PrivatePane({
   const others = people.filter((person) => person.id !== me);
   const talk = people.find((person) => person.id === withId);
 
-  async function send() {
-    const row = await postDoor({ action: "whisper", to: withId, text, image: shot, audio: voice });
+  async function send(audioNow = "") {
+    const row = await postDoor({
+      action: "whisper",
+      to: withId,
+      text: audioNow ? "" : text,
+      image: audioNow ? "" : shot,
+      audio: audioNow,
+    });
     if (!row.ok) {
       toast.error(row.error || "Не ушло.");
       return;
     }
-    setText("");
-    setShot("");
-    setVoice("");
+    if (!audioNow) {
+      setText("");
+      setShot("");
+    }
     setTyping("");
     typedAt.current = 0;
     blip();
@@ -1019,34 +1288,18 @@ function PrivatePane({
               <img src={shot} alt="" className="mt-2 max-h-24 cursor-zoom-in rounded-lg" />
             </button>
           ) : null}
-          {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
-          <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 300))} />
-          <div className="mt-2 flex gap-2">
-            <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
-              фото
-              <input
-                className="hidden"
-                type="file"
-                accept="image/*"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (!file) return;
-                  void shrinkShot(file).then(setShot).catch(() => toast.error("Картинка не влезла."));
-                }}
-              />
-            </label>
-            <VoiceButton onClip={setVoice} />
-            <Input
-              value={text}
-              placeholder="Только ему"
-              onChange={(e) => {
-                setText(e.target.value);
-                poke(e.target.value, withId);
-              }}
-            />
-            <Button onClick={() => void send()}>Сказать</Button>
-          </div>
+          <ChatDock
+            text={text}
+            onText={(value) => {
+              setText(value);
+              poke(value, withId);
+            }}
+            shot={shot}
+            onShot={setShot}
+            placeholder="Только ему"
+            onSubmit={() => void send()}
+            onVoice={(audio) => void send(audio)}
+          />
         </>
       ) : null}
     </div>
@@ -1077,7 +1330,6 @@ export function YardChat({
   const [lines, setLines] = useState<YardLine[]>([]);
   const [text, setText] = useState("");
   const [shot, setShot] = useState("");
-  const [voice, setVoice] = useState("");
   const [typers, setTypers] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<"yard" | "private">(focusId ? "private" : "yard");
   const [tray, setTray] = useState(false);
@@ -1093,6 +1345,33 @@ export function YardChat({
     } else if (!typedAt.current) return;
     else typedAt.current = 0;
     void yardBoard({ data: { action: "type", text: value.trim() ? "1" : "", plot, ...caller() } });
+  }
+
+  async function say(audioNow = "") {
+    const res = await yardBoard({
+      data: {
+        action: "say",
+        text: audioNow ? "" : text,
+        image: audioNow ? "" : shot,
+        audio: audioNow,
+        plot,
+        ...caller(),
+      },
+    });
+    if (!res.ok) {
+      toast.error(res.error || "Не ушло.");
+      return;
+    }
+    if (!audioNow) {
+      setText("");
+      setShot("");
+    }
+    typedAt.current = 0;
+    blip();
+    const next = res.chat || [];
+    setLines(next);
+    const last = next[next.length - 1];
+    if (last) onSeenYard(last.id);
   }
 
   async function pull() {
@@ -1198,55 +1477,18 @@ export function YardChat({
                 <img src={shot} alt="" className="mt-2 max-h-24 cursor-zoom-in rounded-lg" />
               </button>
             ) : null}
-            {voice ? <p className="mt-1 text-xs text-muted">Голос готов, жми сказать.</p> : null}
-            <SmileBox onPick={(smile) => setText((prev) => (prev + smile).slice(0, 200))} />
-            <div className="mt-2 flex gap-2">
-              <label className="inline-flex shrink-0 cursor-pointer items-center rounded-xl bg-surface-2 px-3 text-sm">
-                фото
-                <input
-                  className="hidden"
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (!file) return;
-                    void shrinkShot(file).then(setShot).catch(() => toast.error("Картинка не влезла."));
-                  }}
-                />
-              </label>
-              <VoiceButton onClip={setVoice} />
-              <Input
-                value={text}
-                placeholder="Реплика двору"
-                onChange={(e) => {
-                  setText(e.target.value);
-                  poke(e.target.value);
-                }}
-              />
-              <Button
-                onClick={() => {
-                  void (async () => {
-                    const res = await yardBoard({ data: { action: "say", text, image: shot, audio: voice, plot, ...caller() } });
-                    if (!res.ok) {
-                      toast.error(res.error || "Не ушло.");
-                      return;
-                    }
-                    setText("");
-                    setShot("");
-                    setVoice("");
-                    typedAt.current = 0;
-                    blip();
-                    const next = res.chat || [];
-                    setLines(next);
-                    const last = next[next.length - 1];
-                    if (last) onSeenYard(last.id);
-                  })();
-                }}
-              >
-                Сказать
-              </Button>
-            </div>
+            <ChatDock
+              text={text}
+              onText={(value) => {
+                setText(value);
+                poke(value);
+              }}
+              shot={shot}
+              onShot={setShot}
+              placeholder="Реплика двору"
+              onSubmit={() => void say()}
+              onVoice={(audio) => void say(audio)}
+            />
           </>
         ) : null}
       </div>
