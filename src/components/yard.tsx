@@ -106,6 +106,18 @@ const YARD_PHONE: typeof ZONES = [
   { id: "gate", label: "Ворота", left: "28%", top: "80%", width: "44%", height: "16%", sign: "top" },
 ];
 
+const CAMP_BITS: { id: HouseId; left: string; top: string; width: string; src: string }[] = [
+  { id: "market", left: "9.8%", top: "32.7%", width: "9%", src: "/camp-bits/oboz.png" },
+  { id: "cinema", left: "47.7%", top: "4.6%", width: "7%", src: "/camp-bits/cinema.png" },
+  { id: "organ", left: "60.5%", top: "75%", width: "6%", src: "/camp-bits/maestro.png" },
+  { id: "frame", left: "45.8%", top: "21.1%", width: "11%", src: "/camp-bits/tactic.png" },
+  { id: "factory", left: "29.2%", top: "38%", width: "9%", src: "/camp-bits/apparat.png" },
+  { id: "gate", left: "46.7%", top: "81.2%", width: "10%", src: "/camp-bits/kpp.png" },
+  { id: "record", left: "58.9%", top: "40.6%", width: "10%", src: "/camp-bits/bunker.png" },
+  { id: "stage", left: "42.4%", top: "45.4%", width: "13%", src: "/camp-bits/stage.png" },
+  { id: "atelier", left: "16.9%", top: "58%", width: "17%", src: "/camp-bits/workshop.png" },
+];
+
 const CAMP_ZONES: typeof ZONES = [
   { id: "record", label: "Блиндаж записи", left: "14%", top: "32%", width: "16%", height: "14%", sign: "bottom" },
   { id: "factory", label: "Аппаратная", left: "28%", top: "18%", width: "16%", height: "14%", sign: "bottom" },
@@ -351,7 +363,7 @@ export function Yard() {
   const yardMap = quietCamp
     ? stage === "phone"
       ? { src: "/m/camp.jpg", aspect: "9 / 16", zones: CAMP_PHONE }
-      : { src: "/camp.jpg", aspect: "16 / 9", zones: CAMP_ZONES }
+      : { src: "/camp-wide.jpg", aspect: "16 / 9", zones: CAMP_ZONES }
     : snowYard
       ? stage === "phone"
         ? { src: "/m/north.jpg", aspect: "9 / 16", zones: NORTH_PHONE }
@@ -478,7 +490,28 @@ export function Yard() {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#24301c]">
       <MapStage src={yardMap.src} alt="Двор" aspect={yardMap.aspect} top="max(2.6rem, calc(env(safe-area-inset-top) + 2.2rem))">
-          {yardMap.zones.map((zone) => {
+          {quietCamp && stage !== "phone"
+            ? CAMP_BITS.map((bit) => {
+                const tool = TOOLS.find((item) => item.id === bit.id);
+                const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
+                const label = CAMP_LABEL[bit.id] || bit.id;
+                return (
+                  <button
+                    key={bit.id}
+                    type="button"
+                    aria-label={label}
+                    className="absolute border-0 bg-transparent p-0"
+                    style={{ left: bit.left, top: bit.top, width: bit.width }}
+                    onClick={() => open(bit.id)}
+                  >
+                    <img src={bit.src} alt="" draggable={false} className={`pointer-events-none block h-auto w-full ${closed ? "opacity-50" : ""}`} />
+                    <span className="pointer-events-none absolute bottom-0 left-1/2 max-w-[140%] -translate-x-1/2 rounded bg-[#2a1a0c]/88 px-1.5 py-0.5 text-center text-[11px] leading-tight font-medium text-[#f4e4c4] shadow">
+                      {closed ? `закрыто · ${tool?.price}` : label}
+                    </span>
+                  </button>
+                );
+              })
+            : yardMap.zones.map((zone) => {
             const tool = TOOLS.find((item) => item.id === zone.id);
             const closed = Boolean(lock && tool && !lock.tools.includes(tool.id));
             const annuch = /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "");
