@@ -11,12 +11,40 @@ const SIZES = [
 
 const LENGTHS = [5, 10, 15] as const;
 
+function readFrame(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("bad"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1280;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("bad"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = () => reject(new Error("bad"));
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function Atelier({ onClose }: { onClose: () => void }) {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<"photo" | "video">("photo");
   const [model, setModel] = useState("flux");
   const [size, setSize] = useState(SIZES[0]);
   const [length, setLength] = useState<(typeof LENGTHS)[number]>(5);
+  const [frame, setFrame] = useState("");
   const [shot, setShot] = useState("");
   const [shotKind, setShotKind] = useState<"photo" | "video">("photo");
   const [busy, setBusy] = useState(false);
@@ -50,7 +78,12 @@ export function Atelier({ onClose }: { onClose: () => void }) {
           const res = await fetch("/api/clip", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: text, aspect: size.id, duration: length }),
+            body: JSON.stringify({
+              prompt: text,
+              aspect: size.id,
+              duration: length,
+              image: frame || undefined,
+            }),
           });
           const data = (await res.json().catch(() => null)) as { id?: string; error?: string; notes?: number } | null;
           takeNotes(null, data?.notes);
@@ -158,6 +191,33 @@ export function Atelier({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
+            <label className="mt-3 block text-xs tracking-widest text-[#c4a574]">КАРТИНКА ДЛЯ РОЛИКА</label>
+            <p className="mt-1 text-xs text-[#c4a574]">Можно без неё. Если приложить, Grok начнёт ролик с этого кадра.</p>
+            <div className="mt-2 flex items-center gap-3">
+              <label className="cursor-pointer rounded-full bg-black/30 px-3 py-1 text-sm">
+                {frame ? "Другая картинка" : "Вставить картинку"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setError("");
+                    void readFrame(file)
+                      .then(setFrame)
+                      .catch(() => setError("Картинка не открылась. Нужен jpg, png или webp."));
+                  }}
+                />
+              </label>
+              {frame ? (
+                <button type="button" className="text-sm underline" onClick={() => setFrame("")}>
+                  Убрать
+                </button>
+              ) : null}
+            </div>
+            {frame ? <img src={frame} alt="" className="mt-2 max-h-28 rounded-xl object-contain" /> : null}
           </>
         )}
         <label className="mt-3 block text-xs tracking-widest text-[#c4a574]">КАДР</label>
@@ -178,7 +238,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
           onChange={(e) => setPrompt(e.target.value)}
           rows={3}
           maxLength={400}
-          placeholder="Фонарь во дворе, ночь, масло"
+          placeholder={mode === "video" ? "Что делает картинка: медленно поворачивается, ночь" : "Фонарь во дворе, ночь, масло"}
           className="mt-3 w-full rounded-xl bg-black/30 px-3 py-2 text-sm text-[#f4e4c4] outline-none"
         />
         <Button className="mt-3 w-full rounded-xl" disabled={busy} onClick={paint}>
