@@ -196,6 +196,44 @@ const DOORS: Partial<Record<HouseId, string>> = {
   cinema: "/doors/cinema.html",
 };
 
+function CampGun({ phone }: { phone: boolean }) {
+  const [kick, setKick] = useState(0);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const fire = () => {
+    setKick((n) => n + 1);
+    const clip = audio.current;
+    if (!clip) return;
+    clip.currentTime = 0;
+    clip.play().catch(() => {});
+  };
+  useEffect(() => {
+    const clip = new Audio("/camp-bits/shot.wav");
+    clip.preload = "auto";
+    audio.current = clip;
+    const first = window.setTimeout(fire, 2800);
+    const timer = window.setInterval(fire, 12000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
+  }, []);
+  const box = phone
+    ? { left: "60%", top: "29%", width: "23%" }
+    : { left: "70%", top: "22.5%", width: "17%" };
+  return (
+    <button type="button" aria-label="Гаубица" className="absolute z-20 border-0 bg-transparent p-0" style={box} onClick={fire}>
+      <style>{`
+        @keyframes camp-recoil { 0% { transform: translate(0,0); } 16% { transform: translate(-7%, 3%); } 100% { transform: translate(0,0); } }
+        @keyframes camp-flash { 0% { opacity: 1; transform: scale(0.25); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.45); } }
+        .camp-recoil { animation: camp-recoil 0.55s ease-out; }
+        .camp-flash { position: absolute; right: -2%; top: 2%; width: 34%; aspect-ratio: 1; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, #fff8d0 0%, #ffc14a 28%, #ff5a12 55%, transparent 72%); animation: camp-flash 0.42s ease-out forwards; }
+      `}</style>
+      <img key={kick} src="/camp-bits/howitzer.png" alt="" draggable={false} className={`pointer-events-none block h-auto w-full ${kick ? "camp-recoil" : ""}`} />
+      {kick ? <span key={kick} className="camp-flash" /> : null}
+    </button>
+  );
+}
+
 export function Yard() {
   const toStudio = useGame((s) => s.toStudio);
   const toLobby = useGame((s) => s.toLobby);
@@ -567,6 +605,7 @@ export function Yard() {
             </button>
             );
           })}
+          {quietCamp ? <CampGun phone={stage === "phone"} /> : null}
           {iAmHost || faces.some((person) => person.figure) ? (
             <button
               type="button"
