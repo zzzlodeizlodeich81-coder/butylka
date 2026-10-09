@@ -31,7 +31,7 @@
 <body>
   <header>
     <h1>Вёрстка</h1>
-    <p class="hint">Картинка с диска. Клик или протяжка. Числа в окошке. «Зафиксировать», потом «Скопировать» и вставь мне в чат.</p>
+    <p class="hint">У каждой картинки свои точки. Открыл другую — чужие метки прячутся. Имя файла не меняй: по нему лист и запоминается.</p>
   </header>
   <main>
     <div id="stage">
@@ -47,7 +47,7 @@
       </div>
       <label class="check"><input id="even" type="checkbox" checked> Ровные стороны у квадрата</label>
       <input id="name" type="text" placeholder="Имя: крыша, буква, человечек" maxlength="40">
-      <div id="live">Сначала открой картинку.</div>
+      <div id="which">Картинка не открыта.</div>
       <button type="button" class="go" id="fix">Зафиксировать</button>
       <div id="list"></div>
       <button type="button" id="copy">Скопировать всё</button>
@@ -63,8 +63,18 @@
     let mode = "point";
     let draft = null;
     let drag = null;
-    let items = [];
     let fileName = "";
+    let books = {};
+    try { books = JSON.parse(localStorage.getItem("verstka-books") || "{}") || {}; } catch (e) { books = {}; }
+
+    function sheet() {
+      if (!fileName) return [];
+      if (!books[fileName]) books[fileName] = [];
+      return books[fileName];
+    }
+    function saveBooks() {
+      localStorage.setItem("verstka-books", JSON.stringify(books));
+    }
 
     function pct(n) { return Math.round(n * 10) / 10; }
     function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
@@ -184,21 +194,23 @@
           ctx.fillText(i * 5 + "%", 2, y + 14);
         }
       }
-      items.forEach((obj) => drawOne(obj, "#7dcea0"));
+      sheet().forEach((obj) => drawOne(obj, "#7dcea0"));
       if (draft) drawOne(draft, "#f4e4c4");
     }
 
     function paintList() {
       const box = document.getElementById("list");
+      const which = document.getElementById("which");
       box.innerHTML = "";
-      items.forEach((obj, index) => {
+      which.textContent = fileName ? fileName + " — меток " + sheet().length : "Картинка не открыта.";
+      sheet().forEach((obj, index) => {
         const row = document.createElement("div");
         row.className = "item";
         row.textContent = textOf(obj);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = "Убрать";
-        btn.onclick = () => { items.splice(index, 1); paintList(); draw(); };
+        btn.onclick = () => { sheet().splice(index, 1); saveBooks(); paintList(); draw(); };
         row.appendChild(document.createElement("br"));
         row.appendChild(btn);
         box.appendChild(row);
@@ -220,7 +232,8 @@
       const file = ev.target.files && ev.target.files[0];
       if (!file) return;
       fileName = file.name;
-      pic.onload = fit;
+      draft = null;
+      pic.onload = () => { fit(); paintList(); };
       pic.src = URL.createObjectURL(file);
     };
     document.getElementById("m-point").onclick = () => setMode("point");
@@ -250,7 +263,8 @@
     document.getElementById("fix").onclick = () => {
       if (!draft) return;
       const named = Object.assign({}, draft, { name: nameBox.value.trim() });
-      items.push(named);
+      sheet().push(named);
+      saveBooks();
       draft = null;
       nameBox.value = "";
       show(null);
@@ -259,7 +273,14 @@
     };
 
     document.getElementById("copy").onclick = async () => {
-      const body = ["картинка: " + (fileName || "без имени")].concat(items.map(textOf)).join("\n");
+      const lines = [];
+      Object.keys(books).forEach((name) => {
+        const rows = books[name] || [];
+        if (!rows.length) return;
+        lines.push("картинка: " + name);
+        rows.forEach((obj) => lines.push(textOf(obj)));
+      });
+      const body = lines.join("\n");
       try {
         await navigator.clipboard.writeText(body);
         live.textContent = "Скопировано. Вставь мне в чат.\n\n" + body;
