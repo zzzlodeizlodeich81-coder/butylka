@@ -410,7 +410,6 @@ export function Yard() {
           }}
         />
       ) : null}
-      <HelperDock />
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
     </>
   );
@@ -467,6 +466,7 @@ export function Yard() {
           }}
         />
         {desk}
+        <HelperDock />
       </>
     );
   }
@@ -762,6 +762,7 @@ export function Yard() {
         />
       ) : null}
       {desk}
+      <HelperDock />
       {!splash && guide ? (
         <Guide
           onDone={() => {
@@ -929,6 +930,8 @@ function World({
   menu: { label: string; onClick: () => void }[];
 }) {
   void onHome;
+  void menu;
+  const phone = useStage() === "phone";
   const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; mark?: string; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
   const [code, setCode] = useState("");
   useEffect(() => {
@@ -1000,7 +1003,7 @@ function World({
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
   }
-  const signs: { label: string; left: string; top: string; act: "buy" | "angel" | "bog" | "field" | "yaga" | "north" }[] = [
+  const wideSigns: { label: string; left: string; top: string; act: "buy" | "angel" | "bog" | "field" | "yaga" | "north" | "city" | "title" }[] = [
     { label: "Снежинка северянка", left: "26.6%", top: "5.6%", act: "north" },
     { label: "DJ Angel A", left: "69.8%", top: "24.1%", act: "angel" },
     { label: "Продаётся", left: "49.2%", top: "27.7%", act: "buy" },
@@ -1014,7 +1017,27 @@ function World({
     { label: "болота голума", left: "3.4%", top: "78.6%", act: "bog" },
     { label: "поле пресейвов", left: "74%", top: "68.7%", act: "field" },
   ];
+  const phoneSigns: typeof wideSigns = [
+    { label: "ГОРОД", left: "3.4%", top: "1.6%", act: "city" },
+    { label: "карта музыкального мира", left: "35.6%", top: "1.4%", act: "title" },
+    { label: "купить участок", left: "83.7%", top: "1.8%", act: "buy" },
+    { label: "Снежинка северянка", left: "21.4%", top: "7.9%", act: "north" },
+    { label: "Продаётся", left: "57.2%", top: "22.8%", act: "buy" },
+    { label: "DJ Angel A", left: "70.8%", top: "31%", act: "angel" },
+    { label: "Феномен бабы яги", left: "5.6%", top: "31.6%", act: "yaga" },
+    { label: "Продаётся", left: "42%", top: "44.7%", act: "buy" },
+    { label: "Продаётся", left: "65.8%", top: "43.9%", act: "buy" },
+    { label: "Продаётся", left: "29.1%", top: "54%", act: "buy" },
+    { label: "Продаётся", left: "55%", top: "59.3%", act: "buy" },
+    { label: "Продаётся", left: "13.9%", top: "61.5%", act: "buy" },
+    { label: "Продаётся", left: "20.1%", top: "68%", act: "buy" },
+    { label: "поле пресейвов", left: "70.2%", top: "70.9%", act: "field" },
+    { label: "болота голума", left: "4.3%", top: "78.3%", act: "bog" },
+  ];
+  const signs = phone ? phoneSigns : wideSigns;
   function pressSign(act: (typeof signs)[number]["act"]) {
+    if (act === "title") return;
+    if (act === "city") return onCity();
     if (act === "buy") return onBuy();
     if (act === "angel") return onAngel();
     if (act === "bog") return onBog();
@@ -1040,6 +1063,21 @@ function World({
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#6d8f62]">
+      {phone ? (
+        <MapStage src="/m/earth-phone.jpg" alt="Мир" aspect="9 / 16" top="0">
+          {signs.map((sign) => (
+            <button
+              key={sign.label + sign.left + sign.top}
+              type="button"
+              className={`absolute rounded-md px-1 py-0.5 text-left text-[11px] leading-none shadow ${sign.act === "title" ? "pointer-events-none bg-black/55 text-[#f4e4c4]" : sign.act === "buy" && sign.label === "купить участок" ? "bg-white text-[#1a120c]" : "bg-black/75 text-[#f4e4c4]"}`}
+              style={{ left: sign.left, top: sign.top }}
+              onClick={() => pressSign(sign.act)}
+            >
+              {sign.label}
+            </button>
+          ))}
+        </MapStage>
+      ) : (
       <div
         ref={frame}
         className="absolute inset-0 z-10 cursor-grab touch-none overflow-hidden select-none active:cursor-grabbing"
@@ -1077,10 +1115,14 @@ function World({
           ))}
         </div>
       </div>
+      )}
+      {phone ? null : (
       <div className="pointer-events-none absolute top-[max(4.6rem,calc(env(safe-area-inset-top)+4.2rem))] left-3 z-20 max-w-[16rem] rounded-xl bg-black/55 px-3 py-2 text-[#f4e4c4]">
         <p className="text-sm">карта музыкального мира</p>
         <p className="text-xs">луга, леса и северные земли</p>
       </div>
+      )}
+      {phone ? null : (
       <div className="absolute top-0 left-0 z-30 flex flex-wrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/45 px-3 py-1 text-sm text-white" onClick={onCity}>
           Город
@@ -1088,8 +1130,8 @@ function World({
         <button type="button" className="rounded-full bg-white px-3 py-1 text-sm text-black" onClick={onBuy}>
           Купить участок
         </button>
-        <MoreMenu items={menu} />
       </div>
+      )}
       {!mine ? null : !mine.liege && mine.badge !== "государство" ? (
         <form
           className="absolute bottom-3 left-3 z-30 flex max-w-[16rem] flex-col gap-1 rounded-2xl bg-black/70 p-2"
