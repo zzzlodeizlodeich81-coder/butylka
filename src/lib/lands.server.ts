@@ -116,7 +116,7 @@ function pub(plot: Plot, viewer: string) {
 }
 
 function giftBaba(book: Book) {
-  if (book.plots.some((plot) => plot.id === "baba-yaga" || partnerShare(plot.name) === 0.5)) return false;
+  if (book.plots.some((plot) => plot.id === "baba-yaga" || ((/баб/i.test(plot.name) && /яг/i.test(plot.name))))) return false;
   book.plots.push({
     id: "baba-yaga",
     owner: "gift-baba",
@@ -146,6 +146,46 @@ function giftSnow(book: Book) {
     state: "",
   });
   return true;
+}
+
+function giftNamed(book: Book) {
+  const free: ToolId[] = ["factory", "frame"];
+  const all = TOOLS.map((tool) => tool.id);
+  const wanted: { id: string; name: string; kind: PlotKind; mark: HouseId; tools: ToolId[] }[] = [
+    { id: "annusch", name: "Annusch", kind: "manor", mark: "boyar", tools: free },
+    { id: "vano", name: "Vano", kind: "house", mark: "brick", tools: free },
+    { id: "bager", name: "Александр Bager", kind: "house", mark: "log", tools: free },
+    { id: "natalee", name: "Natalee Han", kind: "house", mark: "log", tools: free },
+    { id: "andrei-nik", name: "Andrei_Nik", kind: "manor", mark: "brick", tools: all },
+  ];
+  let changed = false;
+  for (const item of wanted) {
+    const found = book.plots.find(
+      (plot) => plot.id === item.id || plot.name.toLowerCase() === item.name.toLowerCase() || (item.id === "annusch" && /annuch/i.test(plot.name)),
+    );
+    if (found) {
+      if (item.id === "annusch" && found.name !== "Annusch") {
+        found.name = "Annusch";
+        found.mark = "boyar";
+        changed = true;
+      }
+      continue;
+    }
+    book.plots.push({
+      id: item.id,
+      owner: `gift-${item.id}`,
+      name: item.name,
+      kind: item.kind,
+      mark: item.mark,
+      tools: item.tools,
+      code: item.id.slice(0, 8),
+      members: [],
+      bank: 0,
+      state: "",
+    });
+    changed = true;
+  }
+  return changed;
 }
 
 function claimSnow(book: Book, guest: { id: string; name: string }) {
@@ -185,8 +225,9 @@ export async function runLand(data: {
     const book = await readBook();
     const gifted = giftBaba(book);
     const snow = giftSnow(book);
+    const named = giftNamed(book);
     const claimed = claimSnow(book, guest);
-    if (gifted || snow || claimed) await writeBook(book);
+    if (gifted || snow || named || claimed) await writeBook(book);
     const mine = book.plots.find((plot) => plot.owner === guest.id);
 
     if (data.action === "look") {
@@ -232,7 +273,7 @@ export async function runLand(data: {
         name: title || guest.name,
         kind,
         mark,
-        tools: [],
+        tools: ["factory", "frame"],
         code: randomBytes(2).toString("hex"),
         members: [],
         bank: 0,

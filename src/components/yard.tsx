@@ -346,8 +346,8 @@ export function Yard() {
     setLayer("yard");
   }
 
-  const quietCamp = partnerShare(lock?.name || "") === 0.5;
   const snowYard = /северян|снежин/i.test(lock?.name || "");
+  const quietCamp = partnerShare(lock?.name || "") === 0.5 && !snowYard;
   const yardMap = quietCamp
     ? stage === "phone"
       ? { src: "/m/camp.jpg", aspect: "9 / 16", zones: CAMP_PHONE }
@@ -931,6 +931,7 @@ function World({
 }) {
   void menu;
   const phone = useStage() === "phone";
+  const host = useWallet((s) => s.admin);
   const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; mark?: string; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
   const [code, setCode] = useState("");
   useEffect(() => {
@@ -1063,8 +1064,11 @@ function World({
   ];
   function plotSpot(plot: (typeof rows)[number], index: number) {
     const text = plot.name.toLowerCase();
-    if (/andrei/.test(text) && /nik/.test(text)) return { left: "56%", top: "60%" };
-    if (/annush|annuch|аннуш|аннуч|анют/i.test(text)) return { left: "32%", top: "56%" };
+    if (/andrei/.test(text) && /nik/.test(text)) return { left: "82%", top: "36%" };
+    if (/annush|annuch|аннуш|аннуч|анют/i.test(text)) return { left: "22%", top: "58%" };
+    if (/vano|вано/.test(text)) return { left: "18%", top: "62%" };
+    if (/bager|багер/.test(text)) return { left: "58%", top: "40%" };
+    if (/natalee|натал/.test(text)) return { left: "12%", top: "70%" };
     return spots[index % spots.length];
   }
 
@@ -1141,6 +1145,15 @@ function World({
         </button>
       </div>
       )}
+      {host ? (
+        <button
+          type="button"
+          className="absolute top-[max(0.6rem,env(safe-area-inset-top))] right-3 z-30 rounded-full bg-[#f4e4c4] px-3 py-1 text-sm text-[#1a120c]"
+          onClick={() => window.dispatchEvent(new Event("kadr-desk"))}
+        >
+          Админка
+        </button>
+      ) : null}
       {!mine ? null : !mine.liege && mine.badge !== "государство" ? (
         <form
           className="absolute bottom-3 left-3 z-30 flex max-w-[16rem] flex-col gap-1 rounded-2xl bg-black/70 p-2"

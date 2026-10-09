@@ -57,6 +57,7 @@ export type ToolId = (typeof TOOLS)[number]["id"];
 export function partnerShare(name: string) {
   const text = name.trim();
   if (/andrei/i.test(text) && /nik/i.test(text)) return 1;
+  if (/северян|снежин/i.test(text)) return 0.5;
   if ((/баб/i.test(text) && /яг/i.test(text)) || (/baba/i.test(text) && /yaga/i.test(text))) return 0.5;
   return null;
 }

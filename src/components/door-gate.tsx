@@ -7,6 +7,8 @@ import { useWallet } from "@/lib/wallet";
 type Guest = { id: string; name: string; notes: number; admin?: boolean; linked?: boolean };
 type Player = { id: string; name: string; notes: number };
 
+type Report = { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number; house?: number; houseRub?: number };
+
 async function door(body: Record<string, unknown>) {
   const res = await fetch("/api/door", {
     method: "POST",
@@ -21,6 +23,7 @@ async function door(body: Record<string, unknown>) {
     inside?: boolean;
     guest?: Guest | null;
     players?: Player[];
+    rows?: Report[];
   };
 }
 
@@ -31,6 +34,7 @@ export function DoorGate({ children }: { children: ReactNode }) {
   const [kassa, setKassa] = useState(false);
   const admin = useWallet((s) => s.admin);
   const [players, setPlayers] = useState<Player[] | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
 
   async function sync() {
@@ -98,6 +102,8 @@ export function DoorGate({ children }: { children: ReactNode }) {
       return;
     }
     setPlayers(row.players || []);
+    const book = await door({ action: "reports" });
+    setReports(book.rows || []);
   }
 
   async function runAdmin(body: Record<string, unknown>, done: string) {
@@ -178,7 +184,18 @@ export function DoorGate({ children }: { children: ReactNode }) {
                 Закрыть
               </button>
             </div>
-            <p className="mt-2 text-sm text-[#f4e4c4]/70">Ноты начисляешь ты. Чужим эта дверь не открывается.</p>
+            <p className="mt-2 text-sm text-[#f4e4c4]/70">Ноты начисляешь ты. Ниже доля с дворов: Андрей, Снежинка, Баба Яга. Чужим эта дверь не открывается.</p>
+            <div className="mt-3 flex flex-col gap-2">
+              {reports.length === 0 ? <p className="text-sm text-[#f4e4c4]/70">По финансам пока пусто. Когда на дворе купят услугу, строка появится здесь.</p> : null}
+              {reports.map((row) => (
+                <div key={`${row.period}-${row.from}`} className="rounded-xl border border-white/10 px-3 py-2 text-sm">
+                  <p className="font-medium">{row.closed ? "Закрыто" : "Эти две недели"} · {row.from}</p>
+                  <p className="text-[#f4e4c4]/70">{row.period}</p>
+                  <p>Услуг {row.count}. Заплатили {row.paid} нот. Себестоимость {row.costRub} ₽.</p>
+                  <p>Им {row.share} нот ({row.shareRub} ₽). Тебе {row.house || 0} нот ({row.houseRub || 0} ₽).</p>
+                </div>
+              ))}
+            </div>
             <div className="mt-3 flex flex-col gap-2">
               {(players || []).map((player) => (
                 <div key={player.id} className="rounded-xl border border-white/10 px-3 py-2 text-sm">
