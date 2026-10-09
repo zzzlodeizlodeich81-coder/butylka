@@ -928,6 +928,7 @@ function World({
   onBog: () => void;
   menu: { label: string; onClick: () => void }[];
 }) {
+  void onHome;
   const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; mark?: string; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
   const [code, setCode] = useState("");
   useEffect(() => {
@@ -999,18 +1000,39 @@ function World({
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
   }
+  const signs: { label: string; left: string; top: string; act: "buy" | "angel" | "bog" | "field" | "yaga" | "north" }[] = [
+    { label: "Снежинка северянка", left: "26.6%", top: "5.6%", act: "north" },
+    { label: "DJ Angel A", left: "69.8%", top: "24.1%", act: "angel" },
+    { label: "Продаётся", left: "49.2%", top: "27.7%", act: "buy" },
+    { label: "Продаётся", left: "62.9%", top: "45.5%", act: "buy" },
+    { label: "Продаётся", left: "42.3%", top: "52.2%", act: "buy" },
+    { label: "Продаётся", left: "54.2%", top: "67.3%", act: "buy" },
+    { label: "Продаётся", left: "24.6%", top: "72.3%", act: "buy" },
+    { label: "Продаётся", left: "34.6%", top: "66.3%", act: "buy" },
+    { label: "Продаётся", left: "35%", top: "81.4%", act: "buy" },
+    { label: "Феномен бабы яги", left: "8.3%", top: "35.8%", act: "yaga" },
+    { label: "болота голума", left: "3.4%", top: "78.6%", act: "bog" },
+    { label: "поле пресейвов", left: "74%", top: "68.7%", act: "field" },
+  ];
+  function pressSign(act: (typeof signs)[number]["act"]) {
+    if (act === "buy") return onBuy();
+    if (act === "angel") return onAngel();
+    if (act === "bog") return onBog();
+    if (act === "field") return onField();
+    const plot = rows.find((row) => {
+      const text = row.name.toLowerCase();
+      if (act === "yaga") return row.id === "baba-yaga" || (/баб/.test(text) && /яг/.test(text));
+      return /северян|снежин/.test(text);
+    });
+    if (plot) onEnter(plot);
+  }
   const spots = [
-    { left: "46%", top: "48%" },
-    { left: "78%", top: "62%" },
-    { left: "26%", top: "72%" },
     { left: "88%", top: "28%" },
-    { left: "50%", top: "18%" },
-    { left: "8%", top: "62%" },
+    { left: "16%", top: "58%" },
+    { left: "8%", top: "18%" },
   ];
   function plotSpot(plot: (typeof rows)[number], index: number) {
     const text = plot.name.toLowerCase();
-    if (plot.id === "baba-yaga" || (/баб/.test(text) && /яг/.test(text))) return { left: "12%", top: "46%" };
-    if (/северян|снежин/.test(text)) return { left: "18%", top: "12%" };
     if (/andrei/.test(text) && /nik/.test(text)) return { left: "56%", top: "60%" };
     if (/annush|annuch|аннуш|аннуч|анют/i.test(text)) return { left: "32%", top: "56%" };
     return spots[index % spots.length];
@@ -1028,32 +1050,19 @@ function World({
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
         >
           <img src="/earth.jpg" alt="" draggable={false} className="pointer-events-none block h-auto w-full select-none" />
-          <button
-            type="button"
-            className="absolute flex max-w-[4.2cm] flex-col items-center bg-transparent p-0 text-center text-[#f4e4c4]"
-            style={{ left: "40%", top: "34%" }}
-            onClick={onHome}
-          >
-            <HouseMark id="nest" />
-            <span className="mt-0.5 rounded bg-black/70 px-1 text-[11px] leading-tight">XXV Kadr & HoldingMusic матрёшка</span>
-          </button>
-          {[
-            { left: "78%", top: "18%" },
-            { left: "58%", top: "74%" },
-          ].map((spot) => (
+          {signs.map((sign) => (
             <button
-              key={spot.left}
+              key={sign.label + sign.left + sign.top}
               type="button"
-              className="absolute rounded-xl bg-white/90 px-3 py-1.5 text-left text-[#1a120c] shadow"
-              style={spot}
-              onClick={onBuy}
+              className="absolute rounded-md bg-black/75 px-1.5 py-0.5 text-left text-[13px] leading-tight text-[#f4e4c4] shadow"
+              style={{ left: sign.left, top: sign.top }}
+              onClick={() => pressSign(sign.act)}
             >
-              <span className="block text-base font-medium">продаётся</span>
-              <span className="text-sm">участок и дома</span>
+              {sign.label}
             </button>
           ))}
           {rows
-            .filter((plot) => !/angel|ангел/i.test(plot.name))
+            .filter((plot) => !/angel|ангел|северян|снежин/i.test(plot.name) && !(plot.id === "baba-yaga" || (/баб/.test(plot.name.toLowerCase()) && /яг/.test(plot.name.toLowerCase()))))
             .map((plot, index) => (
             <button
               key={plot.id}
@@ -1066,36 +1075,6 @@ function World({
               <span className="mt-0.5 max-w-full truncate rounded bg-black/70 px-1 text-[11px]">{plot.name}</span>
             </button>
           ))}
-          <button
-            type="button"
-            className="absolute max-w-[12rem] rounded-xl bg-[#1a120c]/80 px-3 py-1.5 text-left text-[#f4e4c4] shadow"
-            style={{ left: "4%", top: "74%" }}
-            onClick={onBog}
-          >
-            <span className="block text-base font-medium">болота голума</span>
-            <span className="text-sm text-[#c4a574]">пещеры</span>
-          </button>
-          <button
-            type="button"
-            className="absolute flex w-[3.2cm] flex-col items-center bg-transparent p-0 text-center"
-            style={{ left: "64%", top: "32%" }}
-            onClick={onAngel}
-          >
-            <HouseMark id="wings" />
-            <span className="mt-0.5 rounded bg-white/90 px-1 text-[11px]">DJ Angel A</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Поле пресейвов"
-            className="absolute rounded-xl bg-black/55 px-3 py-1.5 text-left text-white"
-            style={{ left: "84%", top: "58%" }}
-            onClick={onField}
-          >
-            <span className="text-base font-medium">поле пресейвов</span>
-          </button>
-          <p className="pointer-events-none absolute rounded-xl bg-white/80 px-3 py-1.5 text-base text-[#1a120c]" style={{ left: "4%", top: "4%" }}>
-            северные земли
-          </p>
         </div>
       </div>
       <div className="pointer-events-none absolute top-[max(4.6rem,calc(env(safe-area-inset-top)+4.2rem))] left-3 z-20 max-w-[16rem] rounded-xl bg-black/55 px-3 py-2 text-[#f4e4c4]">
