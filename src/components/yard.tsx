@@ -929,7 +929,6 @@ function World({
   onBog: () => void;
   menu: { label: string; onClick: () => void }[];
 }) {
-  void onHome;
   void menu;
   const phone = useStage() === "phone";
   const [rows, setRows] = useState<{ id: string; name: string; kind: PlotKind; mark?: string; tools: string[]; owner: boolean; member?: boolean; badge?: string; stateCode?: string; liege?: string }[]>([]);
@@ -1049,6 +1048,14 @@ function World({
     });
     if (plot) onEnter(plot);
   }
+  function Nest({ left, top, big }: { left: string; top: string; big?: boolean }) {
+    return (
+      <button type="button" className="absolute z-10 flex flex-col items-center bg-transparent p-0 text-center" style={{ left, top }} onClick={onHome}>
+        <img src="/houses/nest.jpg" alt="" draggable={false} className={big ? "h-[4.4cm] w-[4.4cm] rounded-xl object-cover shadow" : "h-[3.4cm] w-[3.4cm] rounded-xl object-cover shadow"} />
+        <span className="mt-1 max-w-[6cm] rounded bg-black/80 px-1.5 py-0.5 text-sm leading-tight text-[#f4e4c4]">XXV Kadr & Holding матрёшка</span>
+      </button>
+    );
+  }
   const spots = [
     { left: "88%", top: "28%" },
     { left: "16%", top: "58%" },
@@ -1076,6 +1083,7 @@ function World({
               {sign.label}
             </button>
           ))}
+          <Nest left="16%" top="44%" />
         </MapStage>
       ) : (
       <div
@@ -1088,6 +1096,7 @@ function World({
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.z})`, transformOrigin: "0 0" }}
         >
           <img src="/earth.jpg" alt="" draggable={false} className="pointer-events-none block h-auto w-full select-none" />
+          <Nest left="38%" top="42%" big />
           {signs.map((sign) => (
             <button
               key={sign.label + sign.left + sign.top}
