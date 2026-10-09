@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { NOTE_PRICE } from "@/lib/notes";
 import { useWallet } from "@/lib/wallet";
 
-type Line = { role: "user" | "assistant"; content: string; image?: string };
+type Line = { role: "user" | "assistant"; content: string; image?: string; bill?: string };
 
 function shrinkShot(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -68,13 +67,13 @@ export function HostChat({ onClose }: { onClose: () => void }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: next, image, history }),
         });
-        const data = (await res.json().catch(() => null)) as { text?: string; error?: string; notes?: number } | null;
+        const data = (await res.json().catch(() => null)) as { text?: string; error?: string; notes?: number; bill?: string } | null;
         if (typeof data?.notes === "number") useWallet.getState().apply({ notes: data.notes });
         if (!res.ok || !data?.text) {
           setError(data?.error || "Хозяин молчит.");
           return;
         }
-        setLines((cur) => [...cur, { role: "assistant", content: data.text || "" }]);
+        setLines((cur) => [...cur, { role: "assistant", content: data.text || "", bill: data.bill }]);
       } catch {
         setError("Хозяин молчит.");
       } finally {
@@ -93,7 +92,7 @@ export function HostChat({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
         <p className="mt-1 text-sm text-[#c4a574]">
-          Стихи, песни, промпты, карточка BandLink и скрин. Ответ {NOTE_PRICE.host} нот. Если молчит, ноты вернутся.
+          Стихи, песни, промпты, карточка BandLink и скрин. Ответ по токенам: себестоимость плюс 50%. Если молчит, ноты не списываются.
         </p>
         <div className="mt-3 min-h-24 flex-1 space-y-2 overflow-auto">
           {lines.length === 0 ? (
@@ -108,6 +107,7 @@ export function HostChat({ onClose }: { onClose: () => void }) {
             >
               {line.image ? <img src={line.image} alt="" className="mb-2 max-h-28 rounded-lg" /> : null}
               {line.content}
+              {line.bill ? <p className="mt-1 text-[11px] text-[#c4a574]">{line.bill}</p> : null}
             </div>
           ))}
         </div>
@@ -137,7 +137,7 @@ export function HostChat({ onClose }: { onClose: () => void }) {
             />
           </label>
           <Button className="flex-1 rounded-xl" disabled={busy} onClick={ask}>
-            {busy ? "Думает…" : `Спросить · ${NOTE_PRICE.host} нот`}
+            {busy ? "Думает…" : "Спросить"}
           </Button>
         </div>
       </div>
