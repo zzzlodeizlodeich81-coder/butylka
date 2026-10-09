@@ -989,6 +989,8 @@ function ChatBits({ text }: { text: string }) {
       </p>
     );
   }
+  const parts = text.split(/(\{\{bra\}\}|\{\{guy\}\}|\{\{bloom\}\})/g);
+  return (
     <p className="text-base leading-snug text-fg" style={{ fontFamily: EMOJI_FONT }}>
       {parts.map((part, index) => {
         if (part === "{{bra}}") return <Sticker key={index} big src="/sticker-girl.jpg" label="девушка" />;
