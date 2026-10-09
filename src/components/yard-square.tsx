@@ -671,19 +671,31 @@ const STICKERS = [
 
 function HoldMic({ onClip }: { onClip: (data: string) => void }) {
   const recRef = useRef<MediaRecorder | null>(null);
+  const holdRef = useRef(false);
   const [on, setOn] = useState(false);
 
   function stop() {
+    holdRef.current = false;
     const rec = recRef.current;
     if (rec && rec.state === "recording") rec.stop();
   }
 
   async function start(event: PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      toast.error("Микрофон браузер даёт только по https. Сейчас двор на голом http, кнопка поэтому молчит.");
+      return;
+    }
     if (recRef.current && recRef.current.state === "recording") return;
+    holdRef.current = true;
+    const button = event.currentTarget;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      if (!holdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((kind) => MediaRecorder.isTypeSupported(kind)) || "";
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       const chunks: Blob[] = [];
       rec.ondataavailable = (chunk) => {
@@ -693,12 +705,12 @@ function HoldMic({ onClip }: { onClip: (data: string) => void }) {
         setOn(false);
         stream.getTracks().forEach((track) => track.stop());
         recRef.current = null;
-        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        const blob = new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" });
         if (blob.size < 800) {
           toast.error("Слишком коротко. Зажми и поговори.");
           return;
         }
-        if (blob.size > 130000) {
+        if (blob.size > 120000) {
           toast.error("Голос длиннее 15 секунд не влезает.");
           return;
         }
@@ -707,14 +719,23 @@ function HoldMic({ onClip }: { onClip: (data: string) => void }) {
         reader.readAsDataURL(blob);
       };
       recRef.current = rec;
-      rec.start();
+      rec.start(200);
+      if (!holdRef.current) {
+        rec.stop();
+        return;
+      }
       setOn(true);
-      event.currentTarget.setPointerCapture(event.pointerId);
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch {
+        /* палец уже отпущен */
+      }
       window.setTimeout(() => {
         if (rec.state === "recording") rec.stop();
       }, 15000);
     } catch {
-      toast.error("Микрофон не дался.");
+      holdRef.current = false;
+      toast.error("Микрофон не дался. Разреши его браузеру и зажми кнопку ещё раз.");
     }
   }
 
@@ -1269,7 +1290,7 @@ function PrivatePane({
               return (
                 <div key={line.id} className={own ? "flex flex-row-reverse gap-2" : "flex gap-2"}>
                   <FaceDot photo={face?.photo} name={face?.name} />
-                  <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
+                  <div className={own ? "max-w-[75%] rounded-2xl bg-[#fff8ee]/90 px-2 py-1 text-right" : "max-w-[75%] rounded-2xl bg-[#fff8ee]/90 px-2 py-1"}>
                     {line.image ? (
                       <button type="button" onClick={() => onZoom(line.image || "")}>
                         <img src={line.image} alt="" className="mb-1 max-h-40 cursor-zoom-in rounded-lg" />
@@ -1305,6 +1326,51 @@ function PrivatePane({
         </>
       ) : null}
     </div>
+  );
+}
+
+function ChatWallpaper() {
+  return (
+    <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+      <defs>
+        <pattern id="kadr-doodles" width="220" height="220" patternUnits="userSpaceOnUse">
+          <g fill="none" stroke="#b85c38" strokeWidth="1.6" strokeLinecap="round" opacity="0.55">
+            <path d="M28 18l2.2 6.4 6.6.2-5.2 4.2 1.8 6.4L28 31.2 22.6 35.2l1.8-6.4-5.2-4.2 6.6-.2z" />
+            <path d="M168 36c0-8 6-14 14-14 4 0 6 3 8 3s4-3 8-3c8 0 14 6 14 14 0 12-14 20-22 26-8-6-22-14-22-26z" />
+            <circle cx="40" cy="78" r="7" />
+            <circle cx="54" cy="78" r="7" />
+            <path d="M40 84c2 4 12 4 14 0" />
+            <path d="M118 70c8-16 22-16 22 0 0 10-11 16-11 16s-11-6-11-16z" />
+            <circle cx="124" cy="66" r="1.4" fill="#b85c38" />
+            <circle cx="134" cy="66" r="1.4" fill="#b85c38" />
+            <path d="M186 92c6-14 16-8 16 2 0 8-6 10-8 16-2-6-8-8-8-16 0-6 4-10 0-2z" />
+            <path d="M96 16v18M90 24h12" />
+            <path d="M70 150c8 0 10-8 10-8s2 8 10 8-6 10-10 16c-4-6-12-8-10-16 0 0 2-8 0 0z" />
+            <path d="M150 150l8 18h-6l-2 10-2-10h-6z" />
+            <circle cx="154" cy="146" r="4" />
+            <path d="M20 160c6-10 16-10 16 2 0 8-8 10-8 16 0-6-8-8-8-16 0-6 4-8 0-2z" />
+            <path d="M40 188h16M48 180v16M44 184c6 4 8 4 14 0" />
+            <path d="M100 120c10-2 14 8 8 14-8 8-18 2-16-6 1-4 4-8 8-8z" />
+            <path d="M108 112c2 4 2 8 0 10" />
+            <path d="M190 170c0-8 8-12 12-6 4-8 12-2 10 6 6 2 8 10 2 14-2 8-12 8-16 2-8 2-12-6-8-16z" />
+          </g>
+          <g fill="none" stroke="#6b4c7a" strokeWidth="1.6" strokeLinecap="round" opacity="0.5">
+            <path d="M78 40l14 22h-28z" />
+            <path d="M78 62v16M70 70h16" />
+            <circle cx="78" cy="54" r="3" />
+            <path d="M78 78c-4 6-2 10 0 14 2-4 4-8 0-14z" fill="#e07a3d" stroke="#e07a3d" />
+            <path d="M130 168c-8 0-10 8-4 12 6 4 14 0 12-6 4 2 10-2 8-8-4-2-10 0-16 2z" />
+            <circle cx="126" cy="164" r="2" />
+            <path d="M176 120c8 0 12 6 10 12-6 2-12-2-14-8 2-4 2-4 4-4z" />
+            <path d="M186 112v8M182 120c6 8 10 8 14 2" />
+            <path d="M48 118c6-8 16-6 16 4 0 8-8 10-8 16 0-6-8-8-8-16 0-4 2-6 0-4z" />
+            <circle cx="200" cy="48" r="8" />
+            <path d="M200 40a5 5 0 0 0 0 16" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#kadr-doodles)" />
+    </svg>
   );
 }
 
@@ -1419,13 +1485,14 @@ export function YardChat({
     <div
       className={
         half
-          ? "absolute inset-x-0 bottom-0 z-40 flex h-full flex-col overflow-hidden bg-bg"
+          ? "absolute inset-x-0 bottom-0 z-40 flex h-full flex-col overflow-hidden bg-[#fff8ee]"
           : wide
-          ? "absolute right-4 bottom-4 z-40 flex h-[min(680px,82dvh)] w-[400px] flex-col overflow-hidden rounded-2xl bg-bg shadow-2xl"
-          : "absolute inset-0 z-40 flex flex-col bg-bg pt-[max(0.5rem,env(safe-area-inset-top))]"
+          ? "absolute right-4 bottom-4 z-40 flex h-[min(680px,82dvh)] w-[400px] flex-col overflow-hidden rounded-2xl bg-[#fff8ee] shadow-2xl"
+          : "absolute inset-0 z-40 flex flex-col overflow-hidden bg-[#fff8ee] pt-[max(0.5rem,env(safe-area-inset-top))]"
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <ChatWallpaper />
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="font-display text-2xl text-fg">Чат</h2>
           <div className="flex gap-1">
@@ -1458,7 +1525,7 @@ export function YardChat({
                 return (
                   <div key={line.id} className={own ? "flex flex-row-reverse gap-2" : "flex gap-2"}>
                     <FaceDot photo={line.photo} name={line.name} />
-                    <div className={own ? "max-w-[75%] text-right" : "max-w-[75%]"}>
+                    <div className={own ? "max-w-[75%] rounded-2xl bg-[#fff8ee]/90 px-2 py-1 text-right" : "max-w-[75%] rounded-2xl bg-[#fff8ee]/90 px-2 py-1"}>
                       {!own ? <p className="text-xs font-medium text-fg">{line.name}</p> : null}
                       {line.image ? (
                         <button type="button" onClick={() => setZoom(line.image || "")}>
