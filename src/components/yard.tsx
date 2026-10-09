@@ -200,78 +200,112 @@ function CampGun({ phone }: { phone: boolean }) {
   const imgRef = useRef<HTMLImageElement>(null);
   const flashRef = useRef<HTMLSpanElement>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    const clip = new Audio("/camp-bits/shot.wav");
-    clip.preload = "auto";
-    audio.current = clip;
-    const fire = () => {
-      const img = imgRef.current;
-      const flash = flashRef.current;
-      if (img) {
-        img.style.animation = "none";
-        void img.offsetWidth;
-        img.style.animation = "camp-recoil .55s ease-out";
-      }
-      if (flash) {
-        flash.style.animation = "none";
-        void flash.offsetWidth;
-        flash.style.animation = "camp-flash .4s ease-out";
-      }
-      clip.currentTime = 0;
-      clip.play().catch(() => {});
-    };
-    const first = window.setTimeout(fire, 2000);
-    const timer = window.setInterval(fire, 9000);
-    const unlock = () => {
-      clip.play().then(() => {
-        clip.pause();
-        clip.currentTime = 0;
-      }).catch(() => {});
-    };
-    window.addEventListener("pointerdown", unlock, { once: true });
-    return () => {
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-      window.removeEventListener("pointerdown", unlock);
-    };
-  }, []);
+  const fire = () => {
+    if (!audio.current) audio.current = new Audio("/camp-bits/shot.wav");
+    const clip = audio.current;
+    const img = imgRef.current;
+    const flash = flashRef.current;
+    if (img) {
+      img.style.animation = "none";
+      void img.offsetWidth;
+      img.style.animation = "camp-recoil .55s ease-out";
+    }
+    if (flash) {
+      flash.style.animation = "none";
+      void flash.offsetWidth;
+      flash.style.animation = "camp-flash .35s ease-out";
+    }
+    clip.currentTime = 0;
+    clip.play().catch(() => {});
+  };
   const box = phone
     ? { left: "60%", top: "29%", width: "22%" }
     : { left: "71%", top: "23%", width: "14%" };
   return (
+    <button
+      type="button"
+      aria-label="Гаубица"
+      className="absolute z-20 h-auto border-0 bg-transparent p-0 leading-none outline-none"
+      style={{ ...box, outline: "none" }}
+      onClick={fire}
+    >
+      <img ref={imgRef} src="/camp-bits/howitzer.png" alt="" draggable={false} className="pointer-events-none block h-auto w-full" />
+      <span ref={flashRef} className="camp-flash" />
+    </button>
+  );
+}
+
+type Rig = { id: string; name: string; left: number; top: number; w: number; h: number; src: string; pace: string };
+
+const WIDE_RIGS: Rig[] = [
+  { id: "tank", name: "Танк", left: 70.2, top: 52.2, w: 14.6, h: 11, src: "/camp-bits/eng-tank.wav", pace: "0.16s" },
+  { id: "bmp", name: "БМП", left: 67.4, top: 66.4, w: 17, h: 11.2, src: "/camp-bits/eng-bmp.wav", pace: "0.13s" },
+  { id: "moto", name: "Мотоциклы", left: 32.6, top: 69.6, w: 7.8, h: 12, src: "/camp-bits/eng-moto.wav", pace: "0.07s" },
+  { id: "quad", name: "Квадроциклы", left: 39.2, top: 72.4, w: 7.2, h: 9.2, src: "/camp-bits/eng-quad.wav", pace: "0.09s" },
+];
+
+const PHONE_RIGS: Rig[] = [
+  { id: "tank", name: "Танк", left: 62, top: 42, w: 22, h: 6.4, src: "/camp-bits/eng-tank.wav", pace: "0.16s" },
+  { id: "bmp", name: "БМП", left: 60, top: 49.6, w: 24, h: 6.2, src: "/camp-bits/eng-bmp.wav", pace: "0.13s" },
+  { id: "moto", name: "Мотоциклы", left: 18, top: 53.6, w: 12, h: 4.6, src: "/camp-bits/eng-moto.wav", pace: "0.07s" },
+  { id: "quad", name: "Квадроциклы", left: 27, top: 56.4, w: 12, h: 4.4, src: "/camp-bits/eng-quad.wav", pace: "0.09s" },
+];
+
+function CampRig({ rig, map }: { rig: Rig; map: string }) {
+  const [on, setOn] = useState(false);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const img = useRef<HTMLImageElement>(null);
+  const toggle = () => {
+    if (!audio.current) {
+      const clip = new Audio(rig.src);
+      clip.loop = true;
+      audio.current = clip;
+    }
+    const clip = audio.current;
+    const next = !on;
+    if (img.current) img.current.style.animation = next ? `camp-idle ${rig.pace} linear infinite` : "none";
+    if (next) clip.play().catch(() => {});
+    else clip.pause();
+    setOn(next);
+  };
+  return (
+    <button
+      type="button"
+      aria-label={rig.name}
+      className="absolute z-10 overflow-hidden border-0 bg-transparent p-0 outline-none"
+      style={{ left: `${rig.left}%`, top: `${rig.top}%`, width: `${rig.w}%`, height: `${rig.h}%`, outline: "none" }}
+      onClick={toggle}
+    >
+      <img
+        ref={img}
+        src={map}
+        alt=""
+        draggable={false}
+        className="pointer-events-none absolute max-w-none"
+        style={{
+          width: `${10000 / rig.w}%`,
+          height: `${10000 / rig.h}%`,
+          left: `${(-rig.left * 100) / rig.w}%`,
+          top: `${(-rig.top * 100) / rig.h}%`,
+        }}
+      />
+    </button>
+  );
+}
+
+function CampRigs({ phone, map }: { phone: boolean; map: string }) {
+  const rigs = phone ? PHONE_RIGS : WIDE_RIGS;
+  return (
     <>
       <style>{`
         @keyframes camp-recoil { 0% { transform: translate(0,0); } 18% { transform: translate(-8%, 3%); } 100% { transform: translate(0,0); } }
-        @keyframes camp-flash { 0% { opacity: 1; transform: scale(0.3); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.4); } }
-        .camp-flash { position: absolute; right: 0; top: 4%; width: 36%; aspect-ratio: 1; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(circle, #fff8d0 0%, #ffc14a 28%, #ff5a12 55%, transparent 72%); }
+        @keyframes camp-flash { 0% { opacity: 1; transform: scale(0.35); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.3); } }
+        @keyframes camp-idle { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(1px,-1px); } 50% { transform: translate(-1px,1px); } 75% { transform: translate(1px,1px); } }
+        .camp-flash { position: absolute; right: -16%; top: -12%; width: 22%; aspect-ratio: 1; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(circle, #fff8d0 0%, #ffc14a 28%, #ff5a12 55%, transparent 72%); }
       `}</style>
-      <button
-        type="button"
-        aria-label="Гаубица"
-        className="absolute z-20 h-auto border-0 bg-transparent p-0 leading-none"
-        style={box}
-        onClick={() => {
-          const clip = audio.current;
-          if (!clip) return;
-          clip.currentTime = 0;
-          clip.play().catch(() => {});
-          const img = imgRef.current;
-          const flash = flashRef.current;
-          if (img) {
-            img.style.animation = "none";
-            void img.offsetWidth;
-            img.style.animation = "camp-recoil .55s ease-out";
-          }
-          if (flash) {
-            flash.style.animation = "none";
-            void flash.offsetWidth;
-            flash.style.animation = "camp-flash .4s ease-out";
-          }
-        }}
-      >
-        <img ref={imgRef} src="/camp-bits/howitzer.png" alt="" draggable={false} className="pointer-events-none block h-auto w-full" />
-        <span ref={flashRef} className="camp-flash" />
-      </button>
+      {rigs.map((rig) => (
+        <CampRig key={rig.id} rig={rig} map={map} />
+      ))}
     </>
   );
 }
@@ -647,6 +681,7 @@ export function Yard() {
             </button>
             );
           })}
+          {quietCamp ? <CampRigs phone={stage === "phone"} map={yardMap.src} /> : null}
           {quietCamp ? <CampGun phone={stage === "phone"} /> : null}
           {iAmHost || faces.some((person) => person.figure) ? (
             <button
