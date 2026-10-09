@@ -1004,18 +1004,18 @@ function World({
     window.addEventListener("pointercancel", end);
   }
   const wideSigns: { label: string; left: string; top: string; act: "buy" | "angel" | "bog" | "field" | "yaga" | "north" | "city" | "title" }[] = [
-    { label: "Снежинка северянка", left: "26.6%", top: "5.6%", act: "north" },
-    { label: "DJ Angel A", left: "69.8%", top: "24.1%", act: "angel" },
-    { label: "Продаётся", left: "49.2%", top: "27.7%", act: "buy" },
-    { label: "Продаётся", left: "62.9%", top: "45.5%", act: "buy" },
-    { label: "Продаётся", left: "42.3%", top: "52.2%", act: "buy" },
-    { label: "Продаётся", left: "54.2%", top: "67.3%", act: "buy" },
-    { label: "Продаётся", left: "24.6%", top: "72.3%", act: "buy" },
-    { label: "Продаётся", left: "34.6%", top: "66.3%", act: "buy" },
-    { label: "Продаётся", left: "35%", top: "81.4%", act: "buy" },
-    { label: "Феномен бабы яги", left: "8.3%", top: "35.8%", act: "yaga" },
-    { label: "болота голума", left: "3.4%", top: "78.6%", act: "bog" },
-    { label: "поле пресейвов", left: "74%", top: "68.7%", act: "field" },
+    { label: "Снежинка северянка", left: "28%", top: "11%", act: "north" },
+    { label: "DJ Angel A", left: "73%", top: "27%", act: "angel" },
+    { label: "Продаётся", left: "52%", top: "32%", act: "buy" },
+    { label: "Продаётся", left: "66%", top: "47%", act: "buy" },
+    { label: "Продаётся", left: "47%", top: "54%", act: "buy" },
+    { label: "Продаётся", left: "60%", top: "66%", act: "buy" },
+    { label: "Продаётся", left: "34%", top: "66%", act: "buy" },
+    { label: "Продаётся", left: "30%", top: "75%", act: "buy" },
+    { label: "Продаётся", left: "38%", top: "80%", act: "buy" },
+    { label: "Феномен бабы яги", left: "16%", top: "38%", act: "yaga" },
+    { label: "болота голума", left: "4%", top: "84%", act: "bog" },
+    { label: "поле пресейвов", left: "78%", top: "68%", act: "field" },
   ];
   const phoneSigns: typeof wideSigns = [
     { label: "ГОРОД", left: "3.4%", top: "1.6%", act: "city" },
