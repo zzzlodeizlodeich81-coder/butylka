@@ -48,6 +48,7 @@
       <label class="check"><input id="even" type="checkbox" checked> Ровные стороны у квадрата</label>
       <input id="name" type="text" placeholder="Имя: крыша, буква, человечек" maxlength="40">
       <div id="which">Картинка не открыта.</div>
+      <div id="live">Сначала открой картинку.</div>
       <button type="button" class="go" id="fix">Зафиксировать</button>
       <div id="list"></div>
       <button type="button" id="copy">Скопировать всё</button>
@@ -126,6 +127,7 @@
     }
 
     function show(obj) {
+      if (!live) return;
       if (!pic.src) { live.textContent = "Сначала открой картинку."; return; }
       if (!obj) { live.textContent = "Кликни по картинке."; return; }
       if (obj.kind === "point") {
@@ -245,8 +247,8 @@
       const p = at(ev);
       if (mode === "point") {
         draft = { kind: "point", x: p.x, y: p.y };
-        show(draft);
         draw();
+        show(draft);
         return;
       }
       drag = p;
@@ -255,8 +257,8 @@
       if (!drag) return;
       const p = at(ev);
       draft = mode === "circle" ? circle(drag, p) : square(drag, p);
-      show(draft);
       draw();
+      show(draft);
     };
     window.onmouseup = () => { drag = null; };
 
