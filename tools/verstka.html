@@ -10,9 +10,9 @@
     h1 { margin: 0; font-size: 28px; font-weight: 600; }
     p.hint { margin: 6px 0 0; color: #c4a574; font-size: 16px; }
     main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 12px; }
-    #stage { position: relative; background: #0c0708; min-height: 240px; overflow: auto; }
-    #pic { display: block; max-width: 100%; height: auto; user-select: none; }
-    #over { position: absolute; left: 0; top: 0; cursor: crosshair; }
+    #stage { position: relative; background: #0c0708; min-height: 240px; touch-action: none; cursor: crosshair; }
+    #pic { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+    #over { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     aside { display: flex; flex-direction: column; gap: 10px; }
     button, label.file { background: #2a1a0c; color: #f4e4c4; border: 1px solid #c4a574; border-radius: 12px; padding: 12px 14px; font: inherit; cursor: pointer; }
     button.on { background: #f4e4c4; color: #1a120c; }
@@ -20,7 +20,8 @@
     .row { display: flex; gap: 8px; }
     .row button { flex: 1; }
     input[type="text"] { width: 100%; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid #c4a574; background: #0c0708; color: #f4e4c4; }
-    #live { background: #0c0708; border-radius: 12px; padding: 12px; min-height: 132px; white-space: pre-wrap; font-variant-numeric: tabular-nums; }
+    #live, #which { background: #0c0708; border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+    #live { min-height: 132px; font-variant-numeric: tabular-nums; }
     #list { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow: auto; }
     .item { background: #0c0708; border-radius: 12px; padding: 8px 10px; font-size: 16px; }
     .item button { padding: 6px 10px; font-size: 16px; margin-top: 6px; }
@@ -31,7 +32,7 @@
 <body>
   <header>
     <h1>Вёрстка</h1>
-    <p class="hint">У каждой картинки свои точки. Открыл другую — чужие метки прячутся. Имя файла не меняй: по нему лист и запоминается.</p>
+    <p class="hint">Клик по картинке ставит точку. Квадрат и круг протяни мышью. У каждой картинки свой лист.</p>
   </header>
   <main>
     <div id="stage">
@@ -46,7 +47,7 @@
         <button type="button" id="m-circle">Круг</button>
       </div>
       <label class="check"><input id="even" type="checkbox" checked> Ровные стороны у квадрата</label>
-      <input id="name" type="text" placeholder="Имя: крыша, буква, человечек" maxlength="40">
+      <input id="name" type="text" placeholder="Имя: во двор, болота, ангел" maxlength="40">
       <div id="which">Картинка не открыта.</div>
       <div id="live">Сначала открой картинку.</div>
       <button type="button" class="go" id="fix">Зафиксировать</button>
@@ -56,6 +57,7 @@
   </main>
   <script>
     const pic = document.getElementById("pic");
+    const stage = document.getElementById("stage");
     const over = document.getElementById("over");
     const ctx = over.getContext("2d");
     const live = document.getElementById("live");
@@ -70,32 +72,22 @@
 
     function sheet() {
       if (!fileName) return [];
-      if (!books[fileName]) books[fileName] = [];
+      if (!Array.isArray(books[fileName])) books[fileName] = [];
       return books[fileName];
     }
     function saveBooks() {
-      localStorage.setItem("verstka-books", JSON.stringify(books));
+      try { localStorage.setItem("verstka-books", JSON.stringify(books)); } catch (e) {}
     }
-
     function pct(n) { return Math.round(n * 10) / 10; }
     function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 
-    function fit() {
-      const w = pic.clientWidth;
-      const h = pic.clientHeight;
-      if (!w || !h) return;
-      over.width = w;
-      over.height = h;
-      over.style.width = w + "px";
-      over.style.height = h + "px";
-      draw();
-    }
-
-    function at(ev) {
-      const r = over.getBoundingClientRect();
-      const x = clamp((ev.clientX - r.left) / r.width * 100, 0, 100);
-      const y = clamp((ev.clientY - r.top) / r.height * 100, 0, 100);
-      return { x: pct(x), y: pct(y) };
+    function place(ev) {
+      const r = pic.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      return {
+        x: pct(clamp((ev.clientX - r.left) / r.width * 100, 0, 100)),
+        y: pct(clamp((ev.clientY - r.top) / r.height * 100, 0, 100))
+      };
     }
 
     function square(a, b) {
@@ -108,16 +100,13 @@
       }
       const x = w < 0 ? a.x + w : a.x;
       const y = h < 0 ? a.y + h : a.y;
-      return { kind: "box", x: pct(x), y: pct(y), w: pct(Math.abs(w)), h: pct(Math.abs(h)) };
+      return { kind: "box", x: pct(clamp(x, 0, 100)), y: pct(clamp(y, 0, 100)), w: pct(Math.abs(w)), h: pct(Math.abs(h)) };
     }
-
     function circle(a, b) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const r = pct(Math.sqrt(dx * dx + dy * dy));
-      return { kind: "circle", x: a.x, y: a.y, r };
+      return { kind: "circle", x: a.x, y: a.y, r: pct(Math.sqrt(dx * dx + dy * dy)) };
     }
-
     function textOf(obj) {
       const title = obj.name || "без имени";
       if (obj.kind === "point") return "точка «" + title + "» x " + obj.x + "% y " + obj.y + "%";
@@ -125,22 +114,22 @@
       if (obj.w === obj.h) return "квадрат «" + title + "» x " + obj.x + "% y " + obj.y + "% сторона " + obj.w + "%";
       return "квадрат «" + title + "» x " + obj.x + "% y " + obj.y + "% ширина " + obj.w + "% высота " + obj.h + "%";
     }
-
     function show(obj) {
-      if (!live) return;
-      if (!pic.src) { live.textContent = "Сначала открой картинку."; return; }
+      if (!pic.getAttribute("src")) { live.textContent = "Сначала открой картинку."; return; }
       if (!obj) { live.textContent = "Кликни по картинке."; return; }
-      if (obj.kind === "point") {
-        live.textContent = "Точка\nX  " + obj.x + "%\nY  " + obj.y + "%";
-      } else if (obj.kind === "circle") {
-        live.textContent = "Круг\nX  " + obj.x + "%\nY  " + obj.y + "%\nрадиус  " + obj.r + "%";
-      } else if (obj.w === obj.h) {
-        live.textContent = "Квадрат\nX  " + obj.x + "%\nY  " + obj.y + "%\nсторона  " + obj.w + "%";
-      } else {
-        live.textContent = "Квадрат\nX  " + obj.x + "%\nY  " + obj.y + "%\nширина  " + obj.w + "%\nвысота  " + obj.h + "%";
-      }
+      if (obj.kind === "point") live.textContent = "Точка\nX  " + obj.x + "%\nY  " + obj.y + "%";
+      else if (obj.kind === "circle") live.textContent = "Круг\nX  " + obj.x + "%\nY  " + obj.y + "%\nрадиус  " + obj.r + "%";
+      else if (obj.w === obj.h) live.textContent = "Квадрат\nX  " + obj.x + "%\nY  " + obj.y + "%\nсторона  " + obj.w + "%";
+      else live.textContent = "Квадрат\nX  " + obj.x + "%\nY  " + obj.y + "%\nширина  " + obj.w + "%\nвысота  " + obj.h + "%";
     }
-
+    function fit() {
+      const w = Math.round(pic.clientWidth);
+      const h = Math.round(pic.clientHeight);
+      if (!w || !h) return;
+      if (over.width !== w) over.width = w;
+      if (over.height !== h) over.height = h;
+      draw();
+    }
     function drawOne(obj, color) {
       const W = over.width;
       const H = over.height;
@@ -148,63 +137,42 @@
       ctx.fillStyle = color;
       ctx.lineWidth = 2;
       if (obj.kind === "point") {
-        const x = obj.x / 100 * W;
-        const y = obj.y / 100 * H;
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.arc(obj.x / 100 * W, obj.y / 100 * H, 7, 0, Math.PI * 2);
         ctx.fill();
       } else if (obj.kind === "circle") {
-        const x = obj.x / 100 * W;
-        const y = obj.y / 100 * H;
-        const rx = obj.r / 100 * W;
-        const ry = obj.r / 100 * H;
         ctx.beginPath();
-        ctx.ellipse(x, y, Math.max(2, rx), Math.max(2, ry), 0, 0, Math.PI * 2);
+        ctx.ellipse(obj.x / 100 * W, obj.y / 100 * H, Math.max(2, obj.r / 100 * W), Math.max(2, obj.r / 100 * H), 0, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fill();
       } else {
         ctx.strokeRect(obj.x / 100 * W, obj.y / 100 * H, obj.w / 100 * W, obj.h / 100 * H);
       }
       if (obj.name) {
         ctx.font = "16px sans-serif";
-        ctx.fillText(obj.name, (obj.x / 100 * W) + 8, (obj.y / 100 * H) - 6);
+        ctx.fillText(obj.name, obj.x / 100 * W + 8, obj.y / 100 * H - 6);
       }
     }
-
     function draw() {
       if (!over.width) return;
       ctx.clearRect(0, 0, over.width, over.height);
       ctx.strokeStyle = "rgba(244,228,196,0.35)";
-      ctx.fillStyle = "rgba(244,228,196,0.8)";
+      ctx.fillStyle = "rgba(244,228,196,0.85)";
       ctx.lineWidth = 1;
       ctx.font = "12px sans-serif";
       for (let i = 0; i <= 20; i++) {
         const x = over.width * i / 20;
         const y = over.height * i / 20;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, over.height);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(over.width, y);
-        ctx.stroke();
-        if (i % 2 === 0) {
-          ctx.fillText(i * 5 + "%", x + 2, 14);
-          ctx.fillText(i * 5 + "%", 2, y + 14);
-        }
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, over.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(over.width, y); ctx.stroke();
+        if (i % 2 === 0) { ctx.fillText(i * 5 + "%", x + 2, 14); ctx.fillText(i * 5 + "%", 2, y + 14); }
       }
       sheet().forEach((obj) => drawOne(obj, "#7dcea0"));
-      if (draft) drawOne(draft, "#f4e4c4");
+      if (draft) drawOne(draft, "#ff5a36");
     }
-
     function paintList() {
       const box = document.getElementById("list");
-      const which = document.getElementById("which");
+      document.getElementById("which").textContent = fileName ? fileName + " — меток " + sheet().length : "Картинка не открыта.";
       box.innerHTML = "";
-      which.textContent = fileName ? fileName + " — меток " + sheet().length : "Картинка не открыта.";
       sheet().forEach((obj, index) => {
         const row = document.createElement("div");
         row.className = "item";
@@ -218,14 +186,11 @@
         box.appendChild(row);
       });
     }
-
     function setMode(next) {
       mode = next;
       draft = null;
       drag = null;
-      ["point", "box", "circle"].forEach((id) => {
-        document.getElementById("m-" + id).classList.toggle("on", id === next);
-      });
+      ["point", "box", "circle"].forEach((id) => document.getElementById("m-" + id).classList.toggle("on", id === next));
       show(null);
       draw();
     }
@@ -235,37 +200,44 @@
       if (!file) return;
       fileName = file.name;
       draft = null;
-      pic.onload = () => { fit(); paintList(); };
+      drag = null;
+      pic.onload = () => { fit(); paintList(); show(null); };
       pic.src = URL.createObjectURL(file);
     };
     document.getElementById("m-point").onclick = () => setMode("point");
     document.getElementById("m-box").onclick = () => setMode("box");
     document.getElementById("m-circle").onclick = () => setMode("circle");
 
-    over.onmousedown = (ev) => {
-      if (!pic.src) return;
-      const p = at(ev);
+    stage.addEventListener("pointerdown", (ev) => {
+      if (ev.target.closest && ev.target.closest("button,input,label,a")) return;
+      if (!pic.naturalWidth) { live.textContent = "Сначала открой картинку."; return; }
+      const p = place(ev);
+      if (!p) return;
+      ev.preventDefault();
       if (mode === "point") {
         draft = { kind: "point", x: p.x, y: p.y };
-        draw();
         show(draft);
+        draw();
         return;
       }
       drag = p;
-    };
-    over.onmousemove = (ev) => {
+      try { stage.setPointerCapture(ev.pointerId); } catch (e) {}
+    });
+    stage.addEventListener("pointermove", (ev) => {
       if (!drag) return;
-      const p = at(ev);
+      const p = place(ev);
+      if (!p) return;
       draft = mode === "circle" ? circle(drag, p) : square(drag, p);
-      draw();
       show(draft);
-    };
-    window.onmouseup = () => { drag = null; };
+      draw();
+    });
+    function stopDrag() { drag = null; }
+    stage.addEventListener("pointerup", stopDrag);
+    stage.addEventListener("pointercancel", stopDrag);
 
     document.getElementById("fix").onclick = () => {
-      if (!draft) return;
-      const named = Object.assign({}, draft, { name: nameBox.value.trim() });
-      sheet().push(named);
+      if (!draft || !fileName) { live.textContent = draft ? "Сначала открой картинку." : "Сначала кликни по картинке."; return; }
+      sheet().push(Object.assign({}, draft, { name: nameBox.value.trim() }));
       saveBooks();
       draft = null;
       nameBox.value = "";
@@ -273,7 +245,6 @@
       paintList();
       draw();
     };
-
     document.getElementById("copy").onclick = async () => {
       const lines = [];
       Object.keys(books).forEach((name) => {
@@ -282,15 +253,11 @@
         lines.push("картинка: " + name);
         rows.forEach((obj) => lines.push(textOf(obj)));
       });
-      const body = lines.join("\n");
-      try {
-        await navigator.clipboard.writeText(body);
-        live.textContent = "Скопировано. Вставь мне в чат.\n\n" + body;
-      } catch {
-        live.textContent = "Само не скопировалось. Выдели текст ниже и скопируй.\n\n" + body;
-      }
+      const body = lines.join("\n") || "Меток ещё нет.";
+      try { await navigator.clipboard.writeText(body); } catch (e) {}
+      live.textContent = "Скопировано. Вставь мне в чат.\n\n" + body;
     };
-
+    if (window.ResizeObserver) new ResizeObserver(fit).observe(pic);
     window.addEventListener("resize", fit);
   </script>
 </body>
