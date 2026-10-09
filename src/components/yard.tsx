@@ -74,9 +74,9 @@ function MapStage({
 const CAMP_LABEL: Record<string, string> = {
   record: "Блиндаж записи",
   factory: "Аппаратная",
-  frame: "Планшет",
-  atelier: "Маскировочная",
-  stage: "Караулка",
+  frame: "Тактическая карта",
+  atelier: "Мастерская",
+  stage: "Сцена",
   cinema: "Кинобудка",
   organ: "Маэстро",
   market: "Обоз",
