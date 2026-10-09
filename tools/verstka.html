@@ -9,10 +9,10 @@
     header { padding: 14px 16px 8px; }
     h1 { margin: 0; font-size: 28px; font-weight: 600; }
     p.hint { margin: 6px 0 0; color: #c4a574; font-size: 16px; }
-    main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 12px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 12px; align-items: start; }
     #stage { position: relative; background: #0c0708; min-height: 240px; touch-action: none; cursor: crosshair; }
     #pic { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
-    #over { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #over { position: absolute; left: 0; top: 0; pointer-events: none; }
     aside { display: flex; flex-direction: column; gap: 10px; }
     button, label.file { background: #2a1a0c; color: #f4e4c4; border: 1px solid #c4a574; border-radius: 12px; padding: 12px 14px; font: inherit; cursor: pointer; }
     button.on { background: #f4e4c4; color: #1a120c; }
@@ -21,7 +21,7 @@
     .row button { flex: 1; }
     input[type="text"] { width: 100%; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid #c4a574; background: #0c0708; color: #f4e4c4; }
     #live, #which { background: #0c0708; border-radius: 12px; padding: 12px; white-space: pre-wrap; }
-    #live { min-height: 132px; font-variant-numeric: tabular-nums; }
+    #live { min-height: 132px; max-height: 220px; overflow: auto; font-variant-numeric: tabular-nums; }
     #list { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow: auto; }
     .item { background: #0c0708; border-radius: 12px; padding: 8px 10px; font-size: 16px; }
     .item button { padding: 6px 10px; font-size: 16px; margin-top: 6px; }
@@ -128,6 +128,8 @@
       if (!w || !h) return;
       if (over.width !== w) over.width = w;
       if (over.height !== h) over.height = h;
+      over.style.width = w + "px";
+      over.style.height = h + "px";
       draw();
     }
     function drawOne(obj, color) {
