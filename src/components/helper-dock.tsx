@@ -25,9 +25,9 @@ function Sprite({ who }: { who: Who }) {
   return <img src={COPY.angel.face} alt="" className="h-40 w-28 shrink-0 rounded-2xl object-cover object-top" />;
 }
 
-export function HelperChat({ who, onClose }: { who: Who; onClose: () => void }) {
+export function HelperChat({ who, onClose, start = "" }: { who: Who; onClose: () => void; start?: string }) {
   const [lines, setLines] = useState<Line[]>([]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(start);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const copy = COPY[who];
@@ -145,7 +145,7 @@ export function HelperDock() {
   );
 }
 
-export function AngelHouse({ onClose }: { onClose: () => void }) {
+export function AngelHouse({ onClose, onPath }: { onClose: () => void; onPath?: () => void }) {
   const [chat, setChat] = useState(false);
   return (
     <div className="absolute inset-0 z-40 bg-[#f3ead7]">
@@ -153,6 +153,9 @@ export function AngelHouse({ onClose }: { onClose: () => void }) {
       <div className="absolute top-0 left-0 z-10 flex flex-nowrap gap-2 px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className="rounded-full bg-black/55 px-3 py-1 text-sm text-white" onClick={onClose}>
           На карту
+        </button>
+        <button type="button" className="rounded-full bg-white px-3 py-1 text-sm text-black" onClick={() => onPath?.()}>
+          Путь релиза
         </button>
         <button type="button" className="rounded-full bg-white px-3 py-1 text-sm text-black" onClick={() => setChat(true)}>
           Поговорить

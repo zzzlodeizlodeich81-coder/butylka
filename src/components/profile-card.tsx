@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { artistCardLine } from "@/components/release-path";
 
 function shrinkFace(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -29,7 +30,7 @@ function shrinkFace(file: File) {
   });
 }
 
-export function ProfileCard({ onClose }: { onClose: () => void }) {
+export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?: () => void }) {
   const [name, setName] = useState("");
   const [login, setLogin] = useState("");
   const [current, setCurrent] = useState("");
@@ -101,6 +102,10 @@ export function ProfileCard({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="mt-1 text-xs text-[#c4a574]">Ник, логин, пароль и лицо. Анкету не собираем.</p>
+        <button type="button" className="mt-3 w-full rounded-xl bg-[#f4e4c4] px-3 py-2 text-left text-sm text-[#1a120c]" onClick={() => onPath?.()}>
+          <span className="block font-medium">Путь релиза</span>
+          <span className="block text-xs">{artistCardLine() || "Карточка артиста ещё пустая. Анджел проведёт от текста до посева."}</span>
+        </button>
         <label className="mt-3 block text-xs">
           Ник
           <input className="mt-1 w-full rounded-xl bg-black/30 px-3 py-2 text-sm outline-none" value={name} onChange={(e) => setName(e.target.value)} />

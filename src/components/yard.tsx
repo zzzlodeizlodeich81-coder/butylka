@@ -7,6 +7,7 @@ import { ContestHall, FameCard, OrganCard, PresaveSheet, ReleaseCard, YardChat }
 import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HostChat } from "@/components/host-chat";
+import { ReleasePath } from "@/components/release-path";
 import { AngelHouse, HelperDock } from "@/components/helper-dock";
 import { ProfileCard } from "@/components/profile-card";
 import { HuntRoom } from "@/components/manor-rooms";
@@ -202,6 +203,7 @@ export function Yard() {
   const [mess, setMess] = useState(false);
   const [field, setField] = useState(false);
   const [angel, setAngel] = useState(false);
+  const [path, setPath] = useState(false);
   const [profile, setProfile] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
   const [lock, setLock] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member: boolean } | null>(null);
@@ -360,6 +362,7 @@ export function Yard() {
     { label: "Дом", onClick: () => setPlot(true) },
     { label: "Прайс", onClick: () => setPrice(true) },
     { label: "Кабинет", onClick: () => setProfile(true) },
+    { label: "Путь", onClick: () => setPath(true) },
     { label: "Радио", onClick: () => { setRadioOn(true); setRadioOpen(true); } },
   ];
   const desk = (
@@ -370,7 +373,34 @@ export function Yard() {
       {lands ? <LandCard onClose={() => setLands(false)} onEnter={enterPlot} /> : null}
       {plot ? <HouseCard onClose={() => setPlot(false)} /> : null}
       {price ? <PriceSheet onClose={() => setPrice(false)} /> : null}
-      {profile ? <ProfileCard onClose={() => setProfile(false)} /> : null}
+      {profile ? (
+        <ProfileCard
+          onClose={() => setProfile(false)}
+          onPath={() => {
+            setProfile(false);
+            setPath(true);
+          }}
+        />
+      ) : null}
+      {path ? (
+        <ReleasePath
+          onClose={() => setPath(false)}
+          onGo={(id) => {
+            setPath(false);
+            setProfile(false);
+            setAngel(false);
+            if (id === "studio") {
+              toStudio();
+              return;
+            }
+            if (id === "field") {
+              setField(true);
+              return;
+            }
+            setHouse(id);
+          }}
+        />
+      ) : null}
       <HelperDock />
       {radioOn ? <Matreshka open={radioOpen} onClose={() => setRadioOpen(false)} /> : null}
     </>
@@ -394,7 +424,15 @@ export function Yard() {
           onBog={() => setBog(true)}
           menu={menuItems}
         />
-        {angel ? <AngelHouse onClose={() => setAngel(false)} /> : null}
+        {angel ? (
+          <AngelHouse
+            onClose={() => setAngel(false)}
+            onPath={() => {
+              setAngel(false);
+              setPath(true);
+            }}
+          />
+        ) : null}
         {bog ? <GollumCave onClose={() => setBog(false)} /> : null}
         {desk}
         {splash ? (
