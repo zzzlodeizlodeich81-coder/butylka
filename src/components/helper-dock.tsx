@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { MaxFigure } from "@/components/max-figure";
 import { Button } from "@/components/ui/button";
-import { NOTE_PRICE } from "@/lib/notes";
 import { useWallet } from "@/lib/wallet";
 
-type Who = "angel" | "tech";
-type Line = { role: "user" | "assistant"; content: string };
+type Who = "angel" | "tech" | "master";
+type Line = { role: "user" | "assistant"; content: string; bill?: string };
 
 const COPY = {
   angel: {
@@ -18,11 +17,16 @@ const COPY = {
     face: "/manor.jpg",
     ask: "Кнопки, ноты, студия, карта. Спроси, как это работает.",
   },
+  master: {
+    name: "Фабрика звука",
+    face: "/manor.jpg",
+    ask: "Жанр, настроение и на какую песню похоже. Ручки придут одним сообщением.",
+  },
 } as const;
 
 function Sprite({ who }: { who: Who }) {
   if (who === "tech") return <MaxFigure className="h-64 w-40 shrink-0" />;
-  return <img src={COPY.angel.face} alt="" className="h-40 w-28 shrink-0 rounded-2xl object-cover object-top" />;
+  return <img src={COPY[who].face} alt="" className="h-40 w-28 shrink-0 rounded-2xl object-cover object-top" />;
 }
 
 export function HelperChat({ who, onClose, start = "" }: { who: Who; onClose: () => void; start?: string }) {
@@ -47,13 +51,13 @@ export function HelperChat({ who, onClose, start = "" }: { who: Who; onClose: ()
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: next, history, mode: who }),
         });
-        const data = (await res.json().catch(() => null)) as { text?: string; error?: string; notes?: number } | null;
+        const data = (await res.json().catch(() => null)) as { text?: string; error?: string; notes?: number; bill?: string } | null;
         if (typeof data?.notes === "number") useWallet.getState().apply({ notes: data.notes });
         if (!res.ok || !data?.text) {
           setError(data?.error || "Молчит.");
           return;
         }
-        setLines((cur) => [...cur, { role: "assistant", content: data.text || "" }]);
+        setLines((cur) => [...cur, { role: "assistant", content: data.text || "", bill: data.bill }]);
       } catch {
         setError("Молчит.");
       } finally {
@@ -73,12 +77,13 @@ export function HelperChat({ who, onClose, start = "" }: { who: Who; onClose: ()
               Закрыть
             </button>
           </div>
-          <p className="text-xs text-[#c4a574]">Ответ {NOTE_PRICE.guide} нот. Если молчит, ноты вернутся.</p>
+          <p className="text-xs text-[#c4a574]">Ответ по токенам: себестоимость плюс 50%. Если молчит, ноты не списываются.</p>
           <div className="mt-2 min-h-24 flex-1 space-y-2 overflow-auto">
             {lines.length === 0 ? <p className="text-sm text-[#c4a574]">{copy.ask}</p> : null}
             {lines.map((line, index) => (
               <div key={index} className={`whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${line.role === "user" ? "bg-black/40" : "bg-[#2a1a0c]"}`}>
                 {line.content}
+                {line.bill ? <p className="mt-1 text-[11px] text-[#c4a574]">{line.bill}</p> : null}
               </div>
             ))}
           </div>

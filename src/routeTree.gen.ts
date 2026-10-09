@@ -16,6 +16,7 @@ import { Route as ApiDoorRouteImport } from './routes/api/door'
 import { Route as ApiHostRouteImport } from './routes/api/host'
 import { Route as ApiHostAudioRouteImport } from './routes/api/host-audio'
 import { Route as ApiMasterRouteImport } from './routes/api/master'
+import { Route as ApiVerseRouteImport } from './routes/api/verse'
 import { Route as ApiPaintRouteImport } from './routes/api/paint'
 import { Route as ApiSunoAudioRouteImport } from './routes/api/suno-audio'
 import { Route as ApiSunoHookRouteImport } from './routes/api/suno-hook'
@@ -57,6 +58,11 @@ const ApiHostAudioRoute = ApiHostAudioRouteImport.update({
 const ApiMasterRoute = ApiMasterRouteImport.update({
   id: '/api/master',
   path: '/api/master',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVerseRoute = ApiVerseRouteImport.update({
+  id: '/api/verse',
+  path: '/api/verse',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPaintRoute = ApiPaintRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/master': typeof ApiMasterRoute
+  '/api/verse': typeof ApiVerseRoute
   '/api/paint': typeof ApiPaintRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/master': typeof ApiMasterRoute
+  '/api/verse': typeof ApiVerseRoute
   '/api/paint': typeof ApiPaintRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/api/host': typeof ApiHostRoute
   '/api/host-audio': typeof ApiHostAudioRoute
   '/api/master': typeof ApiMasterRoute
+  '/api/verse': typeof ApiVerseRoute
   '/api/paint': typeof ApiPaintRoute
   '/api/suno-audio': typeof ApiSunoAudioRoute
   '/api/suno-hook': typeof ApiSunoHookRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/api/host'
     | '/api/host-audio'
     | '/api/master'
+    | '/api/verse'
     | '/api/paint'
     | '/api/suno-audio'
     | '/api/suno-hook'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/api/host'
     | '/api/host-audio'
     | '/api/master'
+    | '/api/verse'
     | '/api/paint'
     | '/api/suno-audio'
     | '/api/suno-hook'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/api/host'
     | '/api/host-audio'
     | '/api/master'
+    | '/api/verse'
     | '/api/paint'
     | '/api/suno-audio'
     | '/api/suno-hook'
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   ApiHostRoute: typeof ApiHostRoute
   ApiHostAudioRoute: typeof ApiHostAudioRoute
   ApiMasterRoute: typeof ApiMasterRoute
+  ApiVerseRoute: typeof ApiVerseRoute
   ApiPaintRoute: typeof ApiPaintRoute
   ApiSunoAudioRoute: typeof ApiSunoAudioRoute
   ApiSunoHookRoute: typeof ApiSunoHookRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/api/master'
       fullPath: '/api/master'
       preLoaderRoute: typeof ApiMasterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/verse': {
+      id: '/api/verse'
+      path: '/api/verse'
+      fullPath: '/api/verse'
+      preLoaderRoute: typeof ApiVerseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/paint': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHostRoute: ApiHostRoute,
   ApiHostAudioRoute: ApiHostAudioRoute,
   ApiMasterRoute: ApiMasterRoute,
+  ApiVerseRoute: ApiVerseRoute,
   ApiPaintRoute: ApiPaintRoute,
   ApiSunoAudioRoute: ApiSunoAudioRoute,
   ApiSunoHookRoute: ApiSunoHookRoute,

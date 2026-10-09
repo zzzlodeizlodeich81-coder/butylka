@@ -303,6 +303,20 @@ export async function addPurse(id: string, amount: number) {
   });
 }
 
+export async function chargeTenths(id: string, cost: number) {
+  const price = Math.max(0.1, Math.ceil(Number(cost) * 10) / 10);
+  if (!Number.isFinite(price) || price > 100000) return { ok: false as const, error: "Странная цена.", notes: 0, charged: 0 };
+  return locked(async () => {
+    const book = await readBook();
+    const hit = book.rows.find((row) => row.id === id);
+    if (!hit) return { ok: false as const, error: "Нет такого игрока.", notes: 0, charged: 0 };
+    if (hit.notes + 0.001 < price) return { ok: false as const, error: `Нужно ${price} нот.`, notes: hit.notes, charged: 0 };
+    hit.notes = Math.round((hit.notes - price) * 10) / 10;
+    await writeBook(book);
+    return { ok: true as const, notes: hit.notes, charged: price };
+  });
+}
+
 export async function spendPurse(id: string, cost: number) {
   const price = Math.round(cost);
   if (!Number.isFinite(price) || price < 1) return { ok: false as const, error: "Странная цена.", notes: 0 };

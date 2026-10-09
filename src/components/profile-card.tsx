@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { artistCardLine } from "@/components/release-path";
+import { Notebook } from "@/components/notebook";
 
 function shrinkFace(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -43,6 +44,8 @@ export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?:
     { period: string; closed: boolean; from: string; count: number; paid: number; costRub: number; share: number; shareRub: number; house?: number; houseRub?: number }[]
   >([]);
   const [reportAdmin, setReportAdmin] = useState(false);
+  const [book, setBook] = useState(false);
+  const [assist, setAssist] = useState<{ notes: number; costRub: number; tokens: number; rows: { at: number; mode: string; notes: number; costRub: number; tokens: number }[] } | null>(null);
 
   useEffect(() => {
     void fetch("/api/door", {
@@ -67,6 +70,13 @@ export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?:
         if (!data?.ok) return;
         setReportAdmin(Boolean(data.admin));
         setReports(Array.isArray(data.rows) ? data.rows : []);
+      })
+      .catch(() => undefined);
+    void fetch("/api/host")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.ok) return;
+        setAssist({ notes: data.notes || 0, costRub: data.costRub || 0, tokens: data.tokens || 0, rows: data.rows || [] });
       })
       .catch(() => undefined);
   }, []);
@@ -94,7 +104,7 @@ export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?:
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center">
-      <div className="w-full max-w-sm rounded-3xl bg-[#1a120c] p-4 text-[#f4e4c4]">
+      <div className="max-h-[88dvh] w-full max-w-sm overflow-auto rounded-3xl bg-[#1a120c] p-4 text-[#f4e4c4]">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-2xl">Кабинет</h2>
           <button type="button" className="rounded-full bg-white/10 px-3 py-1 text-sm" onClick={onClose}>
@@ -105,6 +115,10 @@ export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?:
         <button type="button" className="mt-3 w-full rounded-xl bg-[#f4e4c4] px-3 py-2 text-left text-sm text-[#1a120c]" onClick={() => onPath?.()}>
           <span className="block font-medium">Путь релиза</span>
           <span className="block text-xs">{artistCardLine() || "Карточка артиста ещё пустая. Анджел проведёт от текста до посева."}</span>
+        </button>
+        <button type="button" className="mt-2 w-full rounded-xl bg-white/10 px-3 py-2 text-left text-sm" onClick={() => setBook(true)}>
+          <span className="block font-medium">Блокнот</span>
+          <span className="block text-xs text-[#c4a574]">Черновики здесь. В сборнике двора текст заморожен.</span>
         </button>
         <label className="mt-3 block text-xs">
           Ник
@@ -224,6 +238,17 @@ export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?:
           </Button>
         </div>
         <div className="mt-4 border-t border-white/10 pt-3">
+          <p className="font-display text-xl">Помощник</p>
+          <p className="mt-1 text-xs text-[#c4a574]">
+            Факт, не прайс. Себестоимость {assist?.costRub ?? 0} ₽, списано {assist?.notes ?? 0} нот, токенов {assist?.tokens ?? 0}. Сверху к себестоимости 50%.
+          </p>
+          {(assist?.rows || []).map((row) => (
+            <p key={row.at} className="mt-1 text-xs text-[#e7d3b0]">
+              {new Date(row.at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {row.mode} · {row.notes} нот · {row.costRub} ₽ · {row.tokens} ток.
+            </p>
+          ))}
+        </div>
+        <div className="mt-4 border-t border-white/10 pt-3">
           <p className="font-display text-xl">Отчёты</p>
           <p className="mt-1 text-xs text-[#c4a574]">
             {reportAdmin
@@ -248,6 +273,7 @@ export function ProfileCard({ onClose, onPath }: { onClose: () => void; onPath?:
           ))}
         </div>
       </div>
+      {book ? <Notebook onClose={() => setBook(false)} /> : null}
     </div>
   );
 }

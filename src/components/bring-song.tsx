@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link2, Mic, Music, Play, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { HelperChat } from "@/components/helper-dock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KaraokeCook } from "@/components/karaoke-cook";
@@ -98,6 +99,8 @@ export function BringSong() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [studio, setStudio] = useState<SavedTrack | null>(null);
   const [desk, setDesk] = useState<Desk>("home");
+  const [narrow, setNarrow] = useState(false);
+  const [ask, setAsk] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
 
@@ -428,10 +431,18 @@ export function BringSong() {
   }
 
   return (
-    <div className="flex flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className={narrow ? "mx-auto flex max-h-[86dvh] w-full max-w-xl flex-col overflow-auto rounded-3xl border border-border bg-bg px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]" : "flex flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl text-fg">Студия</h1>
+          <div className="mt-2 flex gap-2">
+            <button type="button" className="rounded-full border border-border px-3 py-1 text-xs" onClick={() => setNarrow((v) => !v)}>
+              {narrow ? "На весь экран" : "Окно"}
+            </button>
+            <button type="button" className="rounded-full bg-fg px-3 py-1 text-xs text-bg" onClick={() => setAsk(true)}>
+              Позвать
+            </button>
+          </div>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">
             Ссылка с твоего Suno — плюс, минус, караоке. Или сварить новый. Балалаечка — если захотите за столом.
           </p>
@@ -693,6 +704,7 @@ export function BringSong() {
           <p className="text-center text-xs text-subtle">По желанию. Студия от этого не зависит.</p>
         </div>
       ) : null}
+      {ask ? <HelperChat who="angel" onClose={() => setAsk(false)} /> : null}
     </div>
   );
 }

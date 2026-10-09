@@ -57,23 +57,12 @@ function StepScreen({ id, card }: { id: string; card: Card }) {
       </Screen>
     );
   }
-  if (id === "stihi") {
+  if (id === "book") {
     return (
-      <Screen title="stihi.ru · новое произведение">
-        <Field label="НАЗВАНИЕ" value={card.track} />
-        <Field label="ТЕКСТ" value="свой текст целиком, первая редакция" hint="чужое не вставлять" />
-        <div className="rounded-lg bg-[#2a1a0c] px-2 py-1.5 text-center text-sm text-[#f4e4c4]">Опубликовать</div>
-        <p className="text-[11px] leading-snug">
-          Потом: мои произведения, свидетельство. В нём дата и исходный текст. Ссылка{" "}
-          <a className="underline" href="https://stihi.ru" target="_blank" rel="noreferrer">
-            stihi.ru
-          </a>
-          , правила свидетельства{" "}
-          <a className="underline" href="https://o.stihi.ru/svidetelstvo" target="_blank" rel="noreferrer">
-            здесь
-          </a>
-          .
-        </p>
+      <Screen title="Блокнот · кабинет">
+        <Field label="ЧЕРНОВИК" value={card.track || "правится только у автора"} />
+        <Field label="СБОРНИК" value="копия с датой, без правки" />
+        <Field label="SUNO" value="[Intro] [Verse] [Chorus] [Bridge] [Outro]" />
       </Screen>
     );
   }
@@ -234,11 +223,6 @@ export function ReleasePath({ onClose, onGo }: { onClose: () => void; onGo: (id:
             <Button className="rounded-xl" onClick={() => onGo(current.go as PathGo)}>
               {current.goLabel}
             </Button>
-          ) : null}
-          {current.id === "stihi" ? (
-            <a className="rounded-xl bg-white/10 px-3 py-2 text-center text-sm" href="https://stihi.ru" target="_blank" rel="noreferrer">
-              Открыть Стихи.ру
-            </a>
           ) : null}
           {current.id === "bandlink" ? (
             <a className="rounded-xl bg-white/10 px-3 py-2 text-center text-sm" href="https://band.link" target="_blank" rel="noreferrer">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HelperChat } from "@/components/helper-dock";
 import { videoNotes } from "@/lib/notes";
 import { useWallet } from "@/lib/wallet";
 
@@ -51,6 +52,8 @@ export function Atelier({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState("");
   const [error, setError] = useState("");
+  const [full, setFull] = useState(false);
+  const [ask, setAsk] = useState(false);
 
   function takeNotes(header: string | null, bodyNotes?: number) {
     const raw = header ?? (typeof bodyNotes === "number" ? String(bodyNotes) : "");
@@ -128,13 +131,21 @@ export function Atelier({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="absolute inset-0 z-20 flex items-end bg-black/40">
-      <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-[#2a1a0c] px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] text-[#f4e4c4]">
+    <div className={full ? "absolute inset-0 z-20 flex flex-col bg-black/40" : "absolute inset-0 z-20 flex items-end bg-black/40"}>
+      <div className={full ? "flex h-full w-full flex-col overflow-auto bg-[#2a1a0c] px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] text-[#f4e4c4]" : "max-h-[78%] w-full overflow-auto rounded-t-3xl bg-[#2a1a0c] px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] text-[#f4e4c4]"}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-display text-2xl">Мастерская</h2>
-          <Button variant="ghost" className="text-[#f4e4c4]" onClick={onClose}>
-            На двор
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="rounded-full" onClick={() => setFull((v) => !v)}>
+              {full ? "Окно" : "На весь экран"}
+            </Button>
+            <Button variant="secondary" className="rounded-full" onClick={() => setAsk(true)}>
+              Позвать
+            </Button>
+            <Button variant="ghost" className="text-[#f4e4c4]" onClick={onClose}>
+              На двор
+            </Button>
+          </div>
         </div>
         <p className="mt-2 text-sm text-[#c4a574]">
           Старый Grok: картинка 20 нот, ролик 60 / 110 / 160. Flux и Sana бесплатные. Если не вышло, ноты вернутся.
@@ -291,6 +302,7 @@ export function Atelier({ onClose }: { onClose: () => void }) {
           </a>
         ) : null}
       </div>
+      {ask ? <HelperChat who={mode === "video" ? "angel" : "angel"} onClose={() => setAsk(false)} /> : null}
     </div>
   );
 }

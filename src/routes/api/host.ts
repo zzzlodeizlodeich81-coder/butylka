@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { NOTE_PRICE } from "@/lib/notes";
-import { addPurse, guestFromRequest, spendPurse } from "@/lib/purse.server";
+import { assistBill, guessTokens } from "@/lib/assist-bill";
+import { addAssistLine, assistFor } from "@/lib/assist-ledger.server";
+import { chargeTenths, guestFromRequest, readPurse } from "@/lib/purse.server";
 
 const FALLBACK = `Ты хозяин особняка XXV Kadr. Говоришь коротко, по-русски, как человек у камина, не как справочник.
 Если просят стихи или песню, работай так: сначала сочини текст по-английски, с рифмой и размером. Потом сделай литературный поэтический перевод на русский. Смысл, образы и настроение сохрани, рифму подбери заново по-русски, не кальку и не подстрочник.
@@ -29,8 +30,9 @@ async function askModel(system: string, history: Turn[], text: string, image = "
   const folder = process.env.YANDEX_FOLDER_ID || "";
   const groq = process.env.GROQ_API_KEY || "";
   const xai = process.env.XAI_API_KEY || "";
+  const guessIn = guessTokens(system.length + text.length + history.reduce((sum, row) => sum + row.content.length, 0) + (image ? 2000 : 0));
   if (image) {
-    if (!yandexKey || !folder) return { ok: false as const, error: "Скрин некому смотреть: нет ключа Яндекса. Ноты вернул." };
+    if (!yandexKey || !folder) return { ok: false as const, error: "Скрин некому смотреть: нет ключа Яндекса. Ноты не списаны." };
     const shot = image.replace(/^data:image\/[a-z]+;base64,/i, "");
     const res = await fetch("https://ai.api.cloud.yandex.net/v1/chat/completions", {
       method: "POST",
@@ -56,10 +58,12 @@ async function askModel(system: string, history: Turn[], text: string, image = "
         ],
       }),
     });
-    if (!res.ok) return { ok: false as const, error: `Яндекс не разглядел скрин (${res.status}). Ноты вернул.` };
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    if (!res.ok) return { ok: false as const, error: `Яндекс не разглядел скрин (${res.status}). Ноты не списаны.` };
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const reply = (data.choices?.[0]?.message?.content || "").trim();
-    return reply ? { ok: true as const, text: reply } : { ok: false as const, error: "Пустой ответ. Ноты вернул." };
+    return reply
+      ? { ok: true as const, text: reply, inTok: data.usage?.prompt_tokens || guessIn, outTok: data.usage?.completion_tokens || guessTokens(reply.length) }
+      : { ok: false as const, error: "Пустой ответ. Ноты не списаны." };
   }
   const messages = [{ role: "system" as const, content: system }, ...history, { role: "user" as const, content: text }];
   if (yandexKey && folder) {
@@ -76,10 +80,14 @@ async function askModel(system: string, history: Turn[], text: string, image = "
         messages: messages.map((row) => ({ role: row.role, text: row.content })),
       }),
     });
-    if (!res.ok) return { ok: false as const, error: `Яндекс не ответил (${res.status}). Ноты вернул.` };
-    const data = (await res.json()) as { result?: { alternatives?: { message?: { text?: string } }[] } };
+    if (!res.ok) return { ok: false as const, error: `Яндекс не ответил (${res.status}). Ноты не списаны.` };
+    const data = (await res.json()) as {
+      result?: { alternatives?: { message?: { text?: string } }[]; usage?: { inputTextTokens?: string; completionTokens?: string } };
+    };
     const reply = (data.result?.alternatives?.[0]?.message?.text || "").trim();
-    return reply ? { ok: true as const, text: reply } : { ok: false as const, error: "Пустой ответ. Ноты вернул." };
+    const inTok = Number(data.result?.usage?.inputTextTokens || 0) || guessIn;
+    const outTok = Number(data.result?.usage?.completionTokens || 0) || guessTokens(reply.length);
+    return reply ? { ok: true as const, text: reply, inTok, outTok } : { ok: false as const, error: "Пустой ответ. Ноты не списаны." };
   }
   if (!groq && !xai) return { ok: false as const, error: "Хозяин сейчас молчит: нет ключа." };
   const res = await fetch(groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.x.ai/v1/chat/completions", {
@@ -92,10 +100,12 @@ async function askModel(system: string, history: Turn[], text: string, image = "
       messages,
     }),
   });
-  if (!res.ok) return { ok: false as const, error: `Модель не ответила (${res.status}). Ноты вернул.` };
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  if (!res.ok) return { ok: false as const, error: `Модель не ответила (${res.status}). Ноты не списаны.` };
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
   const reply = (data.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-  return reply ? { ok: true as const, text: reply } : { ok: false as const, error: "Пустой ответ. Ноты вернул." };
+  return reply
+    ? { ok: true as const, text: reply, inTok: data.usage?.prompt_tokens || guessIn, outTok: data.usage?.completion_tokens || guessTokens(reply.length) }
+    : { ok: false as const, error: "Пустой ответ. Ноты не списаны." };
 }
 
 function cleanShot(raw: string) {
@@ -161,14 +171,19 @@ Sferoom, https://sferoom.space/ , промокоды DJAngelA17, Sunrise17, Seve
 Для карточки BandLink сначала спроси стиль и о чём песня. Полный текст можно прислать. Если боится, что украдут, хватит пересказа. Чужой текст целиком в ответ не копируй.
 Когда материала хватает, отдай готовое для копирования: статус (Не опубликован, пока человек сам не сказал, что трек уже вышел), заголовок, короткое описание до 200 знаков, полное по-русски, полное по-английски, 3–5 тегов, промпт обложки на английском без букв на картинке.
 Обложка: квадрат, от 500 px, JPG или PNG, не тяжелее 10 Мб.
-В игре у артиста есть «Путь релиза»: кабинет, кнопка Анджела или меню «Путь». Там его карточка и бланки по шагам. Если спрашивают, что делать дальше, веди по порядку: карточка артиста, свидетельство на Стихи.ру, студия, фабрика звука, обложка, бланк BandLink, поле пресейвов, выпуск.
-Стихи.ру: свидетельство о публикации, не государственная регистрация. В нём дата и текст первой редакции. Публиковать текст сначала там. Бумагу с печатью портал делает по запросу суда. Ссылку дай https://stihi.ru и https://o.stihi.ru/svidetelstvo
+В игре у артиста есть «Путь релиза» и блокнот в кабинете. Черновик правится только в кабинете. В сборник двора уходит замороженная копия с датой, её не переписывают. Если спрашивают, что делать дальше, веди по порядку: карточка артиста, текст в блокноте, студия, фабрика звука, обложка, бланк BandLink, поле пресейвов, выпуск.
+Стихи.ру не нужны: дату фиксирует наш сборник. Свидетельство государства мы не выдаём.
 Кабинеты Needle и Sferoom в игру пока не вшиты. Скажи прямо: подключим, когда в городе будет больше 100 жителей. До этого дай коды. Needle REF-9126-D78F6A, https://lk.needlmusic.ru/referrals . Sferoom https://sferoom.space/ коды DJAngelA17, Sunrise17, Severyanka17.`;
 
 const TECH_PROMPT = `Ты технический помощник музыкального города XXV Kadr. Говори по-русски, коротко, как сосед, который уже кликал все кнопки.
 Отвечай только про то, как пользоваться игрой и инструментами: вход, ник, пароль, аватар, ноты, карта, дворы, дома, студия, минус, стемы, кавер, музыка под голос, караоке, шарманщик, конкурс, поле пресейвов, чат, радио, мастеринг, мастерская, киностудия, меню «Путь».
 Если просят стихи, песню, карточку релиза, дистрибьютора или продвижение, скажи: это к Анджелу. Кнопка «Путь» в меню двора или в кабинете, он проведёт по шагам.
 Не выдумывай функций, которых нет. Если не уверен, скажи, что такой кнопки нет.`;
+
+const NOTEBOOK_PROMPT = `Ты редактор блокнота в музыкальном городе. Отвечай по заданию игрока.
+Если просят орфографию или разметку Suno, верни только готовый текст, без пояснений и без кавычек.
+Если просят промпт, сначала английский промпт для Suno, под ним две строки русского перевода. Текст песни целиком не копируй.
+Теги Suno только такие: [Intro] [Verse] [Chorus] [Bridge] [Outro].`;
 
 export const Route = createFileRoute("/api/host")({
   server: {
@@ -187,18 +202,34 @@ export const Route = createFileRoute("/api/host")({
               .slice(-6)
               .map((row) => ({ role: row.role, content: row.content.slice(0, 4000) }))
           : [];
-        const paidKind = body?.mode === "angel" || body?.mode === "tech" ? NOTE_PRICE.guide : NOTE_PRICE.host;
-        const paid = await spendPurse(guest.id, paidKind);
+        const purse = await readPurse(guest.id);
+        if (!purse || purse.notes < 0.1) return Response.json({ error: "Нужны ноты. Помощник берёт по токенам.", notes: purse?.notes ?? 0 }, { status: 402 });
+        const mode = body?.mode === "master" || body?.mode === "angel" || body?.mode === "tech" || body?.mode === "notebook" ? body.mode : "host";
+        const system =
+          mode === "master"
+            ? MASTER_PROMPT
+            : mode === "angel"
+              ? ANGEL_PROMPT
+              : mode === "tech"
+                ? TECH_PROMPT
+                : mode === "notebook"
+                  ? NOTEBOOK_PROMPT
+                  : await systemPrompt();
+        const hit = await askModel(system, history, text, mode === "tech" || mode === "notebook" ? "" : image);
+        if (!hit.ok) return Response.json({ error: hit.error, notes: purse.notes }, { status: 502 });
+        const bill = assistBill(hit.inTok, hit.outTok);
+        const paid = await chargeTenths(guest.id, bill.notes);
         if (!paid.ok) return Response.json({ error: paid.error, notes: paid.notes }, { status: 402 });
-        const system = body?.mode === "master" ? MASTER_PROMPT : body?.mode === "angel" ? ANGEL_PROMPT : body?.mode === "tech" ? TECH_PROMPT : await systemPrompt();
-        const hit = await askModel(system, history, text, body?.mode === "tech" ? "" : image);
-        if (!hit.ok) {
-          const back = await addPurse(guest.id, paidKind);
-          return Response.json({ error: hit.error, notes: back?.notes ?? paid.notes + paidKind }, { status: 502 });
-        }
+        await addAssistLine({ at: Date.now(), guest: guest.id, mode, tokens: bill.tokens, costRub: bill.costRub, notes: paid.charged });
         const { grantCut } = await import("@/lib/yard-cut.server");
-        await grantCut(body?.mode === "angel" || body?.mode === "tech" ? "guide" : body?.mode === "master" ? "master" : "host");
-        return Response.json({ text: hit.text, notes: paid.notes });
+        await grantCut(mode === "angel" || mode === "tech" || mode === "notebook" ? "guide" : mode === "master" ? "master" : "host");
+        const line = `Списано ${paid.charged} нот. Себестоимость ${bill.costRub} ₽, сверху 50%. Токенов ${bill.tokens}.`;
+        return Response.json({ text: hit.text, notes: paid.notes, bill: line });
+      },
+      GET: async ({ request }) => {
+        const guest = guestFromRequest(request);
+        if (!guest) return Response.json({ error: "Сначала зайди во двор." }, { status: 401 });
+        return Response.json({ ok: true, ...(await assistFor(guest.id)) });
       },
     },
   },

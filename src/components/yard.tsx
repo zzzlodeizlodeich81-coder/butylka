@@ -8,7 +8,8 @@ import { Guide } from "@/components/guide";
 import { HouseCard } from "@/components/house-card";
 import { HostChat } from "@/components/host-chat";
 import { ReleasePath } from "@/components/release-path";
-import { AngelHouse, HelperDock } from "@/components/helper-dock";
+import { AngelHouse, HelperChat, HelperDock } from "@/components/helper-dock";
+import { Notebook } from "@/components/notebook";
 import { ProfileCard } from "@/components/profile-card";
 import { HuntRoom } from "@/components/manor-rooms";
 import { Atelier } from "@/components/atelier";
@@ -204,6 +205,9 @@ export function Yard() {
   const [field, setField] = useState(false);
   const [angel, setAngel] = useState(false);
   const [path, setPath] = useState(false);
+  const [book, setBook] = useState(false);
+  const [doorFull, setDoorFull] = useState(true);
+  const [doorWho, setDoorWho] = useState<null | "angel" | "tech" | "master">(null);
   const [profile, setProfile] = useState(false);
   const [faces, setFaces] = useState<YardSpot[]>([]);
   const [lock, setLock] = useState<{ id: string; name: string; kind: PlotKind; tools: string[]; owner: boolean; member: boolean } | null>(null);
@@ -382,6 +386,7 @@ export function Yard() {
           }}
         />
       ) : null}
+      {book ? <Notebook onClose={() => setBook(false)} /> : null}
       {path ? (
         <ReleasePath
           onClose={() => setPath(false)}
@@ -395,6 +400,10 @@ export function Yard() {
             }
             if (id === "field") {
               setField(true);
+              return;
+            }
+            if (id === "book") {
+              setBook(true);
               return;
             }
             setHouse(id);
@@ -767,16 +776,29 @@ export function Yard() {
       ) : null}
       {house === "atelier" ? <Atelier onClose={() => setHouse(null)} /> : null}
       {house && DOORS[house] ? (
-        <div className="absolute inset-0 z-40 flex flex-col bg-black">
-          <div className="flex items-center justify-between gap-3 bg-black px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2">
-            <button type="button" className="rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setHouse(null)}>
-              На двор
-            </button>
-            <a className="rounded-full bg-white/15 px-3 py-1 text-sm text-white" href={DOORS[house]} target="_blank" rel="noreferrer">
-              Открыть отдельно
-            </a>
+        <div className={doorFull ? "absolute inset-0 z-40 flex flex-col bg-black" : "absolute inset-0 z-40 flex items-center justify-center bg-black/50 p-3"}>
+          <div className={doorFull ? "flex min-h-0 flex-1 flex-col" : "flex h-[82dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-black"}>
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-black px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2">
+              <button type="button" className="rounded-full bg-white px-3 py-1 text-sm font-medium text-black" onClick={() => setHouse(null)}>
+                На двор
+              </button>
+              <button type="button" className="rounded-full bg-white/15 px-3 py-1 text-sm text-white" onClick={() => setDoorFull((v) => !v)}>
+                {doorFull ? "Окно" : "На весь экран"}
+              </button>
+              <button
+                type="button"
+                className="rounded-full bg-[#f4e4c4] px-3 py-1 text-sm text-black"
+                onClick={() => setDoorWho(house === "factory" ? "master" : house === "frame" ? "tech" : "angel")}
+              >
+                Позвать
+              </button>
+              <a className="rounded-full bg-white/15 px-3 py-1 text-sm text-white" href={DOORS[house]} target="_blank" rel="noreferrer">
+                Открыть отдельно
+              </a>
+            </div>
+            <iframe title={ZONES.find((z) => z.id === house)?.label} src={DOORS[house]} className="min-h-0 w-full flex-1 border-0 bg-white" />
           </div>
-          <iframe title={ZONES.find((z) => z.id === house)?.label} src={DOORS[house]} className="min-h-0 w-full flex-1 border-0 bg-white" />
+          {doorWho ? <HelperChat who={doorWho} onClose={() => setDoorWho(null)} /> : null}
         </div>
       ) : null}
       {house === "organ" && /annush|annuch|аннуш|аннуч|анют/i.test(lock?.name || "") ? (
@@ -1318,17 +1340,28 @@ function HouseSheet(props: {
   plotId?: string;
   labels?: Record<string, string>;
 }) {
+  const [full, setFull] = useState(false);
+  const [who, setWho] = useState<null | "angel" | "tech">(null);
   const title = props.labels?.[props.house] || ZONES.find((z) => z.id === props.house)?.label || "";
+  const creative = props.house === "stage" || props.house === "organ" || props.house === "record";
   return (
-    <div className="absolute inset-0 z-10 flex items-end bg-black/35">
-      <div className="max-h-[78%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="mb-3 flex items-center justify-between gap-3">
+    <div className={full ? "absolute inset-0 z-10 flex flex-col bg-black/35" : "absolute inset-0 z-10 flex items-end bg-black/35"}>
+      <div className={full ? "flex h-full w-full flex-col overflow-auto bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]" : "max-h-[78%] w-full overflow-auto rounded-t-3xl bg-bg px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]"}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-2xl text-fg">{title}</h2>
-          {props.roles.length ? (
-            <Button variant="ghost" onClick={props.onClose}>
-              На двор
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setFull((v) => !v)}>
+              {full ? "Окно" : "На весь экран"}
             </Button>
-          ) : null}
+            <Button variant="secondary" onClick={() => setWho(creative ? "angel" : "tech")}>
+              Позвать
+            </Button>
+            {props.roles.length ? (
+              <Button variant="ghost" onClick={props.onClose}>
+                На двор
+              </Button>
+            ) : null}
+          </div>
         </div>
         {props.house === "gate" ? <GateCard roles={props.roles} onSave={props.onRoles} plotId={props.plotId || ""} /> : null}
         {props.house === "stage" ? <ReleaseCard onStage={props.onStage} /> : null}
@@ -1343,6 +1376,7 @@ function HouseSheet(props: {
         ) : null}
         {props.house === "market" ? <MarketCard /> : null}
       </div>
+      {who ? <HelperChat who={who} onClose={() => setWho(null)} /> : null}
     </div>
   );
 }
