@@ -23,6 +23,10 @@ else
   git -C /opt/butylka pull --ff-only
 fi
 
+if ! id ubuntu >/dev/null 2>&1; then
+  adduser --disabled-password --gecos "" ubuntu
+fi
+
 cd /opt/butylka
 npm ci
 NITRO_PRESET=node npm run build
@@ -75,4 +79,4 @@ systemctl reload nginx
 systemctl daemon-reload
 systemctl enable butylka
 systemctl restart butylka
-echo "ГОТОВО. Открой http://158.160.68.215"
+echo "ГОТОВО. Открой http://$(hostname -I | awk '{print $1}')"
