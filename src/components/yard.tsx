@@ -1213,8 +1213,8 @@ function World({
   function Nest({ left, top, big }: { left: string; top: string; big?: boolean }) {
     return (
       <button type="button" className="absolute z-10 flex flex-col items-center bg-transparent p-0 text-center" style={{ left, top }} onClick={onHome}>
-        <img src="/houses/nest.jpg" alt="" draggable={false} className={big ? "h-[4.4cm] w-[4.4cm] rounded-xl object-cover shadow" : "h-[3.4cm] w-[3.4cm] rounded-xl object-cover shadow"} />
-        <span className="mt-1 max-w-[6cm] rounded bg-black/80 px-1.5 py-0.5 text-sm leading-tight text-[#f4e4c4]">XXV Kadr & Holding матрёшка</span>
+        <img src="/houses/nest.jpg" alt="" draggable={false} className={big ? "h-[4.4cm] w-[4.4cm] rounded-xl object-cover shadow" : phone ? "h-[1.55cm] w-[1.55cm] rounded-lg object-cover shadow" : "h-[3.4cm] w-[3.4cm] rounded-xl object-cover shadow"} />
+        <span className={phone ? "mt-0.5 max-w-[2.2cm] rounded bg-black/80 px-1 py-0.5 text-[10px] leading-tight text-[#f4e4c4]" : "mt-1 max-w-[6cm] rounded bg-black/80 px-1.5 py-0.5 text-sm leading-tight text-[#f4e4c4]"}>{phone ? "матрёшка" : "XXV Kadr & Holding матрёшка"}</span>
       </button>
     );
   }
@@ -1248,7 +1248,7 @@ function World({
               {sign.label}
             </button>
           ))}
-          <Nest left="16%" top="44%" />
+          <Nest left="38%" top="90%" />
         </MapStage>
       ) : (
       <div
